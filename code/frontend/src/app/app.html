@@ -1,28 +1,31 @@
+<header class="brand-bar">
+  <img class="brand-logo" src="pax-logo-negative.svg" alt="Pax" width="100" height="32" />
+</header>
 <ng-template #privacyNotice>
-  <ul>
-    <li>Dies ist eine Hackathon-Demo. Verwende ausschliesslich <strong>erfundene Angaben</strong>.</li>
-    <li>
+  <ul class="pax-feature-list">
+    <li><span class="feature-text">Dies ist eine Hackathon-Demo. Verwende ausschliesslich <strong>erfundene Angaben</strong>.</span></li>
+    <li><span class="feature-text">
       Deine Nachrichten werden über unser Backend an den KI-Anbieter <strong>OpenAI</strong> übertragen und dort
       verarbeitet, möglicherweise auch ausserhalb der Schweiz.
-    </li>
-    <li>Auch die automatische Themenprüfung und die Profilerfassung jeder Nachricht laufen über dieses Modell.</li>
-    <li>
+    </span></li>
+    <li><span class="feature-text">Auch die automatische Themenprüfung und die Profilerfassung jeder Nachricht laufen über dieses Modell.</span></li>
+    <li><span class="feature-text">
       Sobald die nötigen Angaben vorliegen, gehen Jahrgang, Geschlecht, Einkommen, Beziehungsstatus, Kinderzahl und
       Bedarf für die Risikoberechnung an die <strong>APICalc-Schnittstelle</strong> des Hackathons.
-    </li>
-    <li>
+    </span></li>
+    <li><span class="feature-text">
       Gib <strong>keine echten Identifikations-, Zahlungs- oder Gesundheitsdaten</strong> ein, zum Beispiel AHV-Nummer,
       IBAN, Kartennummer, Diagnosen oder Medikamente.
-    </li>
-    <li>
+    </span></li>
+    <li><span class="feature-text">
       Lokale Filter erkennen nur einige Muster wie AHV-Nummern, IBANs, E-Mail-Adressen und Telefonnummern. Sie
       anonymisieren deine Nachrichten nicht.
-    </li>
-    <li>
+    </span></li>
+    <li><span class="feature-text">
       Verlauf, Profil und Berechnung liegen nur im Arbeitsspeicher des Backends. Sie werden mit „Chat löschen“, nach
       60 Minuten Inaktivität oder beim Neustart entfernt. Eine Löschung bei OpenAI oder APICalc ist damit nicht
       garantiert.
-    </li>
+    </span></li>
   </ul>
 </ng-template>
 
@@ -30,14 +33,26 @@
   <h1>Chat</h1>
 
   @if (!accepted()) {
-    <section class="notice">
+    <section class="notice intro-notice">
       <h2>Bevor du startest</h2>
       <ng-container [ngTemplateOutlet]="privacyNotice" />
-      <label>
-        <input type="checkbox" name="acknowledged" [(ngModel)]="acknowledged" />
-        Ich habe den Hinweis gelesen und verwende nur erfundene Angaben.
-      </label>
-      <button type="button" (click)="start()" [disabled]="!acknowledged">Chat starten</button>
+      <div class="acceptance-field" [class.invalid]="acceptance.invalid && (acceptance.touched || acceptance.dirty)">
+        <label class="pax-accept">
+          <input type="checkbox" name="acknowledged" [(ngModel)]="acknowledged" #acceptance="ngModel" required
+            [attr.aria-invalid]="acceptance.invalid && (acceptance.touched || acceptance.dirty)"
+            [attr.aria-describedby]="acceptance.invalid && (acceptance.touched || acceptance.dirty) ? 'acceptance-error' : null" />
+          <span>Ich habe den Hinweis gelesen und verwende nur erfundene Angaben. <span class="required-marker" aria-hidden="true">*</span></span>
+        </label>
+        @if (acceptance.invalid && (acceptance.touched || acceptance.dirty)) {
+          <p class="acceptance-error" id="acceptance-error" role="alert">This field is required</p>
+        }
+      </div>
+      <button class="pax-start-button" type="button" (click)="start()" [disabled]="!acknowledged">
+        <span>Chat starten</span>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <path d="m9 18 6-6-6-6" />
+        </svg>
+      </button>
     </section>
   } @else {
     <details class="notice">
