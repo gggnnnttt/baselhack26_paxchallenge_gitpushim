@@ -1,0 +1,161 @@
+/* Chart colours, checked for colour-blind separation: PAX contrast green, a violet near PAX purple, amber, and red for every gap. */
+:host {
+  --saeule1: #5ca700;
+  --saeule2: #6250d6;
+  --verzehr: #eda100;
+  --gap: #e34948;
+  display: block;
+}
+
+.zahlen-block {
+  padding: 20px 0 24px;
+  border-bottom: 1px solid var(--color-neutral-gray-2);
+
+  &:first-child { padding-top: 4px; }
+  h2 { margin: 0 0 8px; color: var(--color-brand-pax-purple); font-size: var(--size-heading-s); }
+  h3 { margin: 16px 0 6px; font-size: 15px; }
+  p { margin: 8px 0; line-height: 1.5; }
+}
+
+/* Where a calculation stands, marked by a coloured edge. */
+.status {
+  padding: 8px 12px;
+  border-radius: var(--radius-m);
+  background: var(--color-system-info-light);
+  box-shadow: inset 3px 0 0 var(--color-brand-pax-purple);
+  color: var(--color-brand-deep-purple);
+  font-size: 14px;
+
+  &.berechnet { background: var(--color-system-success-light); box-shadow: inset 3px 0 0 var(--color-brand-contrast-green); color: var(--color-brand-deep-green); }
+  &.fehlgeschlagen { background: var(--color-system-error-light); box-shadow: inset 3px 0 0 var(--color-system-error); color: var(--color-system-error-dark); }
+}
+
+.leise, .hinweise { color: var(--color-neutral-gray-6); font-size: 14px; }
+.gross { font-size: 18px; strong { font-size: 26px; color: var(--color-brand-deep-green); } }
+.fehler { color: var(--color-system-error-dark); }
+.leer { color: var(--color-neutral-gray-6); }
+
+.werte {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 16px;
+  margin: 12px 0 0;
+  font-size: 14px;
+
+  dt { color: var(--color-neutral-gray-6); }
+  dd { margin: 0; font-variant-numeric: tabular-nums; text-align: right; }
+}
+
+.badge {
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-neutral-gray-2);
+  font-size: 12px;
+
+  &.warnung { background: var(--color-system-warning-light); color: var(--color-system-warning-dark); }
+}
+
+.fehlt {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-brand-pax-purple);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+
+  &.veraltet { opacity: 0.5; }
+  th, td { padding: 4px; border-bottom: 1px solid var(--color-neutral-gray-2); text-align: right; }
+  th:first-child, td:first-child { text-align: left; }
+}
+
+details {
+  margin-top: 12px;
+  font-size: 14px;
+
+  summary { color: var(--color-neutral-gray-7); cursor: pointer; }
+  summary:hover { color: var(--color-brand-pax-purple); }
+  summary:focus-visible { outline: 2px solid var(--color-brand-pax-purple); outline-offset: 2px; }
+}
+
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+
+/* ---------- Result: one bar per scenario ---------- */
+.ergebnis-meta { margin: 0 0 12px; color: var(--color-neutral-gray-6); font-size: 13px; }
+
+.ergebnis {
+  &.veraltet { opacity: 0.5; }
+  h4 { margin: 16px 0 6px; color: var(--color-neutral-gray-7); }
+}
+
+.legende {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0;
+  color: var(--color-neutral-gray-7);
+  font-size: 13px;
+
+  span { display: inline-flex; align-items: center; gap: 6px; }
+}
+
+.farbe {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+
+  &.einnahmen, &.saeule1 { background: var(--saeule1); }
+  &.saeule2 { background: var(--saeule2); }
+  &.verzehr { background: var(--verzehr); }
+  &.luecke { background: var(--gap); }
+}
+
+.balken-liste {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.balken-titel {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 4px;
+  font-size: 14px;
+  line-height: 1.35;
+
+  strong { flex: none; font-variant-numeric: tabular-nums; font-weight: 600; }
+  strong.gedeckt { color: var(--color-brand-deep-green); }
+  strong.offen { color: var(--color-neutral-gray-6); font-weight: 400; }
+}
+
+/* Thin marks with a 2px surface gap between the two segments; the track is the shared scale. */
+.balken {
+  display: flex;
+  gap: 2px;
+  height: 10px;
+  border-radius: 4px;
+  background: var(--color-neutral-gray-1);
+
+  span { height: 100%; border-radius: 2px; }
+  span:first-child { border-radius: 4px 2px 2px 4px; }
+  span:last-child { border-top-right-radius: 4px; border-bottom-right-radius: 4px; }
+  .einnahmen, .saeule1 { background: var(--saeule1); }
+  .saeule2 { background: var(--saeule2); }
+  .verzehr { background: var(--verzehr); }
+  .luecke { background: var(--gap); }
+}
+

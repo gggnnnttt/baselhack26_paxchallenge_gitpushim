@@ -1,10 +1,14 @@
 import { z } from 'zod';
-import { BEZIEHUNGEN, ERWERB, PLANARTEN, Profil, type Bedarf, type Einkommen, type Herkunft, type Kind, type Person, type Plan } from './profil.js';
+import { BEZIEHUNGEN, ERWERB, PLANARTEN, Profil, type Bedarf, type Einkommen, type Herkunft, type Kind, type Person, type Plan, type PrivateEu } from './profil.js';
 
 // Change proposals produced by the model. All keys are required (nullable) so the schema works with strict structured outputs.
 export const FELDER = [
-  'anliegen', 'beziehung', 'beziehung_seit_jahr', 'hat_kinder', 'gemeinsamer_haushalt', 'vermoegen',
+  'anliegen', 'beziehung', 'beziehung_seit_jahr', 'hat_kinder', 'gemeinsamer_haushalt',
   'geschlecht', 'geburtsjahr', 'erwerb', 'pensum', 'einkommen', 'bvg_versichert', 'bedarf_invaliditaet', 'bedarf_todesfall',
+  'pensionierungsalter', 'pk_altersrente', 'pk_guthaben', 'bedarf_pensionierung', 'vermoegen_pensionierung', 'pensionierung_basis_bestaetigt',
+  'budget_pensionierung_monat',
+  'private_eu_vorhanden', 'private_eu_rente', 'private_eu_deckung', 'private_eu_wartefrist_monate',
+  'private_eu_endalter', 'private_eu_zusaetzlich', 'private_eu_mehrere_vertraege',
   'kind', 'kind_geburtsjahr', 'kind_elternteil', 'kind_alleiniges_sorgerecht',
   'plan', 'plan_zeitpunkt', 'plan_pensum', 'plan_einkommen', 'plan_sicherheit',
 ] as const;
@@ -60,6 +64,16 @@ export function wendeAenderungenAn(ausgang: Profil, aenderungen: readonly Aender
       abgelehnt.push({ ...eintrag, grund: error.message });
     }
   }
+  // A complete, explicit confirmation must not depend on the extractor remembering
+  // a boolean. Accept only this narrow statement as the final sentence; a mere
+  // mention, quote, question, "ja", or a subsequent qualification is not consent.
+  const bestaetigung = nachricht.text.match(/(?:^|[.!?\n])\s*(Für\s+diese\s+Basisrechnung\s+akzeptiere\s+ich\s+ausdrücklich\s+keine\s+weiteren\s+Sparbeiträge,\s*0\s*%\s*Verzinsung\s+und\s+Planung\s+bis\s+Alter\s+88)\s*[.!]?\s*$/iu);
+  if (bestaetigung && profil.haushalt.pensionierungBasisBestaetigt?.wert !== true) {
+    profil.haushalt.pensionierungBasisBestaetigt = {
+      wert: true, quelle: 'aussage', beleg: bestaetigung[1]!, begruendung: null, nachricht: nachricht.index,
+    };
+    uebernommen.push({ feld: 'pensionierung_basis_bestaetigt', text: 'Basisannahmen ausdrücklich bestätigt: keine weiteren Sparbeiträge, 0 % Zins, Planung bis Alter 88.' });
+  }
   return { profil: Profil.parse(profil), uebernommen, abgelehnt };
 }
 
@@ -109,6 +123,19 @@ const bedarf = (a: Aenderung): Bedarf => {
   return ablehnen('Bedarf braucht die Einheit prozent oder chf_jahr.');
 };
 
+// Explicit amounts only: zero is valid, unknown is not zero.
+const kapital = (a: Aenderung): number => {
+  if (a.einheit !== null) return ablehnen('Kapital ist ein einmaliger CHF-Betrag, kein periodischer Betrag.');
+  if (a.zahl === null || !Number.isFinite(a.zahl) || a.zahl < 0 || a.zahl > 100_000_000) return ablehnen('Kapital braucht einen nichtnegativen CHF-Betrag.');
+  return a.zahl;
+};
+const jahresbetrag = (a: Aenderung): number => {
+  if (a.einheit !== 'chf_monat' && a.einheit !== 'chf_jahr') return ablehnen('Rente braucht CHF pro Monat oder Jahr.');
+  const betrag = a.zahl === null ? null : a.zahl * (a.einheit === 'chf_monat' ? 12 : 1);
+  if (betrag === null || !Number.isFinite(betrag) || betrag < 0 || betrag > 10_000_000) return ablehnen('Rentenbetrag ist ungültig.');
+  return betrag;
+};
+
 // Validates the value before Person B is created, so a rejected proposal leaves no empty person behind.
 function personFeld<K extends keyof Person>(profil: Profil, a: Aenderung, feld: K, wert: () => Person[K]): void {
   if (!a.person) return ablehnen('Person A oder B fehlt.');
@@ -118,6 +145,21 @@ function personFeld<K extends keyof Person>(profil: Profil, a: Aenderung, feld: 
   }
   const neu = wert();
   (profil.personen[a.person] ??= {})[feld] = neu;
+}
+
+function privateEuFeld<K extends keyof PrivateEu>(profil: Profil, a: Aenderung, feld: K, wert: () => PrivateEu[K]): void {
+  if (!a.person) return ablehnen('Versicherte Person A oder B fehlt.');
+  if (a.aktion === 'entfernen') {
+    delete profil.personen[a.person]?.privateEu?.[feld];
+    return;
+  }
+  const neu = wert(); // Validate before creating objects.
+  const person = profil.personen[a.person] ??= {};
+  (person.privateEu ??= {})[feld] = neu;
+  if (feld === 'vorhanden' && person.privateEu.vorhanden?.wert === false) {
+    // A cancelled policy must not leave an old benefit available for later reuse.
+    person.privateEu = { vorhanden: person.privateEu.vorhanden };
+  }
 }
 
 function kindFinden(profil: Profil, a: Aenderung, neueIds: Map<string, string>): Kind {
@@ -166,12 +208,6 @@ function wende(profil: Profil, a: Aenderung, herkunft: Herkunft, neueIds: Map<st
       if (setzen) profil.haushalt.gemeinsamerHaushalt = fakt(janein(a, 'Gemeinsamer Haushalt'));
       else delete profil.haushalt.gemeinsamerHaushalt;
       return;
-    case 'vermoegen':
-      if (setzen) {
-        if (a.zahl === null || a.zahl < 0 || a.zahl > 1_000_000_000) ablehnen('Vermögen braucht einen Betrag in CHF (0 oder mehr).');
-        profil.haushalt.vermoegen = fakt(a.zahl!);
-      } else delete profil.haushalt.vermoegen;
-      return;
     case 'geschlecht':
       personFeld(profil, a, 'geschlecht', () => fakt(auswahl(a, ['weiblich', 'maennlich'] as const, 'Geschlecht')));
       return;
@@ -196,6 +232,63 @@ function wende(profil: Profil, a: Aenderung, herkunft: Herkunft, neueIds: Map<st
     case 'bedarf_todesfall':
       personFeld(profil, a, 'bedarfTodesfall', () => fakt(bedarf(a)));
       return;
+    case 'private_eu_vorhanden':
+      privateEuFeld(profil, a, 'vorhanden', () => fakt(janein(a, 'Private Erwerbsunfähigkeitsrente vorhanden')));
+      return;
+    case 'private_eu_rente':
+      privateEuFeld(profil, a, 'jahresrente', () => fakt(jahresbetrag(a)));
+      return;
+    case 'private_eu_deckung':
+      privateEuFeld(profil, a, 'deckung', () => fakt(auswahl(a, ['krankheit', 'unfall', 'beides'] as const, 'Deckung')));
+      return;
+    case 'private_eu_wartefrist_monate':
+      privateEuFeld(profil, a, 'wartefristMonate', () => fakt(ganzzahl(a, 0, 120, 'Wartefrist in Monaten')));
+      return;
+    case 'private_eu_endalter':
+      privateEuFeld(profil, a, 'leistungsendeAlter', () => fakt(ganzzahl(a, 18, 100, 'Leistungsende (Alter)')));
+      return;
+    case 'private_eu_zusaetzlich':
+      privateEuFeld(profil, a, 'zusaetzlichBestaetigt', () => fakt(janein(a, 'Zusätzliche Auszahlung ohne Verrechnung bestätigt')));
+      return;
+    case 'private_eu_mehrere_vertraege':
+      privateEuFeld(profil, a, 'mehrereVertraege', () => fakt(janein(a, 'Mehrere private EU-Rentenverträge')));
+      return;
+    case 'pensionierungsalter':
+      personFeld(profil, a, 'pensionierungsalter', () => fakt(ganzzahl(a, 50, 80, 'Pensionierungsalter (unterstützter Demo-Bereich)')));
+      return;
+    case 'pk_altersrente':
+      personFeld(profil, a, 'pkAltersrente', () => fakt(jahresbetrag(a)));
+      return;
+    case 'pk_guthaben':
+      personFeld(profil, a, 'pkGuthaben', () => fakt(kapital(a)));
+      return;
+    case 'bedarf_pensionierung':
+      if (setzen) {
+        // A monthly household budget is converted using 12 months, not salary payments.
+        const b = a.einheit === 'chf_monat' ? { ...a, zahl: a.zahl === null ? null : a.zahl * 12, einheit: 'chf_jahr' as const } : a;
+        profil.haushalt.bedarfPensionierung = fakt(bedarf(b));
+      } else delete profil.haushalt.bedarfPensionierung;
+      return;
+    case 'vermoegen_pensionierung':
+      if (setzen) profil.haushalt.vermoegenPensionierung = fakt(kapital(a));
+      else delete profil.haushalt.vermoegenPensionierung;
+      return;
+    case 'pensionierung_basis_bestaetigt':
+      if (setzen) profil.haushalt.pensionierungBasisBestaetigt = fakt(janein(a, 'Basisannahmen bestätigen'));
+      else delete profil.haushalt.pensionierungBasisBestaetigt;
+      return;
+    case 'budget_pensionierung_monat': {
+      if (!setzen) {
+        delete profil.haushalt.budgetPensionierungMonat;
+        return;
+      }
+      if (a.person !== null) return ablehnen('Das zusätzliche Pensionierungsbudget gilt für den Haushalt, nicht nur eine Person.');
+      if (a.einheit !== 'chf_monat' && a.einheit !== 'chf_jahr') return ablehnen('Budget braucht einen zusätzlichen verfügbaren Betrag in CHF pro Monat oder Jahr.');
+      const betrag = a.zahl === null ? null : a.zahl / (a.einheit === 'chf_jahr' ? 12 : 1);
+      if (betrag === null || !Number.isFinite(betrag) || betrag < 0 || betrag > 1_000_000) return ablehnen('Monatsbudget muss zwischen CHF 0 und CHF 1’000’000 liegen.');
+      profil.haushalt.budgetPensionierungMonat = fakt(Math.round(betrag * 100) / 100);
+      return;
+    }
     case 'kind': {
       if (setzen && istNeu(a.ziel) && !neueIds.has(a.ziel!)) {
         if (profil.kinder.length >= 10) ablehnen('Es sind bereits 10 Kinder erfasst.');

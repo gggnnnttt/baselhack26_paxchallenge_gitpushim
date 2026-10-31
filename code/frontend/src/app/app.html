@@ -10,8 +10,24 @@
     </span></li>
     <li><span class="feature-text">Auch die automatische Themenprüfung und die Profilerfassung jeder Nachricht laufen über dieses Modell.</span></li>
     <li><span class="feature-text">
-      Sobald die nötigen Angaben vorliegen, gehen Jahrgang, Geschlecht, Einkommen, Beziehungsstatus, Kinderzahl und
-      Bedarf für die Risikoberechnung an die <strong>APICalc-Schnittstelle</strong> des Hackathons.
+      Für die Risikoberechnung gehen, sobald die Angaben vollständig sind, Jahrgang, Geschlecht, Einkommen, Beziehungsstatus, Kinderzahl und
+      Bedarf an die <strong>APICalc-Schnittstelle</strong> des Hackathons.
+    </span></li>
+    <li><span class="feature-text">
+      Für die Pensionierungs-Basisrechnung gehen zusätzlich gewünschtes Pensionierungsalter, PK-Rente,
+      PK-Guthaben, privates Vorsorgevermögen und gewünschter Bedarf an APICalc. Die Berechnung verwendet
+      nach deiner Bestätigung keine weiteren Sparbeiträge, 0 % Zins und einen Planungshorizont bis Alter 88.
+      Dein zusätzlich verfügbares Pensionierungsbudget wird als Selbstauskunft im Profil und mit dem KI-Anbieter verarbeitet,
+      für den Budgetabgleich aber nicht an APICalc gesendet.
+      Bei einem ausdrücklich angeforderten Szenariovergleich werden dieselben Berechnungen mit einem alternativen Jahresbedarf ausgeführt.
+      Die Alternative wird erst mit „Dieses Ziel übernehmen“ im Profil und Gespräch übernommen.
+      Bei einer Kapitallücke wird daraus zusätzlich ein Sparszenario mit Zielkapital, Spardauer,
+      monatlicher Einzahlung, Startkapital CHF 0 und 0 % Zins an APICalc gesendet.
+    </span></li>
+    <li><span class="feature-text">
+      Angaben zu einer bestehenden privaten Erwerbsunfähigkeitsrente (Betrag, Deckung, Wartefrist und Leistungsende)
+      werden im Profil erfasst und mit dem KI-Anbieter verarbeitet. Der zusätzliche Vergleich erfolgt in unserem Backend;
+      diese Vertragsangaben werden nicht an APICalc gesendet. Verwende auch dafür nur erfundene Angaben.
     </span></li>
     <li><span class="feature-text">
       Gib <strong>keine echten Identifikations-, Zahlungs- oder Gesundheitsdaten</strong> ein, zum Beispiel AHV-Nummer,
@@ -82,8 +98,34 @@
         }
       </aside>
 
-      <section class="weg-spalte" data-scrollbereich aria-label="Dein Weg">
-        <app-zeitstrahl [stand]="stand()" [ausstehend]="ausstehend()" (aktion)="zeitstrahlAktion($event)" />
+      <!-- Middle: the plan. Hidden tabs stay mounted, so they keep their scroll position and state. -->
+      <section class="weg-spalte" #planSpalte data-scrollbereich aria-label="Dein Plan">
+        <div class="plan-reiter" role="tablist" aria-label="Dein Plan">
+          @for (r of reiter(); track r.id) {
+            <button type="button" role="tab" [id]="'reiter-' + r.id" [attr.aria-selected]="planReiter() === r.id" [attr.aria-controls]="'plan-' + r.id"
+              [tabIndex]="planReiter() === r.id ? 0 : -1" (click)="reiterWaehlen(r.id)" (keydown)="reiterTaste($event)">
+              {{ r.label }}
+              @if (r.anzahl) {
+                <span class="anzahl">{{ r.anzahl }}</span>
+              }
+              @if (r.neu) {
+                <span class="neu-punkt" aria-label="neu"></span>
+              }
+            </button>
+          }
+        </div>
+        <div role="tabpanel" id="plan-schritte" aria-labelledby="reiter-schritte" [hidden]="planReiter() !== 'schritte'">
+          <app-plan-schritte [stand]="stand()" [gesperrt]="loading()" (aktion)="vorschlagen($event)" />
+        </div>
+        <div role="tabpanel" id="plan-weg" aria-labelledby="reiter-weg" [hidden]="planReiter() !== 'weg'">
+          <app-zeitstrahl [stand]="stand()" [ausstehend]="ausstehend()" (aktion)="zeitstrahlAktion($event)" />
+        </div>
+        <div role="tabpanel" id="plan-zahlen" aria-labelledby="reiter-zahlen" [hidden]="planReiter() !== 'zahlen'">
+          <app-plan-zahlen [stand]="stand()" (frage)="nachfragen($event)">
+            <app-szenario slot="szenario" [stand]="stand()" [vergleich]="vergleich()" [disabled]="loading()" [busy]="szenarioBusy()" [fehler]="szenarioFehler()"
+              (berechnen)="berechneSzenario($event)" (uebernehmen)="uebernehmeSzenario()" (verwerfen)="verwerfeSzenario()" />
+          </app-plan-zahlen>
+        </div>
       </section>
     }
 
@@ -120,75 +162,12 @@
       <div class="chat-karte">
         @if (gestartet()) {
           <div class="chat-history" #verlauf tabindex="0" role="log" aria-label="Chatverlauf">
-            <div class="messages">
-              <div class="bot-turn">
-                <app-pax-avatar class="message-avatar" state="still" />
-                <div class="message pax"><strong>Hallo, ich bin Pax!</strong> {{ begruessung }}</div>
-              </div>
-              @for (m of messages(); track $index) {
-                @if (m.role === 'assistant') {
-                  <div class="bot-turn">
-                    <app-pax-avatar class="message-avatar" [state]="$last && talking() ? 'talking' : 'still'" />
-                    <div class="message pax">
-                      @if (m.content) {
-                        <div class="message-markdown" [innerHTML]="m.content | markdown"></div>
-                      }
-                      @if (m.frage; as frage) {
-                        <p class="frage-text">{{ frage.text }}</p>
-                        @if ($last && !loading()) {
-                          <app-frage-karte [frage]="frage" [gesperrt]="loading()" (antwort)="beantworten($event)" />
-                        }
-                      }
-                    </div>
-                  </div>
-                } @else if (m.role === 'ereignis') {
-                  <div class="ereignis" role="note">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16v14H4zM4 10h16M8 3v4M16 3v4" /></svg>
-                    <span>{{ m.content }}</span>
-                  </div>
-                } @else {<div class="message user">{{ m.content }}</div>}
-              }
-              @if (loading()) {
-                <div class="bot-turn">
-                  <app-pax-avatar class="message-avatar" state="thinking" />
-                  <div class="message pax tippt" aria-label="Pax schreibt"><span></span><span></span><span></span></div>
-                </div>
-              }
-              @if (error()) {
-                <div class="error" role="alert">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3 2 20h20zM12 10v4M12 17v.5" /></svg>
-                  <span>{{ error() }}</span>
-                </div>
-              }
-            </div>
+            <app-chat-verlauf [messages]="messages()" [begruessung]="begruessung" [loading]="loading()" [talking]="talking()" [error]="error()"
+              (antwort)="beantworten($event)" />
           </div>
         }
 
-        <form class="chat-composer" (ngSubmit)="send()">
-          <div class="eingabe-feld">
-            <textarea #eingabe class="pax-input" name="input" rows="1" [(ngModel)]="input" (keydown)="taste($event)" (input)="hoeheAnpassen()"
-              (focus)="fokussiert.set(true)" (blur)="fokussiert.set(false)" aria-label="Nachricht an Pax" autocomplete="off"
-              [placeholder]="gestartet() ? 'Antworte Pax …' : fokussiert() ? 'Erzähl mir von deiner Situation …' : ''"></textarea>
-            <!-- On the start screen, example sentences type themselves while the input is empty. -->
-            @if (!gestartet()) {
-              <app-beispiel-text [aktiv]="!input && !fokussiert()" [class.aus]="!!input || fokussiert()" />
-            }
-            <button class="senden" type="submit" [disabled]="loading() || !input.trim()" aria-label="Nachricht senden" title="Senden (Enter)">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-                <path d="M12 19V5" />
-                <path d="m5 12 7-7 7 7" />
-              </svg>
-            </button>
-          </div>
-        </form>
-        @if (!gestartet()) {
-          <!-- A click puts the situation in the input; the customer adds the details before sending. -->
-          <div class="einstiege" role="group" aria-label="Beispiele zum Einstieg">
-            @for (e of einstiege; track e) {
-              <button class="einstieg" type="button" (click)="vorschlagen(e + '. ')">{{ e }}</button>
-            }
-          </div>
-        }
+        <app-chat-eingabe #eingabe [gestartet]="gestartet()" [gesperrt]="loading()" (senden)="abschicken($event)" />
       </div>
       <p class="datenschutz-zeile">
         Bitte nur erfundene Angaben verwenden.

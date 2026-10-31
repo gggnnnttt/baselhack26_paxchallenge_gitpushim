@@ -98,7 +98,7 @@ export function pruefeRisiko(profil: Profil, jahr: number): RisikoPruefung {
   const kinder = pruefeKinder(profil, paar, jahr, vorhanden, fehlend, hinweise);
 
   hinweise.push(
-    'Bestehende private Vorsorge (3. Säule) und weitere Versicherungen sind in dieser Berechnung nicht berücksichtigt.',
+    'Bestehende private Vorsorge (3. Säule) ist im unveränderten APICalc-Ergebnis nicht berücksichtigt. Eine erfasste private Erwerbsunfähigkeitsrente wird separat im Modellvergleich ausgewiesen; weitere private Versicherungen fehlen weiterhin.',
     'Leistungen der Pensionskasse werden nicht aus einem Vorsorgeausweis übernommen. Welche Annahmen APICalc ohne diese Werte trifft, ist nicht dokumentiert.',
   );
   if (profil.plaene.length > 0) hinweise.push('Erfasste Pläne fliessen nicht ein: Die Berechnung beschreibt die heutige Situation.');
@@ -184,7 +184,7 @@ function pruefePerson(person: Person, id: PersonId, vorhanden: Angabe[], fehlend
   return vollstaendig ? ergebnis as RiskPerson : null;
 }
 
-function bruttoJahr(einkommen: Einkommen): number | string {
+export function bruttoJahr(einkommen: Einkommen): number | string {
   if (einkommen.basis === 'netto') return 'Bruttoeinkommen (genannt wurde ein Nettobetrag)';
   if (einkommen.basis === null) return 'Ob das genannte Einkommen brutto oder netto ist';
   if (einkommen.einheit === 'chf_jahr') return einkommen.betrag;

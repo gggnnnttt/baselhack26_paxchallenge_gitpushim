@@ -76,21 +76,6 @@ ul {
   color: var(--color-neutral-gray-6);
 }
 
-/* Where the calculation stands, marked by a coloured edge. */
-.phase {
-  margin: 16px 0 0;
-  padding: 10px 14px;
-  border-radius: var(--radius-m);
-  background: var(--color-system-info-light);
-  box-shadow: inset 3px 0 0 var(--color-brand-pax-purple);
-  color: var(--color-brand-deep-purple);
-  font-size: 14px;
-  line-height: 1.45;
-
-  &.berechnet { background: var(--color-system-success-light); box-shadow: inset 3px 0 0 var(--color-brand-contrast-green); color: var(--color-brand-deep-green); }
-  &.fehlgeschlagen { background: var(--color-system-error-light); box-shadow: inset 3px 0 0 var(--color-system-error); color: var(--color-system-error-dark); }
-}
-
 .badge {
   margin-left: 6px;
   padding: 1px 8px;
@@ -103,8 +88,23 @@ ul {
   &.warnung { background: var(--color-system-warning-light); color: var(--color-system-warning-dark); }
 }
 
-.fehlend li {
-  margin-bottom: 0.3rem;
+/* What is still missing: an invitation, each item starts the answer in the chat. */
+.noch-offen {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: var(--radius-m);
+  background: var(--color-system-info-light);
+
+  h3 { margin: 0 0 4px; padding: 0; border: 0; }
+  h4 { margin: 10px 0 4px; color: var(--color-neutral-gray-7); font-size: 14px; }
+}
+
+.fehlend {
+  margin: 0;
+  padding-left: 1.1rem;
+
+  li { margin-bottom: 6px; font-size: 15px; }
+  small { display: block; color: var(--color-neutral-gray-6); font-size: 13px; }
 }
 
 /* A missing value is an invitation: clicking it starts the answer in the chat. */
@@ -133,29 +133,6 @@ ul {
   font-size: 14px;
 }
 
-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-
-  &.veraltet {
-    opacity: 0.5;
-  }
-
-  th,
-  td {
-    padding: 0.2rem 0.3rem;
-    border-bottom: 1px solid var(--color-neutral-gray-2);
-    text-align: right;
-  }
-
-  th:first-child,
-  td:first-child {
-    text-align: left;
-  }
-}
-
 details {
   margin-top: 12px;
   font-size: 14px;
@@ -176,74 +153,6 @@ pre {
   border-radius: var(--radius-sm);
   background: var(--color-neutral-gray-1);
   font-size: 12px;
-}
-
-/* ---------- Result: one bar per scenario ---------- */
-.ergebnis-meta { margin: 0 0 12px; color: var(--color-neutral-gray-6); font-size: 13px; }
-
-.ergebnis {
-  &.veraltet { opacity: 0.5; }
-  h4 { margin: 16px 0 6px; color: var(--color-neutral-gray-7); }
-}
-
-.legende {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 16px;
-  margin: 0;
-  color: var(--color-neutral-gray-7);
-  font-size: 13px;
-
-  span { display: inline-flex; align-items: center; gap: 6px; }
-}
-
-.farbe {
-  width: 10px;
-  height: 10px;
-  border-radius: 2px;
-
-  &.einnahmen { background: var(--color-brand-contrast-green); }
-  &.luecke { background: var(--color-chart-red); }
-}
-
-.balken-liste {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.balken-titel {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 12px;
-  margin-bottom: 4px;
-  font-size: 14px;
-  line-height: 1.35;
-
-  strong { flex: none; font-variant-numeric: tabular-nums; font-weight: 600; }
-  strong.gedeckt { color: var(--color-brand-deep-green); }
-  strong.offen { color: var(--color-neutral-gray-6); font-weight: 400; }
-}
-
-.vermoegen { display: block; margin-top: 4px; }
-
-/* Thin marks with a 2px surface gap between the two segments; the track is the shared scale. */
-.balken {
-  display: flex;
-  gap: 2px;
-  height: 10px;
-  border-radius: 4px;
-  background: var(--color-neutral-gray-1);
-
-  span { height: 100%; border-radius: 2px; }
-  span:first-child { border-radius: 4px 2px 2px 4px; }
-  span:last-child { border-top-right-radius: 4px; border-bottom-right-radius: 4px; }
-  .einnahmen { background: var(--color-brand-contrast-green); }
-  .luecke { background: var(--color-chart-red); }
 }
 
 .leer {

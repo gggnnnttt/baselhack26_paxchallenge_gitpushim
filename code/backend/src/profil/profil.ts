@@ -30,6 +30,19 @@ export const BEZIEHUNGEN = ['ledig', 'verheiratet', 'eingetragene_partnerschaft'
 export const ERWERB = ['angestellt', 'selbststaendig', 'nicht_erwerbstaetig'] as const;
 export const PLANARTEN = ['wiedereinstieg', 'pensumaenderung', 'stellenwechsel', 'familienzuwachs', 'wohneigentum', 'fruehpensionierung', 'pensionierung', 'sonstiges'] as const;
 
+// First release: one existing private disability pension per person. These are
+// customer declarations, not verified contractual entitlement or medical data.
+export const PrivateEu = z.object({
+  vorhanden: fakt(z.boolean()).optional(),
+  jahresrente: fakt(z.number().nonnegative()).optional(),
+  deckung: fakt(z.enum(['krankheit', 'unfall', 'beides'])).optional(),
+  wartefristMonate: fakt(z.number().int().min(0).max(120)).optional(),
+  leistungsendeAlter: fakt(z.number().int().min(18).max(100)).optional(),
+  zusaetzlichBestaetigt: fakt(z.boolean()).optional(),
+  mehrereVertraege: fakt(z.boolean()).optional(),
+}).strict();
+export type PrivateEu = z.infer<typeof PrivateEu>;
+
 // Today's situation only. Future intentions belong in `plaene`.
 export const Person = z.object({
   geschlecht: fakt(z.enum(['weiblich', 'maennlich'])).optional(),
@@ -41,6 +54,11 @@ export const Person = z.object({
   // Income the household needs if this person can no longer work / dies.
   bedarfInvaliditaet: fakt(Bedarf).optional(),
   bedarfTodesfall: fakt(Bedarf).optional(),
+  // Scenario inputs, not changes to today's employment situation.
+  pensionierungsalter: fakt(z.number().int().min(50).max(80)).optional(),
+  pkAltersrente: fakt(z.number().nonnegative()).optional(),
+  pkGuthaben: fakt(z.number().nonnegative()).optional(),
+  privateEu: PrivateEu.optional(),
 }).strict();
 
 export const Kind = z.object({
@@ -86,9 +104,10 @@ export const Profil = z.object({
     beziehungSeitJahr: fakt(z.number().int()).optional(),
     hatKinder: fakt(z.boolean()).optional(),
     gemeinsamerHaushalt: fakt(z.boolean()).optional(),
-    // Savings, securities and private pension (pillar 3a/3b) in CHF, without pension fund and owner-occupied home.
-    // Not an input of APICalc; compared with the capitalised gap afterwards.
-    vermoegen: fakt(z.number().nonnegative()).optional(),
+    bedarfPensionierung: fakt(Bedarf).optional(),
+    vermoegenPensionierung: fakt(z.number().nonnegative()).optional(),
+    pensionierungBasisBestaetigt: fakt(z.boolean()).optional(),
+    budgetPensionierungMonat: fakt(z.number().nonnegative().max(1_000_000)).optional(),
   }).strict(),
   personen: z.object({ A: Person, B: Person.optional() }).strict(),
   kinder: z.array(Kind).max(10),

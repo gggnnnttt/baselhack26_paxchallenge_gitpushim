@@ -1,0 +1,25 @@
+<form class="chat-composer" (ngSubmit)="abschicken()">
+  <div class="eingabe-feld">
+    <textarea #eingabe class="pax-input" name="input" rows="1" [ngModel]="text()" (ngModelChange)="text.set($event)" (keydown)="taste($event)" (input)="hoeheAnpassen()"
+      (focus)="fokussiert.set(true)" (blur)="fokussiert.set(false)" aria-label="Nachricht an Pax" autocomplete="off"
+      [placeholder]="gestartet() ? 'Antworte Pax …' : fokussiert() ? 'Erzähl mir von deiner Situation …' : ''"></textarea>
+    <!-- On the start screen, example sentences type themselves while the input is empty. -->
+    @if (!gestartet()) {
+      <app-beispiel-text [aktiv]="!text() && !fokussiert()" [class.aus]="!!text() || fokussiert()" />
+    }
+    <button class="senden" type="submit" [disabled]="gesperrt() || !text().trim()" aria-label="Nachricht senden" title="Senden (Enter)">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+        <path d="M12 19V5" />
+        <path d="m5 12 7-7 7 7" />
+      </svg>
+    </button>
+  </div>
+</form>
+@if (!gestartet()) {
+  <!-- A click puts the situation in the input; the customer adds the details before sending. -->
+  <div class="einstiege" role="group" aria-label="Beispiele zum Einstieg">
+    @for (e of einstiege; track e) {
+      <button class="einstieg" type="button" (click)="vorschlagen(e + '. ')">{{ e }}</button>
+    }
+  </div>
+}

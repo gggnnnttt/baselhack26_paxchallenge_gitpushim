@@ -11,14 +11,14 @@ Browser (Angular, Verlauf nur im Arbeitsspeicher)
       → OpenAI-Aufruf 1: Themenprüfung mit den letzten höchstens 7 akzeptierten Nachrichten
       → OpenAI-Aufruf 2: Profilerfassung mit dem bisherigen Profil und den letzten höchstens 6 Nachrichten
       → lokale Prüfung der Profilvorschläge (Beleg in der Nachricht, Wertebereiche)
-      → nur wenn alle Angaben vollständig sind und APICALC_TOKEN gesetzt ist: APICalc calculateRisk
+      → je nach vollständigen Angaben und APICALC_TOKEN: APICalc calculateRisk und/oder calculateRetirement (unabhängig), danach ggf. calculateSaving aus der aktuellen Kapitallücke
       → OpenAI-Aufruf 3: Antwort mit dem akzeptierten Verlauf (höchstens 40 Nachrichten) und dem Beratungsstand
       → lokale Ausgabeprüfung
   ← Antwort an den Browser
 ```
 
 - An OpenAI gehen: der Systemprompt, die Chatnachrichten nach der lokalen Prüfung und der daraus abgeleitete Beratungsstand (Profil, fehlende Angaben, Berechnungsergebnis). Sitzungskennung, IP-Adresse oder Benutzerkennungen werden nicht mitgeschickt.
-- An APICalc (`baselhackathon2026.azurewebsites.net`, vom Hackathon bereitgestellt) gehen nur die Felder des `calculateRisk`-Requests: Beziehungsstatus und -jahr, Geschlecht, Geburtsjahr, Bruttoeinkommen, Pensionskasse ja/nein, Bedarf und Anzahl Kinder. Keine Namen, keine vollständigen Geburtsdaten, keine Chattexte. Ohne `APICALC_TOKEN` findet kein Aufruf statt.
+- An APICalc (`baselhackathon2026.azurewebsites.net`, vom Hackathon bereitgestellt) gehen für `calculateRisk` die Felder: Beziehungsstatus und -jahr, Geschlecht, Geburtsjahr, Bruttoeinkommen, Pensionskasse ja/nein, Bedarf und Anzahl Kinder. Für `calculateRetirement` gehen zusätzlich gewünschte Pensionierungsalter, PK-Altersrenten, PK-Guthaben, ausdrücklich für die Pensionierung vorgesehenes privates Vermögen und gewünschter Ruhestandsbedarf an den Dienst. Nach Bestätigung werden die Modellannahmen keine weiteren Sparbeiträge, 0 % Zins und Planung bis Alter 88 übermittelt. Für das zusätzliche Sparszenario (`calculateSaving`) gehen daraus abgeleitet Zielkapital, Spardauer und die Konstanten monatliche Einzahlung, Startkapital CHF 0 und 0 % Zins an den Dienst. Keine Namen, keine vollständigen Geburtsdaten, keine Chattexte. Ohne `APICALC_TOKEN` findet kein Aufruf statt.
 - Eine Nachricht, die erst die Themenprüfung oder die Ausgabeprüfung ablehnt, **wurde bereits an OpenAI übertragen**. Nur lokal blockierte Eingaben erreichen den Anbieter nie.
 - OpenAI wird mit `store: false` aufgerufen. Das schliesst eine Aufbewahrung beim Anbieter nach dessen Bedingungen (z. B. zur Missbrauchsüberwachung) nicht aus. Wir können sie nicht steuern.
 - Backend → OpenAI läuft über HTTPS, Browser → Backend in der Demo über unverschlüsseltes HTTP auf localhost. Transportverschlüsselung schützt die Übertragung, sie anonymisiert nichts.
@@ -76,7 +76,27 @@ Nichts davon ist umgesetzt oder geprüft.
 
 ## Verifiziert
 
-- `npm test` im Backend: 28 Tests ohne echte Kundendaten und ohne externe Modell- oder APICalc-Aufrufe, darunter Löschung, Löschung während eines laufenden Aufrufs, Ablauf ohne Folgeanfrage und Abweisung von Profil-/Formularfeldern vor Themenprüfung und Antwort.
+- `npm test` im Backend: 72 Tests ohne echte Kundendaten und ohne externe Modell- oder APICalc-Aufrufe, darunter Löschung, Löschung während eines laufenden Aufrufs, Ablauf ohne Folgeanfrage und Abweisung von Profil-/Formularfeldern vor Themenprüfung und Antwort.
 - Gegen das laufende Backend: `DELETE /api/chat` liefert `204` bzw. `400`; ein Chat-Request mit `profile`-Feld liefert `400`.
 - Zwei kurze Live-Gespräche mit erfundenen Müller-Angaben gegen OpenAI (ohne APICalc-Token); die Sitzungen wurden danach gelöscht.
 - Angular-Produktionsbuild erfolgreich. Die Oberfläche wurde nicht automatisiert im Browser durchgeklickt, und es gab keinen Live-Modellaufruf und keine juristische Prüfung.
+
+- Pensionierungs-Erweiterung: neuer Datenfluss im Frontend-Hinweis ergänzt; 72 lokale Tests, Typecheck und Angular-Build erfolgreich. Separater Live-Verbindungstest mit synthetischem Einpersonenfall gegen APICalc erfolgreich. Keine fachliche oder rechtliche Freigabe.
+
+Spar-Erweiterung: zusätzlicher API-Datenfluss und Modellannahmen sind im Einstiegshinweis und Ergebnis-Panel beschrieben. Die berechnete Monatsrate wird als zusätzlicher Lösungsweg erklärt; keine neue Datenspeicherung auf Datenträger. Der direkte Verbindungstest `npm run test:sparen` sendet ausschließlich synthetische Daten, ruft aber die echte API auf.
+
+## Bestehende private Erwerbsunfähigkeitsrente
+
+Im Profil werden je Person deklarierter Rentenbetrag, Ursache, Wartefrist, Leistungsende und Angaben zur zusätzlichen Auszahlung beziehungsweise Anzahl der Verträge erfasst. Diese Kundenaussagen und der getrennte Modellvergleich werden wie das übrige Profil im Arbeitsspeicher der Sitzung gehalten und als Beratungsstand an den KI-Anbieter übermittelt. Der Frontend-Einstiegshinweis beschreibt dies. Keine Policennummern, Anbieteridentifikation, Dokumentuploads oder Gesundheitsangaben werden benötigt.
+
+Private Vertragsangaben werden nicht in den APICalc-Request eingefügt. Der Vergleich erfolgt ausschließlich im eigenen Backend anhand des bestehenden aktuellen Risikoergebnisses. Es gibt keine neue Speicherung auf Datenträger, API-Route oder Berechtigung. Das Feature prüft keinen echten Leistungsanspruch oder die Vertragskoordination; nur synthetische Daten einsetzen.
+
+## Budget-Selbstauskunft
+
+Das zusätzlich verfügbare Monatsbudget für die Pensionierung wird mit Beleg im Haushaltsprofil gespeichert und wie die übrigen Profilangaben an den KI-Anbieter übermittelt. Der Budgetabgleich erfolgt lokal im Backend; der Budgetbetrag wird nicht an APICalc gesendet. Im Frontend-Einstiegshinweis ist dies beschrieben. Keine neue Speicherung auf Datenträger oder neue Erfassungsroute. Bestehende Lösch- und Sitzungsregeln gelten weiter.
+
+Handlungsplan: Die Karten werden deterministisch aus dem bereits vorhandenen Profil und Berechnungsstand erzeugt und mit dem übrigen Beratungsstand an den Modellanbieter übermittelt. Keine neuen Kundendaten, Anbieter, externen Aufrufe oder dauerhafte Speicherung. Kartenaktionen füllen nur einen Nachrichtenvorschlag; sie senden nicht automatisch und kontaktieren keine Dritten.
+
+Pax-EU-Produktzuordnung: Der öffentliche kuratierte Produktdatensatz und die regelbasierte Zuordnung werden dem bestehenden Beratungsstand hinzugefügt und damit an den Modellanbieter übermittelt. Keine neuen persönlichen Felder, Tarifdienste, Modellaufrufe oder Speicherung. Quellenlink öffnet die öffentliche Pax-Seite; individuelle Angaben werden nicht in die URL eingefügt. Der Beratungsbutton bereitet nur eine Nachricht vor und sendet nichts an Pax oder andere Dritte.
+
+Pensionierungsvergleich: Ein ausdrücklich angeforderter alternativer Jahresbedarf wird mit einer Profilkopie über die bereits angebundenen APICalc-Rechner verarbeitet. Das Budget wird weiterhin nur lokal abgeglichen. Der letzte Vergleich liegt ausschließlich im Arbeitsspeicher derselben Sitzung und unterliegt deren Löschung/Ablauf. Kein zusätzlicher KI-Aufruf für Berechnung oder Übernahme. Die ausdrückliche Zielübernahme wird als sichtbare Bestätigung im Gespräch gespeichert; bei späteren Chatnachrichten wird sie wie der übrige akzeptierte Verlauf an den Modellanbieter übertragen. Der Frontend-Datenhinweis beschreibt diese Verarbeitung. 77 lokale Tests, Typecheck und Angular-Build erfolgreich; synthetischer Browser-Test mit echter KI und APICalc erfolgreich.

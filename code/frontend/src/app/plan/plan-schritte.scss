@@ -1,0 +1,96 @@
+:host { display: block; }
+
+.schritte, .loesungen {
+  h2 { margin: 4px 0 6px; color: var(--color-brand-pax-purple); font-size: var(--size-heading-s); }
+}
+.loesungen { margin-top: 32px; }
+.einleitung, .leer { margin: 0 0 16px; color: var(--color-neutral-gray-6); font-size: 14px; }
+
+/* The plan really is a sequence, so the steps are numbered and joined by a line. */
+.karten { margin: 0; padding: 0; list-style: none; }
+
+.schritt {
+  position: relative;
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 0 14px;
+  padding-bottom: 24px;
+
+  &:not(:last-child)::before {
+    content: '';
+    position: absolute;
+    top: 36px;
+    bottom: 4px;
+    left: 17px;
+    width: 2px;
+    background: var(--color-neutral-gray-2);
+  }
+}
+
+.nummer {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--color-brand-pax-green);
+  font-weight: 700;
+
+  .zuerst & { background: var(--color-brand-pax-purple); color: var(--color-neutral-white); }
+}
+
+.schritt-inhalt, .produkt {
+  min-width: 0;
+
+  h3 { margin: 2px 0 6px; font-size: 17px; }
+  p { margin: 6px 0; line-height: 1.5; }
+  a { color: var(--color-brand-pax-purple); text-underline-offset: 3px; }
+}
+
+.art { color: var(--color-neutral-gray-6); font-size: 13px; }
+.naechster { font-size: 15px; }
+.grenze { color: var(--color-neutral-gray-6); font-size: 14px; }
+
+.produkt {
+  padding: 16px 18px;
+  border-radius: var(--radius-xl);
+  background: var(--color-system-info-light);
+}
+
+.aktion {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin: 12px 0 4px;
+
+  small { color: var(--color-neutral-gray-6); font-size: 12px; }
+}
+
+/* Taking a step is something the customer does, so it is green. */
+.los {
+  padding: 9px 18px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-brand-pax-green);
+  color: var(--color-neutral-black);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+
+  &:hover:not(:disabled) { background: var(--color-brand-contrast-green); }
+  &:focus-visible { outline: 2px solid var(--color-brand-pax-purple); outline-offset: 2px; }
+  &:disabled { cursor: not-allowed; opacity: 0.5; }
+}
+
+details {
+  margin-top: 8px;
+  font-size: 14px;
+
+  summary { color: var(--color-neutral-gray-7); cursor: pointer; }
+  summary:hover { color: var(--color-brand-pax-purple); }
+  summary:focus-visible { outline: 2px solid var(--color-brand-pax-purple); outline-offset: 2px; }
+}
+.klaerung { margin: 12px 0; }
+.hinweise { color: var(--color-neutral-gray-6); }

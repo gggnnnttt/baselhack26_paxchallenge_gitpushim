@@ -2,22 +2,10 @@ import { Component, computed, effect, input, output, signal } from '@angular/cor
 import { JsonPipe, NgTemplateOutlet } from '@angular/common';
 import type { Bedarf, Beratungsstand, Einkommen, Fakt, Herkunft, Person } from './beratungsstand.model';
 import { WertKorrektur } from './wert-korrektur';
+import { chf } from '../format';
 
 interface Zeile { label: string; wert: string; herkunft?: Herkunft }
-interface Balken {
-  titel: string;
-  fehler: string | null;
-  bedarf?: number;
-  einnahmen?: number;
-  luecke: number;
-  einnahmenAnteil: number;
-  lueckeAnteil: number;
-  // How much of the capitalised gap the household's assets could carry; own comparison, not APICalc.
-  vermoegen: string | null;
-  tooltip: string;
-}
 
-const chf = (betrag: number) => `CHF ${Math.round(betrag).toLocaleString('de-CH')}`;
 const einkommen = (e: Einkommen) =>
   `${chf(e.betrag)} / ${e.einheit === 'chf_jahr' ? 'Jahr' : 'Monat'} ${e.basis ?? '(brutto/netto offen)'}${e.monatsloehne ? `, ${e.monatsloehne}×` : ''}`;
 const bedarf = (b: Bedarf) => (b.einheit === 'prozent' ? `${b.hoehe} % des Einkommens` : `${chf(b.hoehe)} / Jahr`);
@@ -36,6 +24,17 @@ function personZeilen(person: Person): Zeile[] {
     ...zeile('Einkommen', person.einkommen, einkommen),
     ...zeile('Pensionskasse', person.bvgVersichert, w => (w ? 'ja' : 'nein')),
     ...zeile('Bedarf Erwerbsunfähigkeit', person.bedarfInvaliditaet, bedarf),
+    // A private disability pension ("Erwerbsunfähigkeitsrente"), written out: "EU" reads like the European Union.
+    ...zeile('Private Erwerbsunfähigkeitsrente', person.privateEu?.vorhanden, w => w ? 'ja' : 'nein'),
+    ...zeile('Erwerbsunfähigkeitsrente pro Jahr', person.privateEu?.jahresrente, w => `${chf(w)} / Jahr`),
+    ...zeile('Erwerbsunfähigkeitsrente deckt', person.privateEu?.deckung, w => ({ krankheit: 'Krankheit', unfall: 'Unfall', beides: 'Krankheit und Unfall' })[w]),
+    ...zeile('Wartefrist bis zur Rente', person.privateEu?.wartefristMonate, w => `${w} Monate`),
+    ...zeile('Rente endet mit', person.privateEu?.leistungsendeAlter, w => `Alter ${w}`),
+    ...zeile('Rente zusätzlich zu IV und PK', person.privateEu?.zusaetzlichBestaetigt, w => w ? 'laut Angabe ja' : 'nicht bestätigt'),
+    ...zeile('Mehrere solche Verträge', person.privateEu?.mehrereVertraege, w => w ? 'ja, Prüfung nötig' : 'nein, genau einer'),
+    ...zeile('Pensionierungsalter', person.pensionierungsalter, w => `${w} Jahre`),
+    ...zeile('PK-Altersrente', person.pkAltersrente, w => `${chf(w)} / Jahr`),
+    ...zeile('PK-Guthaben', person.pkGuthaben, chf),
     ...zeile('Bedarf Todesfall', person.bedarfTodesfall, bedarf),
   ];
 }
@@ -60,8 +59,6 @@ export class BeratungsstandPanel {
   private vorher = new Map<string, string>();
   private leuchten: ReturnType<typeof setTimeout> | undefined;
 
-  protected readonly chf = chf;
-
   protected readonly haushalt = computed<Zeile[]>(() => {
     const h = this.stand()?.profil.haushalt;
     if (!h) return [];
@@ -70,7 +67,10 @@ export class BeratungsstandPanel {
       ...zeile('Seit', h.beziehungSeitJahr, String),
       ...zeile('Kinder', h.hatKinder, w => (w ? 'ja' : 'keine')),
       ...zeile('Gemeinsamer Haushalt', h.gemeinsamerHaushalt, w => (w ? 'ja' : 'nein')),
-      ...zeile('Vermögen', h.vermoegen, chf),
+      ...zeile('Bedarf im Ruhestand', h.bedarfPensionierung, bedarf),
+      ...zeile('Privates Vorsorgevermögen', h.vermoegenPensionierung, chf),
+      ...zeile('Zusätzliches Monatsbudget Pensionierung', h.budgetPensionierungMonat, w => `${chf(w)} / Monat (Selbstauskunft)`),
+      ...zeile('Basisannahmen bestätigt', h.pensionierungBasisBestaetigt, w => w ? 'ja' : 'nein'),
     ];
   });
 
@@ -95,7 +95,7 @@ export class BeratungsstandPanel {
 
   protected readonly plaene = computed(() => (this.stand()?.profil.plaene ?? []).map(plan => ({
     titel: plan.beschreibung,
-    untertitel: `${plan.art} · ${plan.person === 'haushalt' ? 'Haushalt' : `Person ${plan.person}`}`,
+    untertitel: `${plan.art}, ${plan.person === 'haushalt' ? 'Haushalt' : `Person ${plan.person}`}`,
     herkunft: plan.herkunft,
     zeilen: [
       ...zeile('Zeitpunkt', plan.zeitpunkt, w => `${w.monat ? `${String(w.monat).padStart(2, '0')}/` : ''}${w.jahr}${w.text ? ` („${w.text}“)` : ''}`),
@@ -112,41 +112,24 @@ export class BeratungsstandPanel {
     ...this.plaene().flatMap(p => p.zeilen.map(z => [`Plan „${p.titel}“|${z.label}`, z.wert] as const)),
   ]));
 
+  // What the calculations still need, per calculation; each label starts the answer in the chat.
+  protected readonly fehlend = computed(() => {
+    const s = this.stand();
+    if (!s) return [];
+    return [
+      { titel: 'Für die Absicherung', angaben: s.risiko.fehlend },
+      { titel: 'Für die Pensionierung', angaben: s.pensionierung.fehlend },
+    ].filter(g => g.angaben.length);
+  });
+
   // Shown in the header, so the panel stays informative when it is collapsed.
   protected readonly zusammenfassung = computed(() => {
     const anzahl = this.werte().size;
-    const s = this.stand();
-    const fehlend = (s?.risiko.fehlend.length ?? 0) + (s?.offen?.length ?? 0);
+    const offen = this.fehlend().reduce((summe, g) => summe + g.angaben.length, 0);
     if (!anzahl) return 'Noch nichts erfasst';
-    return `${anzahl} ${anzahl === 1 ? 'Angabe' : 'Angaben'}${fehlend ? `, ${fehlend} noch offen` : ''}`;
+    return `${anzahl} ${anzahl === 1 ? 'Angabe' : 'Angaben'}${offen ? `, ${offen} noch offen` : ''}`;
   });
 
-  // The result grouped by person; all bars share one scale so they can be compared.
-  protected readonly ergebnis = computed(() => {
-    const szenarien = this.stand()?.risiko.ergebnis?.szenarien ?? [];
-    const vermoegen = this.stand()?.profil.haushalt.vermoegen?.wert;
-    const skala = Math.max(1, ...szenarien.map(z => Math.max(z.bedarf ?? 0, z.einnahmen ?? 0)));
-    const gruppen = new Map<string, Balken[]>();
-    for (const z of szenarien) {
-      const [titel, person = ''] = z.szenario.split(' – ');
-      const luecke = z.fehler ? 0 : z.luecke ?? 0;
-      const zeile: Balken = {
-        titel,
-        fehler: z.fehler,
-        bedarf: z.bedarf,
-        einnahmen: z.einnahmen,
-        luecke,
-        einnahmenAnteil: ((z.einnahmen ?? 0) / skala) * 100,
-        lueckeAnteil: (luecke / skala) * 100,
-        vermoegen: this.vermoegenText(vermoegen, z.fehler ? undefined : z.kapitalisierteLuecke),
-        tooltip: z.fehler
-          ? z.fehler
-          : `Bedarf ${this.betrag(z.bedarf)}\nEinnahmen ${this.betrag(z.einnahmen)} (1. Säule ${this.betrag(z.ersteSaeule)}, 2. Säule ${this.betrag(z.zweiteSaeule)}, Partner/in ${this.betrag(z.partner)})\nLücke ${this.betrag(luecke)}, kapitalisiert ${this.betrag(z.kapitalisierteLuecke)}`,
-      };
-      gruppen.set(person, [...(gruppen.get(person) ?? []), zeile]);
-    }
-    return [...gruppen].map(([person, zeilen]) => ({ person: person === 'Person A' ? 'Du' : person === 'Person B' ? 'Partner/in' : person, zeilen }));
-  });
 
   constructor() {
     // Values that are new or different light up briefly, whether they came from the chat or a correction.
@@ -171,20 +154,5 @@ export class BeratungsstandPanel {
 
   protected herkunftText(herkunft: Herkunft): string {
     return `„${herkunft.beleg}“ (Nachricht ${Math.floor(herkunft.nachricht / 2) + 1})${herkunft.begruendung ? ` – abgeleitet: ${herkunft.begruendung}` : ''}`;
-  }
-
-  private vermoegenText(vermoegen: number | undefined, kapital: number | undefined): string | null {
-    if (vermoegen === undefined || !kapital) return null;
-    const anteil = Math.min(100, Math.round((vermoegen / kapital) * 100));
-    return `Als Kapital fehlen ${chf(kapital)}. Euer Vermögen deckt davon rechnerisch ${anteil} %.`;
-  }
-
-  protected datum(zeitpunkt: string): string {
-    const d = new Date(zeitpunkt);
-    return Number.isNaN(d.getTime()) ? zeitpunkt : d.toLocaleString('de-CH', { dateStyle: 'medium', timeStyle: 'short' });
-  }
-
-  protected betrag(wert: number | undefined): string {
-    return wert === undefined ? '–' : chf(wert);
   }
 }

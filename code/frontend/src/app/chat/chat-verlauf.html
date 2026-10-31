@@ -1,0 +1,39 @@
+<div class="bot-turn">
+  <app-pax-avatar class="message-avatar" state="still" />
+  <div class="message pax"><strong>Hallo, ich bin Pax!</strong> {{ begruessung() }}</div>
+</div>
+@for (m of messages(); track $index) {
+  @if (m.role === 'assistant') {
+    <div class="bot-turn">
+      <app-pax-avatar class="message-avatar" [state]="$last && talking() ? 'talking' : 'still'" />
+      <div class="message pax">
+        @if (m.content) {
+          <div class="message-markdown" [innerHTML]="m.content | markdown"></div>
+        }
+        @if (m.frage; as frage) {
+          <p class="frage-text">{{ frage.text }}</p>
+          @if ($last && !loading()) {
+            <app-frage-karte [frage]="frage" [gesperrt]="loading()" (antwort)="antwort.emit($event)" />
+          }
+        }
+      </div>
+    </div>
+  } @else if (m.role === 'ereignis') {
+    <div class="ereignis" role="note">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16v14H4zM4 10h16M8 3v4M16 3v4" /></svg>
+      <span>{{ m.content }}</span>
+    </div>
+  } @else {<div class="message user">{{ m.content }}</div>}
+}
+@if (loading()) {
+  <div class="bot-turn">
+    <app-pax-avatar class="message-avatar" state="thinking" />
+    <div class="message pax tippt" aria-label="Pax schreibt"><span></span><span></span><span></span></div>
+  </div>
+}
+@if (error()) {
+  <div class="error" role="alert">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3 2 20h20zM12 10v4M12 17v.5" /></svg>
+    <span>{{ error() }}</span>
+  </div>
+}

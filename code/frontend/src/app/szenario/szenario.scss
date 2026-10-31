@@ -1,0 +1,80 @@
+/* "What if": an interactive tool inside the retirement block, on a light tint instead of a frame. */
+:host { display: block; min-width: 0; }
+
+.szenario {
+  margin: 16px 0 4px;
+  padding: 16px 18px;
+  border-radius: var(--radius-xl);
+  background: var(--color-system-info-light);
+}
+
+h3 { margin: 0 0 6px; color: var(--color-brand-pax-purple); font-size: 16px; line-height: 1.35; }
+h4 { margin: 18px 0 4px; font-size: 15px; }
+p { margin: 8px 0; line-height: 1.5; }
+
+label { display: block; margin: 8px 0; font-weight: 500; }
+.eingabe { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+input {
+  box-sizing: border-box;
+  width: 10em;
+  min-height: 42px;
+  padding: 6px 12px;
+  border: 1.5px solid var(--color-neutral-gray-4);
+  border-radius: var(--radius-m);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+
+  &:focus { border-color: var(--color-brand-pax-green); outline: none; }
+}
+
+/* Trying an alternative and taking it over are things the customer does: green. */
+button {
+  font: inherit;
+  cursor: pointer;
+
+  &:disabled { cursor: not-allowed; opacity: 0.5; }
+  &:focus-visible { outline: 2px solid var(--color-brand-pax-purple); outline-offset: 2px; }
+}
+.los {
+  padding: 9px 18px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-brand-pax-green);
+  color: var(--color-neutral-black);
+  font-weight: 500;
+
+  &:hover:not(:disabled) { background: var(--color-brand-contrast-green); }
+}
+.sekundaer {
+  padding: 9px 4px;
+  border: 0;
+  background: none;
+  color: var(--color-neutral-gray-7);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.muted, .budget-text { color: var(--color-neutral-gray-6); font-size: 13px; }
+
+.balkenkarte { padding: 12px 0; border-bottom: 1px solid var(--color-neutral-gray-2); }
+.balken-titel { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; font-size: 14px; }
+
+/* Same marks as the other results: a thin bar on a shared scale, the budget as a dashed line. */
+.balken { position: relative; height: 10px; margin: 12px 0 8px; border-radius: 4px; background: var(--color-neutral-white); box-shadow: inset 0 0 0 1px var(--color-neutral-gray-2); }
+.fuellung { height: 100%; border-radius: 4px; background: #5ca700; }
+.budget-marke { position: absolute; top: -5px; bottom: -5px; border-left: 2px dashed var(--color-neutral-black); }
+
+.ergebnis { font-size: 14px; font-weight: 500; }
+.unterdeckung, .fehler { color: var(--color-system-error-dark); }
+
+.tabelle { margin: 12px 0; overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+caption { margin: 4px 0; font-weight: 500; text-align: left; }
+th, td { padding: 6px 4px; border-bottom: 1px solid var(--color-neutral-gray-2); text-align: right; }
+th:first-child { text-align: left; }
+td { white-space: nowrap; }
+
+.konsequenz { font-weight: 500; }
+summary { color: var(--color-neutral-gray-7); font-size: 14px; cursor: pointer; }
+li { margin-bottom: 6px; font-size: 13px; }
+.aktionen { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin-top: 16px; }

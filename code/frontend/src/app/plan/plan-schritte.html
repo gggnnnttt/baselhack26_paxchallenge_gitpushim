@@ -1,0 +1,90 @@
+@if (stand(); as s) {
+  <section class="schritte" aria-labelledby="handlungsplan-titel">
+    <h2 id="handlungsplan-titel">Deine nächsten Schritte</h2>
+    <p class="einleitung">{{ s.handlungsplan.hinweis }}</p>
+    @if (!s.handlungsplan.karten.length) {
+      <p class="leer">Aus deinen Angaben ergibt sich gerade kein weiterer Schritt. Das ist keine vollständige Vorsorgeprüfung.</p>
+    }
+    <ol class="karten">
+      @for (k of s.handlungsplan.karten; track k.id) {
+        <li class="schritt" [id]="'handlung-' + k.id" [class.zuerst]="k.prioritaet === 1">
+          <span class="nummer" aria-hidden="true">{{ k.reihenfolge }}</span>
+          <div class="schritt-inhalt">
+            <p class="art">{{ k.prioritaet === 1 ? 'Zuerst klären' : k.prioritaet === 2 ? 'Danach planen' : 'Anschliessend prüfen' }}</p>
+            <h3>{{ k.titel }}</h3>
+            <p>{{ k.begruendung }}</p>
+            <p class="naechster"><strong>Nächster Schritt:</strong> {{ k.naechsterSchritt }}</p>
+            @for (f of s.produktzuordnung.faelle; track f.id) {
+              @if (f.handlungId === k.id && f.status === 'pruefkandidat' && f.produkt) {
+                <p><a [href]="'#produkt-' + f.id">Mögliche Pax-Lösung zu diesem Bedarf ansehen</a></p>
+              }
+            }
+            <div class="aktion">
+              <button class="los" type="button" [disabled]="gesperrt()" (click)="aktion.emit(k.aktion.nachricht)">{{ k.aktion.label }}</button>
+              <small>Schreibt eine Nachricht vor, du prüfst und sendest sie selbst.</small>
+            </div>
+            <details>
+              <summary>Warum dieser Schritt?</summary>
+              <p><strong>Grundlage</strong></p>
+              <ul>@for (d of k.datengrundlage; track $index) { <li><strong>{{ d.quelle }}:</strong> {{ d.details }}</li> }</ul>
+              @if (k.offeneFragen.length) {
+                <p><strong>Offene Fragen</strong></p>
+                <ul>@for (f of k.offeneFragen; track f) { <li>{{ f }}</li> }</ul>
+              }
+            </details>
+          </div>
+        </li>
+      }
+    </ol>
+  </section>
+
+  @if (s.produktzuordnung.faelle.length) {
+    <section class="loesungen" aria-labelledby="produktzuordnung-titel">
+      <h2 id="produktzuordnung-titel">Vom Bedarf zur möglichen Lösung</h2>
+      <p class="einleitung">{{ s.produktzuordnung.statusText }}</p>
+      @for (f of s.produktzuordnung.faelle; track f.id) {
+        @if (f.status === 'pruefkandidat' && f.produkt; as produkt) {
+          <article class="produkt" [id]="'produkt-' + f.id">
+            <p class="art">Möglich für: {{ f.szenario }}</p>
+            <h3>{{ produkt.name }} näher prüfen</h3>
+            <p><strong>Warum?</strong> {{ f.begruendung }}</p>
+            <p>{{ produkt.beschreibung }}</p>
+            <p><strong>Gilt zeitlich:</strong> {{ f.geltungsbereich }}</p>
+            <p class="grenze">Noch keine Offerte: Rentenhöhe, Prämie, Annahme und Vertragsbedingungen sind offen.</p>
+            <p class="naechster"><strong>Nächster Schritt:</strong> {{ f.naechsterSchritt }}</p>
+            <div class="aktion">
+              <button class="los" type="button" [disabled]="gesperrt()" (click)="aktion.emit(f.aktion.nachricht)">{{ f.aktion.label }}</button>
+              <small>Schreibt nur eine Nachricht vor. Keine Buchung, kein Antrag, keine Kontaktaufnahme.</small>
+            </div>
+            @if (hatHandlung(f.handlungId)) {
+              <p><a [href]="'#handlung-' + f.handlungId">Zugehörigen Schritt ansehen</a></p>
+            }
+            <details>
+              <summary>Grundlage und offene Prüfungen</summary>
+              <ul>@for (d of f.datengrundlage; track $index) { <li><strong>{{ d.quelle }}:</strong> {{ d.details }}</li> }</ul>
+              <p><strong>Noch zu prüfen:</strong></p>
+              <ul>@for (frage of f.offenePruefungen; track frage) { <li>{{ frage }}</li> }</ul>
+              <p>Zuordnungsregel: {{ f.regelId }}</p>
+              <p><a [href]="produkt.quelle" target="_blank" rel="noopener noreferrer">Öffentliche Pax-Produktinformation</a>, Stand {{ produkt.quellenstand }}</p>
+              <p>{{ produkt.fachlicheFreigabe }}</p>
+            </details>
+          </article>
+        } @else {
+          <details class="klaerung">
+            <summary>{{ f.szenario }}: {{ f.status === 'kein_zusaetzlicher_bedarf' ? 'kein zusätzlicher Bedarf' : 'zuerst klären' }}</summary>
+            <p>{{ f.begruendung }}</p>
+            <p>{{ f.geltungsbereich }}</p>
+            <ul>@for (frage of f.offenePruefungen; track frage) { <li>{{ frage }}</li> }</ul>
+            <p>{{ f.naechsterSchritt }}</p>
+          </details>
+        }
+      }
+      <details>
+        <summary>Grenzen dieser Zuordnung</summary>
+        <ul class="hinweise">@for (h of s.produktzuordnung.hinweise; track h) { <li>{{ h }}</li> }</ul>
+      </details>
+    </section>
+  }
+} @else {
+  <p class="leer">Sobald Pax deine Situation kennt, stehen hier deine nächsten Schritte.</p>
+}

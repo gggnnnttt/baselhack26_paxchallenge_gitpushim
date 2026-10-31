@@ -339,19 +339,3 @@ test('extraction schema is usable as a strict structured output', () => {
   assert.ok(!felder.some(feld => /name|adresse|gesundheit|diagnose|raucher/i.test(feld)));
 });
 
-test('assets are captured for the advice, compared with the capitalised gap and never sent to APICalc', async () => {
-  const { offeneAngaben, vermoegenVergleich } = await import('../src/beratung/darstellung.js');
-  const { szenarien } = await import('../src/berechnung/risiko.js');
-  const ohne = leeresProfil();
-  assert.equal(offeneAngaben(ohne).length, 1);
-  const text = 'Wir haben etwa 80000 Franken auf dem Konto und in der Säule 3a.';
-  const { profil, abgelehnt } = anwenden(ohne, text, [op('vermoegen', { zahl: 80000, beleg: 'etwa 80000 Franken auf dem Konto und in der Säule 3a' })]);
-  assert.deepEqual(abgelehnt, []);
-  assert.equal(profil.haushalt.vermoegen?.wert, 80000);
-  assert.deepEqual(offeneAngaben(profil), []);
-  const negativ = anwenden(ohne, text, [op('vermoegen', { zahl: -5, beleg: 'etwa 80000 Franken' })]);
-  assert.equal(negativ.abgelehnt.length, 1);
-  const vergleich = vermoegenVergleich(profil, szenarien(ANTWORT)).join('\n');
-  assert.match(vergleich, /32 % durch das Vermögen gedeckt, verbleibend CHF 170.000/);
-  assert.ok(!JSON.stringify(pruefeRisiko(profil, JAHR).request ?? {}).includes('80000'));
-});

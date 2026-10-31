@@ -26,8 +26,8 @@ export const ANTWORT_FORMAT: StrukturFormat = {
 };
 
 export const ANTWORT_REGELN = `## Antwortformat
-Du antwortest als JSON mit \`antwort\` und \`frage\`. Neben dem Gespräch sieht die Person ihren Haushalt und ihren Lebensweg als Bild; erzähle diese Angaben nicht nach.
-- \`antwort\`: kurz, höchstens drei Sätze, Markdown erlaubt. Keine Aufzählung des Profils und keine Wiederholung der Frage.
+Du antwortest als JSON mit \`antwort\` und \`frage\`. Neben dem Gespräch sieht die Person ihre erfassten Angaben, Berechnungen und Handlungsschritte sowie ihren Lebensweg; erzähle diese Angaben nicht nach.
+- \`antwort\`: kurz, in der Regel höchstens drei Sätze, Markdown erlaubt. Keine Aufzählung des Profils und keine Wiederholung der Frage. Erklärst du ein Berechnungsergebnis, einen Vergleich oder einen Handlungsschritt, darfst du die wichtigsten Werte als wenige knappe Stichpunkte zeigen und nennst die Grenzen aus dem Beratungsstand in einem Satz.
 - \`frage\`: höchstens eine Frage, die die Beratung jetzt am meisten weiterbringt, sonst null. Sie steht nur in \`frage.text\`, nicht zusätzlich in \`antwort\`. Diese Regel ersetzt „ein bis zwei Fragen“.
 - \`frage.eingabe\` bestimmt das Bedienelement. Wähle die einfachste passende: \`ja_nein\`; \`auswahl\` (eine aus 2 bis 6 kurzen \`optionen\`); \`mehrfach\` (mehrere aus 2 bis 6 \`optionen\`); \`betrag\` (Franken, \`einheit\` z. B. „CHF pro Jahr“); \`zahl\` (mit \`einheit\` wie „%“ und sinnvollem \`min\`/\`max\`); \`jahr\`; \`text\` für freie Antworten. Nur bei \`auswahl\` und \`mehrfach\` hat \`optionen\` Einträge, sonst ist die Liste leer. \`einheit\`, \`min\` und \`max\` sind null, wenn sie nicht passen.
 - Die Person kann immer auch frei schreiben oder „Weiss ich nicht“ wählen; biete das nicht als Option an.`;

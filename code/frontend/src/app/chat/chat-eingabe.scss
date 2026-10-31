@@ -1,0 +1,105 @@
+:host { display: block; }
+
+/* ---------- Composer: one rounded field with the send button inside ---------- */
+.chat-composer {
+  box-sizing: border-box;
+  width: 100%;
+
+  :host(.gestartet) & { padding: 8px 24px 0; }
+}
+
+.eingabe-feld {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: var(--spalte-chat);
+  margin: 0 auto;
+  padding: 6px;
+  border: 1.5px solid var(--color-neutral-gray-3);
+  border-radius: 26px;
+  background: var(--color-neutral-white);
+  transition: border-color 200ms, box-shadow 200ms;
+
+  &:focus-within { border-color: var(--color-brand-pax-green); box-shadow: 0 0 0 4px rgba(140, 205, 15, 0.2); }
+
+  /* On the start screen the field is the one raised element. */
+  :host(:not(.gestartet)) & { border-color: transparent; box-shadow: 0 10px 40px rgba(60, 0, 120, 0.14); }
+  :host(:not(.gestartet)) &:focus-within { border-color: var(--color-brand-pax-green); box-shadow: 0 10px 40px rgba(60, 0, 120, 0.14), 0 0 0 4px rgba(140, 205, 15, 0.2); }
+
+  .pax-input {
+    min-height: 44px;
+    padding: 10px 12px;
+    border: 0;
+    border-radius: 20px;
+    background: transparent;
+
+    &:focus, &:focus-visible { box-shadow: none; outline: none; }
+  }
+
+  /* The typed examples lie exactly on the empty input. */
+  app-beispiel-text {
+    position: absolute;
+    inset: 6px 58px 6px 6px;
+    padding: 10px 12px;
+    font-size: 16px;
+    line-height: 1.55;
+
+    @media (min-width: 1024px) { font-size: 18px; }
+    &.aus { visibility: hidden; }
+  }
+}
+
+.senden {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--color-brand-pax-green);
+  color: var(--color-neutral-black);
+  cursor: pointer;
+  transition: background-color 200ms, transform 150ms;
+
+  &:hover:not(:disabled) { background: var(--color-brand-contrast-green); }
+  &:active:not(:disabled) { transform: scale(0.94); }
+  &:focus-visible { outline: 2px solid var(--color-brand-pax-purple); outline-offset: 2px; }
+  &:disabled { background: var(--color-neutral-gray-2); color: var(--color-neutral-gray-5); cursor: not-allowed; }
+}
+
+/* On the start screen the input has room for a whole sentence. */
+:host(:not(.gestartet)) .pax-input { min-height: calc(2lh + 20px); }
+
+.einstiege {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.einstieg {
+  padding: 8px 16px;
+  border: 1.5px solid var(--color-neutral-gray-3);
+  border-radius: var(--radius-full);
+  background: var(--color-neutral-white);
+  color: var(--color-neutral-gray-7);
+  font: inherit;
+  font-size: 15px;
+  cursor: pointer;
+  transition: border-color 150ms, background-color 150ms;
+
+  &:hover { border-color: var(--color-brand-pax-green); background: var(--color-system-success-light); }
+  &:focus-visible { outline: 2px solid var(--color-brand-pax-purple); outline-offset: 2px; }
+}
+
+@media (max-width: 600px) {
+  :host(:not(.gestartet)) .pax-input { min-height: calc(3lh + 20px); }
+  :host(.gestartet) .chat-composer { padding: 8px 12px 0; }
+  .einstieg { padding: 6px 14px; font-size: 14px; }
+}
