@@ -1,0 +1,42 @@
+main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 1rem;
+  font-family: system-ui, sans-serif;
+}
+
+.messages {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.message {
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  background: #f1f1f1;
+  white-space: pre-wrap;
+  align-self: flex-start;
+  max-width: 85%;
+
+  &.user {
+    background: #d6e8ff;
+    align-self: flex-end;
+  }
+}
+
+.error {
+  color: #b00020;
+}
+
+form {
+  display: flex;
+  gap: 0.5rem;
+
+  input {
+    flex: 1;
+    padding: 0.6rem;
+    font-size: 1rem;
+  }
+}

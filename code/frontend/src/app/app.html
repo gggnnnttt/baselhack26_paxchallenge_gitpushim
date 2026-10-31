@@ -1,0 +1,20 @@
+<main>
+  <h1>Chat</h1>
+
+  <div class="messages">
+    @for (m of messages(); track $index) {
+      <div class="message" [class.user]="m.role === 'user'">{{ m.content }}</div>
+    }
+    @if (loading()) {
+      <div class="message">…</div>
+    }
+    @if (error()) {
+      <div class="error">{{ error() }}</div>
+    }
+  </div>
+
+  <form (ngSubmit)="send()">
+    <input name="input" [(ngModel)]="input" placeholder="Nachricht eingeben…" autocomplete="off" />
+    <button type="submit" [disabled]="loading()">Senden</button>
+  </form>
+</main>
