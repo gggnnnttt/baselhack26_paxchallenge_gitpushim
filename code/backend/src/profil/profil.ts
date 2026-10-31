@@ -37,6 +37,10 @@ export const Person = z.object({
   // Income the household needs if this person can no longer work / dies.
   bedarfInvaliditaet: fakt(Bedarf).optional(),
   bedarfTodesfall: fakt(Bedarf).optional(),
+  // Scenario inputs, not changes to today's employment situation.
+  pensionierungsalter: fakt(z.number().int().min(50).max(80)).optional(),
+  pkAltersrente: fakt(z.number().nonnegative()).optional(),
+  pkGuthaben: fakt(z.number().nonnegative()).optional(),
 }).strict();
 
 export const Kind = z.object({
@@ -80,6 +84,9 @@ export const Profil = z.object({
     beziehungSeitJahr: fakt(z.number().int()).optional(),
     hatKinder: fakt(z.boolean()).optional(),
     gemeinsamerHaushalt: fakt(z.boolean()).optional(),
+    bedarfPensionierung: fakt(Bedarf).optional(),
+    vermoegenPensionierung: fakt(z.number().nonnegative()).optional(),
+    pensionierungBasisBestaetigt: fakt(z.boolean()).optional(),
   }).strict(),
   personen: z.object({ A: Person, B: Person.optional() }).strict(),
   kinder: z.array(Kind).max(10),

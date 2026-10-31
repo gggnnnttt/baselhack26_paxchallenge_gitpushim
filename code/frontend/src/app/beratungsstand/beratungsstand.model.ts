@@ -19,6 +19,9 @@ export interface Person {
   bvgVersichert?: Fakt<boolean>;
   bedarfInvaliditaet?: Fakt<Bedarf>;
   bedarfTodesfall?: Fakt<Bedarf>;
+  pensionierungsalter?: Fakt<number>;
+  pkAltersrente?: Fakt<number>;
+  pkGuthaben?: Fakt<number>;
 }
 
 export interface Herkunft { quelle: 'aussage' | 'ableitung'; beleg: string; begruendung: string | null; nachricht: number }
@@ -30,6 +33,9 @@ export interface Profil {
     beziehungSeitJahr?: Fakt<number>;
     hatKinder?: Fakt<boolean>;
     gemeinsamerHaushalt?: Fakt<boolean>;
+    bedarfPensionierung?: Fakt<Bedarf>;
+    vermoegenPensionierung?: Fakt<number>;
+    pensionierungBasisBestaetigt?: Fakt<boolean>;
   };
   personen: { A: Person; B?: Person };
   kinder: {
@@ -80,6 +86,15 @@ export interface Beratungsstand {
     hinweise: string[];
     request: unknown;
     ergebnis: { zeitpunkt: string; veraltet: boolean; szenarien: Szenario[] } | null;
+    fehler: string | null;
+  };
+  pensionierung: {
+    phase: 'erfassung' | 'bereit' | 'berechnet' | 'fehlgeschlagen';
+    phaseText: string; vorhanden: Angabe[]; fehlend: Angabe[]; hinweise: string[]; request: unknown;
+    ergebnis: { zeitpunkt: string; veraltet: boolean; werte: {
+      IncomeNeed?: number; IncomeTotal?: number; IncomePillar1?: number; IncomePillar2?: number;
+      IncomeWithdrawal?: number; IncomeGap?: number; AvailableFortune?: number; CapitalNeed?: number; CapitalGap?: number;
+    } } | null;
     fehler: string | null;
   };
   letzteNachricht: { uebernommen: Protokolleintrag[]; abgelehnt: Protokolleintrag[] };

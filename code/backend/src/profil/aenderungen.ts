@@ -5,6 +5,7 @@ import { BEZIEHUNGEN, ERWERB, PLANARTEN, Profil, type Bedarf, type Einkommen, ty
 export const FELDER = [
   'anliegen', 'beziehung', 'beziehung_seit_jahr', 'hat_kinder', 'gemeinsamer_haushalt',
   'geschlecht', 'geburtsjahr', 'erwerb', 'pensum', 'einkommen', 'bvg_versichert', 'bedarf_invaliditaet', 'bedarf_todesfall',
+  'pensionierungsalter', 'pk_altersrente', 'pk_guthaben', 'bedarf_pensionierung', 'vermoegen_pensionierung', 'pensionierung_basis_bestaetigt',
   'kind', 'kind_geburtsjahr', 'kind_elternteil', 'kind_alleiniges_sorgerecht',
   'plan', 'plan_zeitpunkt', 'plan_pensum', 'plan_einkommen', 'plan_sicherheit',
 ] as const;
@@ -60,6 +61,16 @@ export function wendeAenderungenAn(ausgang: Profil, aenderungen: readonly Aender
       abgelehnt.push({ ...eintrag, grund: error.message });
     }
   }
+  // A complete, explicit confirmation must not depend on the extractor remembering
+  // a boolean. Accept only this narrow statement as the final sentence; a mere
+  // mention, quote, question, "ja", or a subsequent qualification is not consent.
+  const bestaetigung = nachricht.text.match(/(?:^|[.!?\n])\s*(Für\s+diese\s+Basisrechnung\s+akzeptiere\s+ich\s+ausdrücklich\s+keine\s+weiteren\s+Sparbeiträge,\s*0\s*%\s*Verzinsung\s+und\s+Planung\s+bis\s+Alter\s+88)\s*[.!]?\s*$/iu);
+  if (bestaetigung && profil.haushalt.pensionierungBasisBestaetigt?.wert !== true) {
+    profil.haushalt.pensionierungBasisBestaetigt = {
+      wert: true, quelle: 'aussage', beleg: bestaetigung[1]!, begruendung: null, nachricht: nachricht.index,
+    };
+    uebernommen.push({ feld: 'pensionierung_basis_bestaetigt', text: 'Basisannahmen ausdrücklich bestätigt: keine weiteren Sparbeiträge, 0 % Zins, Planung bis Alter 88.' });
+  }
   return { profil: Profil.parse(profil), uebernommen, abgelehnt };
 }
 
@@ -107,6 +118,19 @@ const bedarf = (a: Aenderung): Bedarf => {
     return { hoehe: a.zahl, einheit: 'chf_jahr' };
   }
   return ablehnen('Bedarf braucht die Einheit prozent oder chf_jahr.');
+};
+
+// Explicit amounts only: zero is valid, unknown is not zero.
+const kapital = (a: Aenderung): number => {
+  if (a.einheit !== null) return ablehnen('Kapital ist ein einmaliger CHF-Betrag, kein periodischer Betrag.');
+  if (a.zahl === null || !Number.isFinite(a.zahl) || a.zahl < 0 || a.zahl > 100_000_000) return ablehnen('Kapital braucht einen nichtnegativen CHF-Betrag.');
+  return a.zahl;
+};
+const jahresbetrag = (a: Aenderung): number => {
+  if (a.einheit !== 'chf_monat' && a.einheit !== 'chf_jahr') return ablehnen('PK-Rente braucht CHF pro Monat oder Jahr.');
+  const betrag = a.zahl === null ? null : a.zahl * (a.einheit === 'chf_monat' ? 12 : 1);
+  if (betrag === null || !Number.isFinite(betrag) || betrag < 0 || betrag > 10_000_000) return ablehnen('PK-Rente ist ungültig.');
+  return betrag;
 };
 
 // Validates the value before Person B is created, so a rejected proposal leaves no empty person behind.
@@ -189,6 +213,30 @@ function wende(profil: Profil, a: Aenderung, herkunft: Herkunft, neueIds: Map<st
       return;
     case 'bedarf_todesfall':
       personFeld(profil, a, 'bedarfTodesfall', () => fakt(bedarf(a)));
+      return;
+    case 'pensionierungsalter':
+      personFeld(profil, a, 'pensionierungsalter', () => fakt(ganzzahl(a, 50, 80, 'Pensionierungsalter (unterstützter Demo-Bereich)')));
+      return;
+    case 'pk_altersrente':
+      personFeld(profil, a, 'pkAltersrente', () => fakt(jahresbetrag(a)));
+      return;
+    case 'pk_guthaben':
+      personFeld(profil, a, 'pkGuthaben', () => fakt(kapital(a)));
+      return;
+    case 'bedarf_pensionierung':
+      if (setzen) {
+        // A monthly household budget is converted using 12 months, not salary payments.
+        const b = a.einheit === 'chf_monat' ? { ...a, zahl: a.zahl === null ? null : a.zahl * 12, einheit: 'chf_jahr' as const } : a;
+        profil.haushalt.bedarfPensionierung = fakt(bedarf(b));
+      } else delete profil.haushalt.bedarfPensionierung;
+      return;
+    case 'vermoegen_pensionierung':
+      if (setzen) profil.haushalt.vermoegenPensionierung = fakt(kapital(a));
+      else delete profil.haushalt.vermoegenPensionierung;
+      return;
+    case 'pensionierung_basis_bestaetigt':
+      if (setzen) profil.haushalt.pensionierungBasisBestaetigt = fakt(janein(a, 'Basisannahmen bestätigen'));
+      else delete profil.haushalt.pensionierungBasisBestaetigt;
       return;
     case 'kind': {
       if (setzen && istNeu(a.ziel) && !neueIds.has(a.ziel!)) {

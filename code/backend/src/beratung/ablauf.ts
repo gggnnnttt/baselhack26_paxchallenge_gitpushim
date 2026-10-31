@@ -1,3 +1,4 @@
+import { aktualisierePensionierung, startePensionierung, type PensionierungsStand } from '../berechnung/pensionierung.js';
 import { assign, createActor, fromPromise, setup, waitFor, type Snapshot } from 'xstate';
 import type { RisikoRechner } from '../berechnung/apicalc.js';
 import { pruefeRisiko, type RiskRequest, type RiskResponse, type RisikoPruefung } from '../berechnung/risiko.js';
@@ -6,7 +7,7 @@ import { leeresProfil, type Profil } from '../profil/profil.js';
 export interface Berechnung { requestJson: string; antwort: RiskResponse; zeitpunkt: string }
 export interface AblaufKontext { jahr: number; profil: Profil; pruefung: RisikoPruefung; berechnung: Berechnung | null; fehler: string | null }
 export type Phase = 'erfassung' | 'bereit' | 'berechnung' | 'berechnet' | 'fehlgeschlagen';
-export interface AblaufStand { phase: Phase; kontext: AblaufKontext; snapshot: Snapshot<unknown> }
+export interface AblaufStand { phase: Phase; kontext: AblaufKontext; snapshot: Snapshot<unknown>; pensionierung: PensionierungsStand }
 
 type AblaufEvent = { type: 'PROFIL_AKTUALISIERT'; profil: Profil };
 
@@ -73,7 +74,7 @@ export function erstelleAblauf(rechner: RisikoRechner | null) {
 
 export class Beratungsablauf {
   private readonly maschine;
-  constructor(rechner: RisikoRechner | null, private readonly timeoutMs = 20000) {
+  constructor(private readonly rechner: RisikoRechner | null, private readonly timeoutMs = 20000) {
     this.maschine = erstelleAblauf(rechner);
   }
 
@@ -82,7 +83,7 @@ export class Beratungsablauf {
     actor.start();
     const stand = this.stand(actor);
     actor.stop();
-    return stand;
+    return { ...stand, pensionierung: startePensionierung(stand.kontext.profil, jahr) };
   }
 
   /** Works on a restored copy; the caller decides whether the returned state is committed. */
@@ -91,14 +92,18 @@ export class Beratungsablauf {
     actor.start();
     actor.send({ type: 'PROFIL_AKTUALISIERT', profil });
     try {
-      await waitFor(actor, snapshot => !snapshot.matches('berechnung'), { timeout: this.timeoutMs });
-      return this.stand(actor);
+      const [, pensionierung] = await Promise.all([
+        waitFor(actor, snapshot => !snapshot.matches('berechnung'), { timeout: this.timeoutMs }),
+        aktualisierePensionierung(vorher.pensionierung, profil, vorher.kontext.jahr,
+          this.rechner?.berechnePensionierung ? { berechnePensionierung: request => this.rechner!.berechnePensionierung!(request) } : null),
+      ]);
+      return { ...this.stand(actor), pensionierung };
     } finally {
       actor.stop();
     }
   }
 
-  private stand(actor: ReturnType<typeof createActor<ReturnType<typeof erstelleAblauf>>>): AblaufStand {
+  private stand(actor: ReturnType<typeof createActor<ReturnType<typeof erstelleAblauf>>>): Omit<AblaufStand, 'pensionierung'> {
     const snapshot = actor.getSnapshot();
     return { phase: snapshot.value as Phase, kontext: snapshot.context, snapshot: actor.getPersistedSnapshot() };
   }

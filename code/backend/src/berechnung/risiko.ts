@@ -184,7 +184,7 @@ function pruefePerson(person: Person, id: PersonId, vorhanden: Angabe[], fehlend
   return vollstaendig ? ergebnis as RiskPerson : null;
 }
 
-function bruttoJahr(einkommen: Einkommen): number | string {
+export function bruttoJahr(einkommen: Einkommen): number | string {
   if (einkommen.basis === 'netto') return 'Bruttoeinkommen (genannt wurde ein Nettobetrag)';
   if (einkommen.basis === null) return 'Ob das genannte Einkommen brutto oder netto ist';
   if (einkommen.einheit === 'chf_jahr') return einkommen.betrag;

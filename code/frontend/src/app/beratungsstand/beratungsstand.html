@@ -140,6 +140,54 @@
       }
     </section>
 
+    <section>
+      <h3>Pensionierung · Basisrechnung</h3>
+      @let p = s.pensionierung;
+      <p [class]="'phase ' + p.phase">{{ p.phaseText }}</p>
+      <p><strong>Modellannahmen:</strong> keine weiteren Sparbeiträge, 0 % Zins, Planung bis Alter 88.</p>
+      @if (p.fehlend.length) {
+        <p>Für diese Berechnung fehlt noch:</p>
+        <ul class="fehlend">
+          @for (f of p.fehlend; track f.label) {
+            <li>{{ f.label }}<br /><small>{{ f.warum }}</small></li>
+          }
+        </ul>
+      }
+      @if (p.fehler) { <p class="fehler" role="alert">{{ p.fehler }}</p> }
+      @if (p.ergebnis; as e) {
+        <p>Ergebnis vom {{ e.zeitpunkt.slice(0, 16).replace('T', ' ') }}
+          @if (e.veraltet) { <span class="badge warnung">veraltet – nicht verwenden</span> }
+        </p>
+        <table [class.veraltet]="e.veraltet">
+          <caption>Einkommenswerte pro Jahr</caption>
+          <tbody>
+            <tr><th scope="row">Gewünschter Bedarf</th><td>{{ betrag(e.werte.IncomeNeed) }}</td></tr>
+            <tr><th scope="row">Renteneinkommen laut API</th><td>{{ betrag(e.werte.IncomeTotal) }}</td></tr>
+            <tr><th scope="row">Davon 1. Säule</th><td>{{ betrag(e.werte.IncomePillar1) }}</td></tr>
+            <tr><th scope="row">Davon 2. Säule</th><td>{{ betrag(e.werte.IncomePillar2) }}</td></tr>
+            <tr><th scope="row">Vermögensverzehr laut API</th><td>{{ betrag(e.werte.IncomeWithdrawal) }}</td></tr>
+            <tr><th scope="row">Einkommenslücke laut API</th><td>{{ betrag(e.werte.IncomeGap) }}</td></tr>
+          </tbody>
+        </table>
+        <table [class.veraltet]="e.veraltet">
+          <caption>Kapitalbeträge beim ersten Rentenfall (einmalig)</caption>
+          <tbody>
+            <tr><th scope="row">Verfügbares Vermögen</th><td>{{ betrag(e.werte.AvailableFortune) }}</td></tr>
+            <tr><th scope="row">Kapitalbedarf</th><td>{{ betrag(e.werte.CapitalNeed) }}</td></tr>
+            <tr><th scope="row">Kapitallücke</th><td>{{ betrag(e.werte.CapitalGap) }}</td></tr>
+          </tbody>
+        </table>
+      }
+      <details>
+        <summary>Erfasste Angaben und Berechnungsgrenzen</summary>
+        <ul>@for (v of p.vorhanden; track v.label) { <li>{{ v.label }}: {{ v.wert }}</li> }</ul>
+        <ul class="hinweise">@for (h of p.hinweise; track h) { <li>{{ h }}</li> }</ul>
+      </details>
+      @if (p.request) {
+        <details><summary>Berechnungsgrundlage</summary><pre>{{ p.request | json }}</pre></details>
+      }
+    </section>
+
     @if (s.letzteNachricht.uebernommen.length || s.letzteNachricht.abgelehnt.length) {
       <details class="protokoll">
         <summary>Aus deiner letzten Nachricht</summary>

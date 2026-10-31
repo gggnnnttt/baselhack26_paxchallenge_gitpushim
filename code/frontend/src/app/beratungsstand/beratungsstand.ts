@@ -23,6 +23,9 @@ function personZeilen(person: Person): Zeile[] {
     ...zeile('Einkommen', person.einkommen, einkommen),
     ...zeile('Pensionskasse', person.bvgVersichert, w => (w ? 'ja' : 'nein')),
     ...zeile('Bedarf Erwerbsunfähigkeit', person.bedarfInvaliditaet, bedarf),
+    ...zeile('Pensionierungsalter', person.pensionierungsalter, w => `${w} Jahre`),
+    ...zeile('PK-Altersrente', person.pkAltersrente, w => `${chf(w)} / Jahr`),
+    ...zeile('PK-Guthaben', person.pkGuthaben, chf),
     ...zeile('Bedarf Todesfall', person.bedarfTodesfall, bedarf),
   ];
 }
@@ -46,6 +49,9 @@ export class BeratungsstandPanel {
       ...zeile('Seit', h.beziehungSeitJahr, String),
       ...zeile('Kinder', h.hatKinder, w => (w ? 'ja' : 'keine')),
       ...zeile('Gemeinsamer Haushalt', h.gemeinsamerHaushalt, w => (w ? 'ja' : 'nein')),
+      ...zeile('Bedarf im Ruhestand', h.bedarfPensionierung, bedarf),
+      ...zeile('Privates Vorsorgevermögen', h.vermoegenPensionierung, chf),
+      ...zeile('Basisannahmen bestätigt', h.pensionierungBasisBestaetigt, w => w ? 'ja' : 'nein'),
     ];
   });
 
