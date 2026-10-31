@@ -58,6 +58,14 @@ Nicht benötigte Werte einer Änderung sind null.
 - bvg_versichert (person): \`ja_nein\` = bei einer Pensionskasse versichert
 - bedarf_invaliditaet (person): Einkommen, das der Haushalt bräuchte, wenn diese Person nicht mehr arbeiten kann. \`zahl\` mit \`einheit\` prozent (des heutigen Einkommens dieser Person) oder chf_jahr
 - bedarf_todesfall (person): Einkommen, das die Hinterbliebenen bräuchten, wenn diese Person stirbt. Einheiten wie oben
+- private_eu_vorhanden (person): \`ja_nein\` = bestehende PRIVATE Erwerbsunfähigkeitsrente vorhanden. Explizite Aussage über eine eigene private Rente → true; ausdrücklich keine/gekündigt → false. PK-/IV-Renten, Taggeld, Todesfallkapital und gewünschte neue Versicherungen zählen nicht. Kein Anbietername oder Vertragsnummer nötig.
+- private_eu_rente (person): \`zahl\` und \`einheit\` chf_monat oder chf_jahr = bestehende private EU-Rente; Monatsrente wird mit 12 umgerechnet. Die versicherte Person ist ausschlaggebend, nicht wer die Prämie zahlt. Keine Beträge für mehrere Verträge addieren.
+- private_eu_deckung (person): \`text\` krankheit, unfall oder beides. Nur übernehmen, wenn genannt; nicht aus „Erwerbsunfähigkeitsrente“ ableiten.
+- private_eu_wartefrist_monate (person): \`zahl\` = Wartefrist in ganzen Monaten 0–120. Nicht raten; Tage nicht ungefragt in Monate umrechnen.
+- private_eu_endalter (person): \`zahl\` = ausdrücklich genanntes Alter bei Leistungsende 18–100. Nicht automatisch dem gewünschten Pensionierungsalter gleichsetzen.
+- private_eu_zusaetzlich (person): \`ja_nein\` = Kunde bestätigt ausdrücklich, dass diese Rente zusätzlich zu den gesetzlichen/PK-Leistungen ohne Verrechnung oder Kürzung gezahlt wird. Ohne Aussage nicht true setzen; bei Unsicherheit entfernen/false. Keine vertragliche Prüfung behaupten.
+- private_eu_mehrere_vertraege (person): \`ja_nein\` = mehr als ein bestehender privater EU-Rentenvertrag. „genau ein Vertrag“ → false. Werden mehrere genannt, true setzen und nicht mehrere Beträge in einem Feld zusammenrechnen oder den bisherigen Betrag durch einen zweiten ersetzen; das Modell unterstützt zunächst einen Vertrag pro Person.
+- Korrektur eines Betrags ändert nur diesen Wert. Bei einer anderen/neuen Ersatzpolice alte unbekannte Deckung, Wartefrist, Endalter und Zusatzbestätigung entfernen; sie gelten nicht automatisch weiter. Bei Widerruf einer Vertragsangabe das betroffene Feld entfernen.
 - pensionierungsalter (person): \`zahl\` = gewünschtes Alter 50–80 (unterstützter Demo-Bereich, keine Aussage über gesetzliche Grenzen). Auch eine Korrektur wie „doch mit 63“ übernehmen. Das ist eine Szenarioangabe; heutige Erwerbsdaten bleiben unverändert.
 - pk_altersrente (person): \`zahl\` = erwartete PK-Altersrente, \`einheit\` chf_monat oder chf_jahr. Nicht aus Einkommen ableiten.
 - pk_guthaben (person): \`zahl\` = heutiges PK-Guthaben, einmaliger CHF-Betrag, \`einheit\` null. Freizügigkeitsguthaben nicht still als aktive PK zuordnen.

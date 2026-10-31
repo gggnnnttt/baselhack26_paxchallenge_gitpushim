@@ -141,6 +141,46 @@
     </section>
 
     <section>
+      <h3>Bestehende private Erwerbsunfähigkeitsrente</h3>
+      <p>{{ s.privateEu.status }}</p>
+      <p>Separater Modellvergleich anhand deiner Angaben. Die ursprünglichen API-Ergebnisse oben bleiben unverändert.</p>
+      @for (v of s.privateEu.vergleiche; track v.szenario) {
+        <details [open]="v.status === 'modelliert'">
+          <summary>{{ v.szenario }}</summary>
+          <p>Ursprüngliche API-Lücke: {{ betrag(v.apiLuecke ?? undefined) }} pro Jahr.</p>
+          @if (v.status === 'modelliert') {
+            <dl>
+              <dt>Deklarierte private Jahresrente</dt><dd>{{ betrag(v.privateJahresrente ?? undefined) }}</dd>
+              <dt>Davon zur Lückendeckung</dt><dd>{{ betrag(v.zurLueckendeckung ?? undefined) }}</dd>
+              <dt>Restlücke nach Leistungsbeginn</dt><dd>{{ betrag(v.lueckeNachLeistungsbeginn ?? undefined) }} / Jahr</dd>
+            </dl>
+            <p><strong>Zeitliche Grenze:</strong> erst nach {{ v.wartefristMonate }} Monaten Wartefrist,
+              nur während der Leistung bis Alter {{ v.leistungsendeAlter }}.</p>
+            @if (v.wartefristMonate) {
+              <p>Während der Wartefrist bleibt die ursprüngliche Lücke von {{ betrag(v.apiLuecke ?? undefined) }} pro Jahr bestehen.</p>
+            }
+            <p>Nach Leistungsende gilt unter sonst gleichen Annahmen wieder die ursprüngliche API-Lücke.
+              Die kapitalisierte Lücke wurde nicht neu berechnet.</p>
+          } @else if (v.status === 'keine') {
+            <p>Laut Angabe keine private EU-Rente vorhanden. Die API-Lücke bleibt unverändert.</p>
+          } @else if (v.status === 'nicht_gedeckt') {
+            <p>Die angegebene Rente deckt diese Ursache nicht. Die API-Lücke bleibt unverändert.</p>
+          } @else {
+            <p>Keine zusätzliche Restlücke ableitbar; offene Angaben bedeuten nicht CHF 0.</p>
+          }
+          @if (v.offeneAngaben.length) {
+            <p>Noch zu klären:</p>
+            <ul class="fehlend">@for (f of v.offeneAngaben; track f) { <li>{{ f }}</li> }</ul>
+          }
+          <ul class="hinweise">@for (h of v.hinweise; track h) { <li>{{ h }}</li> }</ul>
+        </details>
+      }
+      <details><summary>Grenzen dieses Modellvergleichs</summary>
+        <ul class="hinweise">@for (h of s.privateEu.hinweise; track h) { <li>{{ h }}</li> }</ul>
+      </details>
+    </section>
+
+    <section>
       <h3>Pensionierung · Basisrechnung</h3>
       @let p = s.pensionierung;
       <p [class]="'phase ' + p.phase">{{ p.phaseText }}</p>

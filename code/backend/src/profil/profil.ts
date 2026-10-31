@@ -26,6 +26,19 @@ export const BEZIEHUNGEN = ['ledig', 'verheiratet', 'eingetragene_partnerschaft'
 export const ERWERB = ['angestellt', 'selbststaendig', 'nicht_erwerbstaetig'] as const;
 export const PLANARTEN = ['wiedereinstieg', 'pensumaenderung', 'stellenwechsel', 'familienzuwachs', 'wohneigentum', 'fruehpensionierung', 'pensionierung', 'sonstiges'] as const;
 
+// First release: one existing private disability pension per person. These are
+// customer declarations, not verified contractual entitlement or medical data.
+export const PrivateEu = z.object({
+  vorhanden: fakt(z.boolean()).optional(),
+  jahresrente: fakt(z.number().nonnegative()).optional(),
+  deckung: fakt(z.enum(['krankheit', 'unfall', 'beides'])).optional(),
+  wartefristMonate: fakt(z.number().int().min(0).max(120)).optional(),
+  leistungsendeAlter: fakt(z.number().int().min(18).max(100)).optional(),
+  zusaetzlichBestaetigt: fakt(z.boolean()).optional(),
+  mehrereVertraege: fakt(z.boolean()).optional(),
+}).strict();
+export type PrivateEu = z.infer<typeof PrivateEu>;
+
 // Today's situation only. Future intentions belong in `plaene`.
 export const Person = z.object({
   geschlecht: fakt(z.enum(['weiblich', 'maennlich'])).optional(),
@@ -41,6 +54,7 @@ export const Person = z.object({
   pensionierungsalter: fakt(z.number().int().min(50).max(80)).optional(),
   pkAltersrente: fakt(z.number().nonnegative()).optional(),
   pkGuthaben: fakt(z.number().nonnegative()).optional(),
+  privateEu: PrivateEu.optional(),
 }).strict();
 
 export const Kind = z.object({

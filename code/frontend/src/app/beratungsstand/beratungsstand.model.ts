@@ -10,6 +10,24 @@ export interface Fakt<T> {
 export interface Einkommen { betrag: number; einheit: 'chf_jahr' | 'chf_monat'; basis: 'brutto' | 'netto' | null; monatsloehne: 12 | 13 | null }
 export interface Bedarf { hoehe: number; einheit: 'prozent' | 'chf_jahr' }
 
+export interface PrivateEu {
+  vorhanden?: Fakt<boolean>;
+  jahresrente?: Fakt<number>;
+  deckung?: Fakt<'krankheit' | 'unfall' | 'beides'>;
+  wartefristMonate?: Fakt<number>;
+  leistungsendeAlter?: Fakt<number>;
+  zusaetzlichBestaetigt?: Fakt<boolean>;
+  mehrereVertraege?: Fakt<boolean>;
+}
+export interface PrivateEuVergleich {
+  szenario: string; person: 'A' | 'B'; ursache: 'krankheit' | 'unfall';
+  status: 'offen' | 'keine' | 'nicht_gedeckt' | 'modelliert' | 'nicht_verwendbar';
+  apiLuecke: number | null; privateJahresrente: number | null;
+  wartefristMonate: number | null; leistungsendeAlter: number | null;
+  zurLueckendeckung: number | null; lueckeNachLeistungsbeginn: number | null;
+  offeneAngaben: string[]; hinweise: string[];
+}
+
 export interface Person {
   geschlecht?: Fakt<'weiblich' | 'maennlich'>;
   geburtsjahr?: Fakt<number>;
@@ -22,6 +40,7 @@ export interface Person {
   pensionierungsalter?: Fakt<number>;
   pkAltersrente?: Fakt<number>;
   pkGuthaben?: Fakt<number>;
+  privateEu?: PrivateEu;
 }
 
 export interface Herkunft { quelle: 'aussage' | 'ableitung'; beleg: string; begruendung: string | null; nachricht: number }
@@ -88,6 +107,7 @@ export interface Beratungsstand {
     ergebnis: { zeitpunkt: string; veraltet: boolean; szenarien: Szenario[] } | null;
     fehler: string | null;
   };
+  privateEu: { status: string; hinweise: string[]; vergleiche: PrivateEuVergleich[] };
   pensionierung: {
     phase: 'erfassung' | 'bereit' | 'berechnet' | 'fehlgeschlagen';
     phaseText: string; vorhanden: Angabe[]; fehlend: Angabe[]; hinweise: string[]; request: unknown;

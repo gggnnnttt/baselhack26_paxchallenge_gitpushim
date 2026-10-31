@@ -122,3 +122,57 @@ Lokale Prüfung: 45 Tests und Backend-Typecheck erfolgreich; Angular-Produktions
 Im Chat: nach Backend-Neustart denselben synthetischen Pensionierungsfall mit CHF 70’000 Jahresbedarf verwenden. Im Panel erscheint „Zusätzlicher Sparbedarf bis zur Pensionierung“. Bei CHF 60’000 Bedarf ist in diesem Beispiel keine Kapitallücke und damit kein zusätzlicher Sparbedarf für dieses Modellziel vorhanden.
 
 Der vollständige Chatpfad wurde anschließend mit dem synthetischen CHF-70’000-Fall gegen das laufende Backend, die echte KI und beide APICalc-Rechner erfolgreich geprüft: Pensionierung und Sparen jeweils `berechnet`, Monatsrate CHF 335 und korrekte Erklärung im Chat. Die Testsitzung wurde danach gelöscht.
+
+## Bestehende private Erwerbsunfähigkeitsrente: Datenweg und Entwicklungsentscheidungen
+
+Umgesetzt ist ein vorhandener privater EU-Rentenvertrag je versicherter Person. Mehrere Verträge, Taggeld, Todesfallkapital und eine automatische Vertragsprüfung sind nicht Teil dieser Version.
+
+### 1. Datenmodell statt Prompt allein
+
+`src/profil/profil.ts` enthält `PrivateEu` als optionalen Teil jeder Person: vorhanden, Jahresrente, Ursache (Krankheit/Unfall/beides), Wartefrist in Monaten, Alter bei Leistungsende, Bestätigung einer zusätzlichen Auszahlung ohne Verrechnung/Kürzung und mehrere Verträge ja/nein. Alle Werte verwenden die vorhandenen Herkunftsangaben (Zitat, Nachricht, Aussage/Ableitung). Nicht erfasst bedeutet unbekannt und nicht automatisch nein oder CHF 0.
+
+### 2. Erfassung und Prüfung trennen
+
+`src/profil/extraktion.ts` erklärt dem Modell, welche Vertragsangabe in welches Änderungsfeld gehört. Keine Gesundheitsangaben oder Policennummern erfassen. Die versicherte Person ist entscheidend, nicht der Prämienzahler. Mehrere Renten nicht in einem Feld zusammenzählen.
+
+`src/profil/aenderungen.ts` definiert die neuen Änderungsarten und prüft Einheiten, Werte und Beleg. CHF 1’000 pro Monat werden zu CHF 12’000 pro Jahr. Prozentwerte als Rentenbetrag und negative Wartefristen werden abgelehnt. Bei einer Kündigung (`vorhanden=false`) werden die alten Vertragswerte entfernt, damit sie bei einer späteren anderen Police nicht unbemerkt wiederverwendet werden. Korrektur und Widerruf einzelner Felder sind unterstützt.
+
+### 3. Fachliche Regel als reine Funktion
+
+`src/berechnung/private-eu.ts` berechnet den Zusatzvergleich ohne Netzwerkaufruf. Nur aktuelle erfolgreiche EU-Szenarien 1/2/5/6 werden nach Person und Ursache zugeordnet. Todesfall-Szenarien bleiben unverändert. Erst nach vollständigen Angaben, bestätigter zusätzlicher Auszahlung und genau einem Vertrag wird eine Jahreslücke während der Leistungsphase modelliert:
+
+```text
+Restlücke ab Leistungsbeginn = max(0, ursprüngliche API-Jahreslücke − deklarierte private Jahresrente)
+```
+
+Beispiel mit erfundenen Zahlen: CHF 15’000 API-Lücke, CHF 12’000 private Jahresrente → CHF 3’000 Restlücke ab Leistungsbeginn. Bei sechs Monaten Wartefrist gilt dieser reduzierte Jahresbetrag erst nach diesen sechs Monaten, nicht rückwirkend und nicht als Durchschnitt des ersten Jahres. Nach Leistungsende gilt die ursprüngliche API-Lücke unter sonst gleichen Annahmen wieder. Nahe am Leistungsende blockiert die Anwendung den Vergleich, weil nur Jahrgänge und keine genauen Geburtstage erfasst sind.
+
+Es wird weder eine kapitalisierte Restlücke berechnet noch `CapitalGap` verändert. Eine Kundenaussage zur zusätzlichen Auszahlung ist kein geprüfter vertraglicher Leistungsanspruch. Sind Verrechnung, mehrere Verträge oder andere Bedingungen unklar, ist fachliche Prüfung nötig.
+
+### 4. Integration über einen abgeleiteten Stand
+
+`src/beratung/darstellung.ts` erzeugt `privateEu` für Frontend und Modellkontext aus dem aktuellen Profil und dem aktuellen Risikoergebnis. Der bestehende Chatablauf übernimmt Änderungen weiterhin erst nach akzeptierter Antwort. Änderungen nur an der privaten Rente benötigen keinen neuen APICalc-Aufruf: Der ursprüngliche API-Request bleibt gleich, der Zusatzvergleich wird neu abgeleitet. Bei veralteten Risikoergebnissen werden keine alten privaten Restlücken angezeigt.
+
+`apicalc.ts`, `server.ts` und die Ablaufmaschine benötigen für dieses Feature keine neue API-Methode oder Route. Die privaten Vertragsangaben werden nicht an APICalc gesendet.
+
+### 5. Oberfläche und KI erklären denselben Stand
+
+Im Frontend spiegeln `beratungsstand.model.ts` die neuen Typen und `beratungsstand.ts` die Profilangaben. `beratungsstand.html` zeigt einen getrennten Abschnitt mit Original-Lücke, deklarierter privater Rente, dem zur Lückendeckung verwendeten Teil und der Restlücke ab Leistungsbeginn. Wartefrist, Endalter und offene Fragen bleiben sichtbar. Der ursprüngliche API-Ergebnisblock bleibt unverändert.
+
+`advisor.instructions.md` erklärt, dass der Zusatzvergleich vom Backend stammt, nicht von APICalc, und zeitlich begrenzt ist. Der Datenschutzhinweis beschreibt die Übertragung der Profilangaben an den Modellanbieter.
+
+### 6. Prüfen statt nur den Erfolgsfall zeigen
+
+`test/private-eu.test.ts` prüft Zuordnung nach Person/Ursache, keine Anrechnung im Todesfall, Wartefrist/Endalter, fehlende Angaben, Verrechnung, mehrere Verträge, Nullwerte, überdeckte Lücken, Monatsumrechnung, Korrektur, Kündigung, Widerruf und veraltete Ergebnisse. Ein Chat-Integrationstest belegt, dass kein zusätzlicher Risiko-API-Aufruf nötig ist und blockierte Antworten keine neuen privaten Angaben speichern. Insgesamt 52 Tests und Backend-Typecheck erfolgreich; Frontend-Produktionsbuild erfolgreich.
+
+### Test im Chat
+
+Backend neu starten und eine neue Sitzung mit einem synthetischen Risikohaushalt beginnen. Erst den bisherigen Risiko-Testfall vollständig erfassen. Danach:
+
+> Ich habe genau einen bestehenden privaten Erwerbsunfähigkeitsrentenvertrag. Versichert bin ich selbst. Er zahlt CHF 1’000 pro Monat bei Krankheit und Unfall nach 6 Monaten Wartefrist bis zu meinem Alter 65. Ich bestätige, dass diese Rente zusätzlich zu den gesetzlichen und PK-Leistungen ohne Verrechnung oder Kürzung dieser Leistungen ausgezahlt wird.
+
+Erwartung: Person A erhält eine deklarierte private Jahresrente CHF 12’000. Für Krankheit und Unfall wird bei vollständigen Angaben die Restlücke ab Leistungsbeginn separat angezeigt. Person B und Todesfallwerte bleiben unverändert. Danach „Korrektur: Meine private EU-Rente beträgt CHF 1’500 pro Monat. Die übrigen Bedingungen bleiben gleich.“ → Jahresrente CHF 18’000 und neuer Vergleich ohne neuen APICalc-Aufruf. Danach „Ich bin nicht sicher, ob die private EU-Rente zusätzlich ohne Verrechnung ausgezahlt wird.“ → offene Klärung statt eines weiter angezeigten reduzierten Restlückenbetrags.
+
+API-Verhalten im privaten EU-Vergleich: Die echte Risiko-API liefert im geprüften synthetischen Fall ErrorCode 0 für erfolgreiche Szenarien, während Swagger v1.2 dafür 1 nennt. Der Vergleich akzeptiert 0 und 1 mit einer gültigen nichtnegativen Einkommenslücke; andere oder fehlende Codes werden nicht angerechnet. Ein Regressionstest deckt diese Abweichung ab.
+
+Der vollständige Chat-Service wurde nach dieser Korrektur mit echter KI und APICalc anhand eines synthetischen ledigen Mannes (1990, CHF 100’000 Bruttojahreseinkommen, Risiko-Bedarf 80 %/70 %) erfolgreich geprüft. Die nachträglich erfasste private Rente CHF 1’000/Monat, Krankheit und Unfall, sechs Monate Wartefrist bis Alter 65 wurde ohne abgelehnte Profiländerungen übernommen. Krankheit: API-Lücke CHF 30’724/Jahr, private Jahresrente CHF 12’000, modellierte Restlücke CHF 18’724/Jahr ab Leistungsbeginn. Unfall: API-Lücke bereits null, keine negative Restlücke. Testsitzung anschließend gelöscht.

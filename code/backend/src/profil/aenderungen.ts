@@ -1,11 +1,13 @@
 import { z } from 'zod';
-import { BEZIEHUNGEN, ERWERB, PLANARTEN, Profil, type Bedarf, type Einkommen, type Herkunft, type Kind, type Person, type Plan } from './profil.js';
+import { BEZIEHUNGEN, ERWERB, PLANARTEN, Profil, type Bedarf, type Einkommen, type Herkunft, type Kind, type Person, type Plan, type PrivateEu } from './profil.js';
 
 // Change proposals produced by the model. All keys are required (nullable) so the schema works with strict structured outputs.
 export const FELDER = [
   'anliegen', 'beziehung', 'beziehung_seit_jahr', 'hat_kinder', 'gemeinsamer_haushalt',
   'geschlecht', 'geburtsjahr', 'erwerb', 'pensum', 'einkommen', 'bvg_versichert', 'bedarf_invaliditaet', 'bedarf_todesfall',
   'pensionierungsalter', 'pk_altersrente', 'pk_guthaben', 'bedarf_pensionierung', 'vermoegen_pensionierung', 'pensionierung_basis_bestaetigt',
+  'private_eu_vorhanden', 'private_eu_rente', 'private_eu_deckung', 'private_eu_wartefrist_monate',
+  'private_eu_endalter', 'private_eu_zusaetzlich', 'private_eu_mehrere_vertraege',
   'kind', 'kind_geburtsjahr', 'kind_elternteil', 'kind_alleiniges_sorgerecht',
   'plan', 'plan_zeitpunkt', 'plan_pensum', 'plan_einkommen', 'plan_sicherheit',
 ] as const;
@@ -127,9 +129,9 @@ const kapital = (a: Aenderung): number => {
   return a.zahl;
 };
 const jahresbetrag = (a: Aenderung): number => {
-  if (a.einheit !== 'chf_monat' && a.einheit !== 'chf_jahr') return ablehnen('PK-Rente braucht CHF pro Monat oder Jahr.');
+  if (a.einheit !== 'chf_monat' && a.einheit !== 'chf_jahr') return ablehnen('Rente braucht CHF pro Monat oder Jahr.');
   const betrag = a.zahl === null ? null : a.zahl * (a.einheit === 'chf_monat' ? 12 : 1);
-  if (betrag === null || !Number.isFinite(betrag) || betrag < 0 || betrag > 10_000_000) return ablehnen('PK-Rente ist ungültig.');
+  if (betrag === null || !Number.isFinite(betrag) || betrag < 0 || betrag > 10_000_000) return ablehnen('Rentenbetrag ist ungültig.');
   return betrag;
 };
 
@@ -142,6 +144,21 @@ function personFeld<K extends keyof Person>(profil: Profil, a: Aenderung, feld: 
   }
   const neu = wert();
   (profil.personen[a.person] ??= {})[feld] = neu;
+}
+
+function privateEuFeld<K extends keyof PrivateEu>(profil: Profil, a: Aenderung, feld: K, wert: () => PrivateEu[K]): void {
+  if (!a.person) return ablehnen('Versicherte Person A oder B fehlt.');
+  if (a.aktion === 'entfernen') {
+    delete profil.personen[a.person]?.privateEu?.[feld];
+    return;
+  }
+  const neu = wert(); // Validate before creating objects.
+  const person = profil.personen[a.person] ??= {};
+  (person.privateEu ??= {})[feld] = neu;
+  if (feld === 'vorhanden' && person.privateEu.vorhanden?.wert === false) {
+    // A cancelled policy must not leave an old benefit available for later reuse.
+    person.privateEu = { vorhanden: person.privateEu.vorhanden };
+  }
 }
 
 function kindFinden(profil: Profil, a: Aenderung, neueIds: Map<string, string>): Kind {
@@ -213,6 +230,27 @@ function wende(profil: Profil, a: Aenderung, herkunft: Herkunft, neueIds: Map<st
       return;
     case 'bedarf_todesfall':
       personFeld(profil, a, 'bedarfTodesfall', () => fakt(bedarf(a)));
+      return;
+    case 'private_eu_vorhanden':
+      privateEuFeld(profil, a, 'vorhanden', () => fakt(janein(a, 'Private Erwerbsunfähigkeitsrente vorhanden')));
+      return;
+    case 'private_eu_rente':
+      privateEuFeld(profil, a, 'jahresrente', () => fakt(jahresbetrag(a)));
+      return;
+    case 'private_eu_deckung':
+      privateEuFeld(profil, a, 'deckung', () => fakt(auswahl(a, ['krankheit', 'unfall', 'beides'] as const, 'Deckung')));
+      return;
+    case 'private_eu_wartefrist_monate':
+      privateEuFeld(profil, a, 'wartefristMonate', () => fakt(ganzzahl(a, 0, 120, 'Wartefrist in Monaten')));
+      return;
+    case 'private_eu_endalter':
+      privateEuFeld(profil, a, 'leistungsendeAlter', () => fakt(ganzzahl(a, 18, 100, 'Leistungsende (Alter)')));
+      return;
+    case 'private_eu_zusaetzlich':
+      privateEuFeld(profil, a, 'zusaetzlichBestaetigt', () => fakt(janein(a, 'Zusätzliche Auszahlung ohne Verrechnung bestätigt')));
+      return;
+    case 'private_eu_mehrere_vertraege':
+      privateEuFeld(profil, a, 'mehrereVertraege', () => fakt(janein(a, 'Mehrere private EU-Rentenverträge')));
       return;
     case 'pensionierungsalter':
       personFeld(profil, a, 'pensionierungsalter', () => fakt(ganzzahl(a, 50, 80, 'Pensionierungsalter (unterstützter Demo-Bereich)')));

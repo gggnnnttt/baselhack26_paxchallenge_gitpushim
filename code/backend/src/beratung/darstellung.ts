@@ -1,3 +1,4 @@
+import { vergleichePrivateEu, type PrivateEuAnsicht } from '../berechnung/private-eu.js';
 import type { SparStand } from '../berechnung/sparen.js';
 import type { PensionierungsStand, RetirementRequest, RetirementResponse } from '../berechnung/pensionierung.js';
 import { szenarien, type Angabe, type RiskRequest, type Szenario } from '../berechnung/risiko.js';
@@ -31,6 +32,7 @@ function personText(person: Person | undefined, id: PersonId): string {
     `Pensum ${person.pensumProzent ? `${person.pensumProzent.wert} %` + abgeleitet(person.pensumProzent) : 'unbekannt'}`,
     `Einkommen ${person.einkommen ? einkommenText(person.einkommen.wert) + abgeleitet(person.einkommen) : 'unbekannt'}`,
     `Pensionskasse ${janein(person.bvgVersichert?.wert)}${abgeleitet(person.bvgVersichert)}`,
+    `Private EU-Rente ${person.privateEu ? JSON.stringify(person.privateEu) : 'noch nicht erfasst'}`,
     `Bedarf bei Erwerbsunfähigkeit ${person.bedarfInvaliditaet ? bedarfText(person.bedarfInvaliditaet.wert) + abgeleitet(person.bedarfInvaliditaet) : 'unbekannt'}`,
     `Pensionierungsalter ${person.pensionierungsalter?.wert ?? 'unbekannt'}`,
     `PK-Altersrente ${person.pkAltersrente ? chf(person.pkAltersrente.wert) + ' pro Jahr' : 'unbekannt'}`,
@@ -99,6 +101,7 @@ export function beratungsKontext(stand: AblaufStand, bericht: Aenderungsbericht)
     'Grenzen:',
     ...pruefung.hinweise.map(h => `- ${h}`),
     ...ergebnis,
+    privateEuKontext(stand),
     '',
     pensionierungsKontext(stand.pensionierung),
     sparKontext(stand.sparen),
@@ -157,6 +160,28 @@ function sparKontext(s: SparStand): string {
   ].join('\n');
 }
 
+function privateEuAnsicht(stand: AblaufStand): PrivateEuAnsicht {
+  const { profil, berechnung, pruefung, jahr } = stand.kontext;
+  const aktuell = stand.phase === 'berechnet' && berechnung?.requestJson === pruefung.requestJson;
+  return vergleichePrivateEu(profil, aktuell && berechnung ? berechnung.antwort : null, jahr);
+}
+function privateEuKontext(stand: AblaufStand): string {
+  const a = privateEuAnsicht(stand);
+  return [
+    '### Bestehende private Erwerbsunfähigkeitsrente (eigener Backend-Modellvergleich, NICHT APICalc)',
+    a.status, ...a.hinweise.map(h => `- ${h}`),
+    ...a.vergleiche.map(v => [
+      `${v.szenario}: Status ${v.status}; ursprüngliche API-Lücke ${betrag(v.apiLuecke ?? undefined)}/Jahr.`,
+      ...(v.status === 'modelliert' ? [
+        `Deklarierte private Rente ${betrag(v.privateJahresrente ?? undefined)}/Jahr, davon zur Lückendeckung ${betrag(v.zurLueckendeckung ?? undefined)}/Jahr.`,
+        `Restlücke NUR nach Leistungsbeginn ${betrag(v.lueckeNachLeistungsbeginn ?? undefined)}/Jahr. Wartefrist ${v.wartefristMonate} Monate, Ende Alter ${v.leistungsendeAlter}.`,
+      ] : ['Kein zusätzlicher Restlückenbetrag ableitbar. Offene Angaben bedeuten nicht null.']),
+      ...v.offeneAngaben.map(f => `Offen: ${f}`), ...v.hinweise,
+    ].join(' ')),
+    'Fehlende Angaben gezielt erfragen. Keine Anrechnung oder Vertragsprüfung behaupten, die der Stand nicht bestätigt.',
+  ].join('\n');
+}
+
 export interface BeratungsstandAnsicht {
   phase: Phase;
   phaseText: string;
@@ -169,6 +194,7 @@ export interface BeratungsstandAnsicht {
     ergebnis: { zeitpunkt: string; veraltet: boolean; szenarien: Szenario[] } | null;
     fehler: string | null;
   };
+  privateEu: PrivateEuAnsicht;
   pensionierung: PensionierungsAnsicht;
   sparen: Omit<SparStand, 'grundlageJson'>;
   letzteNachricht: Aenderungsbericht;
@@ -189,6 +215,7 @@ export function ansicht(stand: AblaufStand, bericht: Aenderungsbericht): Beratun
       ergebnis: berechnung ? { zeitpunkt: berechnung.zeitpunkt, veraltet: berechnung.requestJson !== pruefung.requestJson, szenarien: szenarien(berechnung.antwort) } : null,
       fehler: stand.phase === 'fehlgeschlagen' ? fehler : null,
     },
+    privateEu: privateEuAnsicht(stand),
     pensionierung: pensionierungsAnsicht(stand.pensionierung),
     sparen: (({ grundlageJson: _, ...sichtbar }) => sichtbar)(stand.sparen),
     letzteNachricht: bericht,
