@@ -1,0 +1,18 @@
+<svg viewBox="-30 0 206 206" aria-hidden="true" focusable="false">
+  <defs>
+    <!-- The black stroke inside the mask slims the P down by half its width. -->
+    <mask [attr.id]="maskId" maskUnits="userSpaceOnUse" x="50" y="-10" width="150" height="170">
+      <path [attr.d]="P" fill="white" stroke="black" stroke-width="8" stroke-linejoin="round" />
+    </mask>
+  </defs>
+  <!-- The transforms and the mouth shape are animated in pax-avatar.ts. -->
+  <g #face>
+    <g #brow class="brow">
+      <g transform="matrix(0 1 1 0 0 -53.37)">
+        <path [attr.d]="P" [attr.mask]="'url(#' + maskId + ')'" />
+      </g>
+    </g>
+    <rect #eye class="eye" x="108" y="68" width="25" height="25" />
+    <path #mouth class="mouth" [attr.d]="SMILE_PATH" />
+  </g>
+</svg>

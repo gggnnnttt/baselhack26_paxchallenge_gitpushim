@@ -53,6 +53,7 @@
               }
             ],
             "styles": [
+              "src/pax/pax-tokens.css",
               "src/styles.scss"
             ]
           },

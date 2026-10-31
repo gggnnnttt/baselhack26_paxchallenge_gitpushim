@@ -72,10 +72,18 @@
 
         <div class="messages">
           @for (m of messages(); track $index) {
-            @if (m.role === 'assistant') {<div class="message message-markdown" [innerHTML]="m.content | markdown"></div>} @else {<div class="message user">{{ m.content }}</div>}
+            @if (m.role === 'assistant') {
+              <div class="bot-turn">
+                <app-pax-avatar class="message-avatar" [state]="$last && talking() ? 'talking' : 'still'" />
+                <div class="message message-markdown" [innerHTML]="m.content | markdown"></div>
+              </div>
+            } @else {<div class="message user">{{ m.content }}</div>}
           }
           @if (loading()) {
-            <div class="message">…</div>
+            <div class="bot-turn">
+              <app-pax-avatar class="message-avatar" state="thinking" />
+              <div class="message">…</div>
+            </div>
           }
           @if (error()) {
             <div class="error">{{ error() }}</div>
@@ -99,7 +107,7 @@
       </div>
       <div class="consultation-sidebar">
         <div class="pax-face">
-          <img src="pax-face-v4.svg" alt="PAX Gesicht" width="256" height="256" />
+          <app-pax-avatar [state]="avatarState()" />
         </div>
         <app-beratungsstand [stand]="stand()" />
       </div>

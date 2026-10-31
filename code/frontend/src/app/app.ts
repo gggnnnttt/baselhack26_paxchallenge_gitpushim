@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -6,6 +6,7 @@ import { MarkdownPipe } from './markdown.pipe';
 import { firstValueFrom } from 'rxjs';
 import { BeratungsstandPanel } from './beratungsstand/beratungsstand';
 import type { Beratungsstand } from './beratungsstand/beratungsstand.model';
+import { PaxAvatar, type PaxAvatarState } from './pax-avatar/pax-avatar';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -13,7 +14,7 @@ interface Message {
 }
 
 @Component({
-  imports: [FormsModule, NgTemplateOutlet, BeratungsstandPanel, MarkdownPipe],
+  imports: [FormsModule, NgTemplateOutlet, BeratungsstandPanel, MarkdownPipe, PaxAvatar],
   selector: 'app-root',
   styleUrl: './app.scss',
   templateUrl: './app.html',
@@ -29,8 +30,13 @@ export class App {
   protected readonly loading = signal(false);
   protected readonly error = signal('');
   protected readonly info = signal('');
+  protected readonly talking = signal(false);
+  protected readonly avatarState = computed<PaxAvatarState>(() =>
+    this.loading() ? 'thinking' : this.talking() ? 'talking' : 'idle',
+  );
   protected input = '';
   private sessionId: string | undefined;
+  private talkingTimer: ReturnType<typeof setTimeout> | undefined;
 
   protected start() {
     if (this.acknowledged) this.accepted.set(true);
@@ -49,6 +55,7 @@ export class App {
       }
     }
     this.sessionId = undefined;
+    this.stopTalking();
     this.messages.set([]);
     this.stand.set(null);
     this.input = '';
@@ -75,10 +82,24 @@ export class App {
       this.sessionId = res.sessionId;
       this.messages.update((m) => [...m, { role: 'assistant', content: res.reply }]);
       this.stand.set(res.beratungsstand);
+      this.startTalking(res.reply);
     } catch (err: any) {
       this.error.set(err?.error?.error ?? 'Backend nicht erreichbar');
     } finally {
       this.loading.set(false);
     }
+  }
+
+  // The avatar "talks" a little longer for longer replies.
+  private startTalking(reply: string) {
+    this.stopTalking();
+    this.talking.set(true);
+    const duration = Math.min(4000, Math.max(1200, reply.length * 20));
+    this.talkingTimer = setTimeout(() => this.talking.set(false), duration);
+  }
+
+  private stopTalking() {
+    clearTimeout(this.talkingTimer);
+    this.talking.set(false);
   }
 }

@@ -2,6 +2,7 @@
 
 body {
   margin: 0;
+  font-family: "Civil Premium", system-ui, sans-serif;
 }
 
 .pax-start-button,
@@ -109,7 +110,6 @@ body {
   border-radius: 20px;
   background: #fff;
   color: #121212;
-  font-family: system-ui, sans-serif;
 
   &::backdrop { background: rgba(0, 0, 0, 0.32); }
 

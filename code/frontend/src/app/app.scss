@@ -23,7 +23,6 @@ main {
   max-width: 1200px;
   margin: 0 auto;
   padding: 1rem;
-  font-family: system-ui, sans-serif;
 }
 
 .messages {
@@ -45,6 +44,21 @@ main {
     background: #d6e8ff;
     align-self: flex-end;
   }
+}
+
+.bot-turn {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  align-self: flex-start;
+  max-width: 85%;
+
+  .message { min-width: 0; max-width: none; }
+}
+
+.message-avatar {
+  flex: 0 0 36px;
+  width: 36px;
 }
 
 .error {
@@ -311,11 +325,7 @@ main {
   display: flex;
   justify-content: center;
 
-  img {
-    display: block;
-    width: min(100%, 256px);
-    height: auto;
-  }
+  app-pax-avatar { width: min(100%, 224px); align-self: center; }
 }
 
 .chat {
