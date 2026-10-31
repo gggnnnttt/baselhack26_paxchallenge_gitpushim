@@ -8,7 +8,8 @@
     "start": "tsx src/server.ts",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test test/*.test.ts",
-    "test:pensionierung": "tsx scripts/test-pensionierung.ts"
+    "test:pensionierung": "tsx scripts/test-pensionierung.ts",
+    "test:sparen": "node --import tsx scripts/test-sparen.ts"
   },
   "engines": {
     "node": ">=20.12"

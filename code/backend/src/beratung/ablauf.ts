@@ -1,3 +1,4 @@
+import { aktualisiereSparen, starteSparen, type SparStand } from '../berechnung/sparen.js';
 import { aktualisierePensionierung, startePensionierung, type PensionierungsStand } from '../berechnung/pensionierung.js';
 import { assign, createActor, fromPromise, setup, waitFor, type Snapshot } from 'xstate';
 import type { RisikoRechner } from '../berechnung/apicalc.js';
@@ -7,7 +8,7 @@ import { leeresProfil, type Profil } from '../profil/profil.js';
 export interface Berechnung { requestJson: string; antwort: RiskResponse; zeitpunkt: string }
 export interface AblaufKontext { jahr: number; profil: Profil; pruefung: RisikoPruefung; berechnung: Berechnung | null; fehler: string | null }
 export type Phase = 'erfassung' | 'bereit' | 'berechnung' | 'berechnet' | 'fehlgeschlagen';
-export interface AblaufStand { phase: Phase; kontext: AblaufKontext; snapshot: Snapshot<unknown>; pensionierung: PensionierungsStand }
+export interface AblaufStand { phase: Phase; kontext: AblaufKontext; snapshot: Snapshot<unknown>; pensionierung: PensionierungsStand; sparen: SparStand }
 
 type AblaufEvent = { type: 'PROFIL_AKTUALISIERT'; profil: Profil };
 
@@ -83,7 +84,7 @@ export class Beratungsablauf {
     actor.start();
     const stand = this.stand(actor);
     actor.stop();
-    return { ...stand, pensionierung: startePensionierung(stand.kontext.profil, jahr) };
+    return { ...stand, pensionierung: startePensionierung(stand.kontext.profil, jahr), sparen: starteSparen() };
   }
 
   /** Works on a restored copy; the caller decides whether the returned state is committed. */
@@ -97,13 +98,15 @@ export class Beratungsablauf {
         aktualisierePensionierung(vorher.pensionierung, profil, vorher.kontext.jahr,
           this.rechner?.berechnePensionierung ? { berechnePensionierung: request => this.rechner!.berechnePensionierung!(request) } : null),
       ]);
-      return { ...this.stand(actor), pensionierung };
+      const sparen = await aktualisiereSparen(vorher.sparen, pensionierung, vorher.kontext.jahr,
+        this.rechner?.berechneSparen ? { berechneSparen: request => this.rechner!.berechneSparen!(request) } : null);
+      return { ...this.stand(actor), pensionierung, sparen };
     } finally {
       actor.stop();
     }
   }
 
-  private stand(actor: ReturnType<typeof createActor<ReturnType<typeof erstelleAblauf>>>): Omit<AblaufStand, 'pensionierung'> {
+  private stand(actor: ReturnType<typeof createActor<ReturnType<typeof erstelleAblauf>>>): Omit<AblaufStand, 'pensionierung' | 'sparen'> {
     const snapshot = actor.getSnapshot();
     return { phase: snapshot.value as Phase, kontext: snapshot.context, snapshot: actor.getPersistedSnapshot() };
   }

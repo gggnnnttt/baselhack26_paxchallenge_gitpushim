@@ -1,3 +1,4 @@
+import type { SparStand } from '../berechnung/sparen.js';
 import type { PensionierungsStand, RetirementRequest, RetirementResponse } from '../berechnung/pensionierung.js';
 import { szenarien, type Angabe, type RiskRequest, type Szenario } from '../berechnung/risiko.js';
 import type { Protokolleintrag } from '../profil/aenderungen.js';
@@ -100,6 +101,7 @@ export function beratungsKontext(stand: AblaufStand, bericht: Aenderungsbericht)
     ...ergebnis,
     '',
     pensionierungsKontext(stand.pensionierung),
+    sparKontext(stand.sparen),
     '',
     '### Aus der letzten Nachricht',
     `Übernommen: ${bericht.uebernommen.length ? bericht.uebernommen.map(e => e.text).join('; ') : 'nichts'}`,
@@ -136,9 +138,22 @@ function pensionierungsKontext(p: PensionierungsStand): string {
     'Grenzen und Annahmen:', ...a.hinweise.map(h => `- ${h}`),
     ...(e && !e.veraltet ? [
       `Aktuelles Pensionierungsergebnis vom ${e.zeitpunkt} (Einkommen pro Jahr, Kapital einmalig):`,
-      `Bedarf ${betrag(e.werte.IncomeNeed)}, Renteneinkommen ${betrag(e.werte.IncomeTotal)}, 1. Säule ${betrag(e.werte.IncomePillar1)}, 2. Säule ${betrag(e.werte.IncomePillar2)}, Vermögensverzehr ${betrag(e.werte.IncomeWithdrawal)}, Einkommenslücke ${betrag(e.werte.IncomeGap)}.`,
+      `Bedarf ${betrag(e.werte.IncomeNeed)}, Gesamte verfügbare Einnahmen inklusive Vermögensverzehr ${betrag(e.werte.IncomeTotal)}, 1. Säule ${betrag(e.werte.IncomePillar1)}, 2. Säule ${betrag(e.werte.IncomePillar2)}, Vermögensverzehr ${betrag(e.werte.IncomeWithdrawal)}, Einkommenslücke ${betrag(e.werte.IncomeGap)}.`,
       `Vermögen beim ersten Rentenfall ${betrag(e.werte.AvailableFortune)}, Kapitalbedarf ${betrag(e.werte.CapitalNeed)}, Kapitallücke ${betrag(e.werte.CapitalGap)}.`,
     ] : [a.fehler ?? 'Kein aktuelles Pensionierungsergebnis. Alte Werte nicht verwenden.']),
+  ].join('\n');
+}
+
+function sparKontext(s: SparStand): string {
+  return [
+    '### Zusätzlicher Sparbedarf (APICalc calculateSaving)', s.phaseText,
+    ...s.hinweise.map(h => `- ${h}`),
+    ...(s.ergebnis ? [
+      `Aktuelles Sparszenario vom ${s.ergebnis.zeitpunkt}: monatlich CHF ${s.ergebnis.monatlicherSparbetrag.toFixed(2)} über näherungsweise ${s.dauerJahre} Jahre bis ${s.zieljahr}, um zusätzlich ${betrag(s.zielkapital ?? undefined)} aufzubauen. Startkapital CHF 0, Zins 0 %.`,
+      `Endkapital laut Sparrechner nach Rundung der Monatsrate: ${betrag(s.ergebnis.endkapital)}. Dieses kann etwas über dem Zielkapital liegen.`,
+      'Dies ist ein zusätzlicher Lösungsweg zur unveränderten Basisrechnung. Keine bestätigte Budget-Tragbarkeit, keine Versicherungsprämie. Nicht behaupten, die Lücke sei schon geschlossen oder ein Vertrag abgeschlossen.',
+    ] : [s.fehler ?? 'Kein aktueller monatlicher Sparbetrag. Keine Sparrate selbst erfinden.']),
+    'Eine geänderte Kundenangabe erzeugt ein neues Szenario; behaupte nicht allein deshalb, die vorige Antwort sei falsch gewesen.',
   ].join('\n');
 }
 
@@ -155,6 +170,7 @@ export interface BeratungsstandAnsicht {
     fehler: string | null;
   };
   pensionierung: PensionierungsAnsicht;
+  sparen: Omit<SparStand, 'grundlageJson'>;
   letzteNachricht: Aenderungsbericht;
 }
 
@@ -174,6 +190,7 @@ export function ansicht(stand: AblaufStand, bericht: Aenderungsbericht): Beratun
       fehler: stand.phase === 'fehlgeschlagen' ? fehler : null,
     },
     pensionierung: pensionierungsAnsicht(stand.pensionierung),
+    sparen: (({ grundlageJson: _, ...sichtbar }) => sichtbar)(stand.sparen),
     letzteNachricht: bericht,
   };
 }

@@ -11,14 +11,14 @@ Browser (Angular, Verlauf nur im Arbeitsspeicher)
       → OpenAI-Aufruf 1: Themenprüfung mit den letzten höchstens 7 akzeptierten Nachrichten
       → OpenAI-Aufruf 2: Profilerfassung mit dem bisherigen Profil und den letzten höchstens 6 Nachrichten
       → lokale Prüfung der Profilvorschläge (Beleg in der Nachricht, Wertebereiche)
-      → je nach vollständigen Angaben und APICALC_TOKEN: APICalc calculateRisk und/oder calculateRetirement (unabhängig)
+      → je nach vollständigen Angaben und APICALC_TOKEN: APICalc calculateRisk und/oder calculateRetirement (unabhängig), danach ggf. calculateSaving aus der aktuellen Kapitallücke
       → OpenAI-Aufruf 3: Antwort mit dem akzeptierten Verlauf (höchstens 40 Nachrichten) und dem Beratungsstand
       → lokale Ausgabeprüfung
   ← Antwort an den Browser
 ```
 
 - An OpenAI gehen: der Systemprompt, die Chatnachrichten nach der lokalen Prüfung und der daraus abgeleitete Beratungsstand (Profil, fehlende Angaben, Berechnungsergebnis). Sitzungskennung, IP-Adresse oder Benutzerkennungen werden nicht mitgeschickt.
-- An APICalc (`baselhackathon2026.azurewebsites.net`, vom Hackathon bereitgestellt) gehen für `calculateRisk` die Felder: Beziehungsstatus und -jahr, Geschlecht, Geburtsjahr, Bruttoeinkommen, Pensionskasse ja/nein, Bedarf und Anzahl Kinder. Für `calculateRetirement` gehen zusätzlich gewünschte Pensionierungsalter, PK-Altersrenten, PK-Guthaben, ausdrücklich für die Pensionierung vorgesehenes privates Vermögen und gewünschter Ruhestandsbedarf an den Dienst. Nach Bestätigung werden die Modellannahmen keine weiteren Sparbeiträge, 0 % Zins und Planung bis Alter 88 übermittelt. Keine Namen, keine vollständigen Geburtsdaten, keine Chattexte. Ohne `APICALC_TOKEN` findet kein Aufruf statt.
+- An APICalc (`baselhackathon2026.azurewebsites.net`, vom Hackathon bereitgestellt) gehen für `calculateRisk` die Felder: Beziehungsstatus und -jahr, Geschlecht, Geburtsjahr, Bruttoeinkommen, Pensionskasse ja/nein, Bedarf und Anzahl Kinder. Für `calculateRetirement` gehen zusätzlich gewünschte Pensionierungsalter, PK-Altersrenten, PK-Guthaben, ausdrücklich für die Pensionierung vorgesehenes privates Vermögen und gewünschter Ruhestandsbedarf an den Dienst. Nach Bestätigung werden die Modellannahmen keine weiteren Sparbeiträge, 0 % Zins und Planung bis Alter 88 übermittelt. Für das zusätzliche Sparszenario (`calculateSaving`) gehen daraus abgeleitet Zielkapital, Spardauer und die Konstanten monatliche Einzahlung, Startkapital CHF 0 und 0 % Zins an den Dienst. Keine Namen, keine vollständigen Geburtsdaten, keine Chattexte. Ohne `APICALC_TOKEN` findet kein Aufruf statt.
 - Eine Nachricht, die erst die Themenprüfung oder die Ausgabeprüfung ablehnt, **wurde bereits an OpenAI übertragen**. Nur lokal blockierte Eingaben erreichen den Anbieter nie.
 - OpenAI wird mit `store: false` aufgerufen. Das schliesst eine Aufbewahrung beim Anbieter nach dessen Bedingungen (z. B. zur Missbrauchsüberwachung) nicht aus. Wir können sie nicht steuern.
 - Backend → OpenAI läuft über HTTPS, Browser → Backend in der Demo über unverschlüsseltes HTTP auf localhost. Transportverschlüsselung schützt die Übertragung, sie anonymisiert nichts.
@@ -76,9 +76,11 @@ Nichts davon ist umgesetzt oder geprüft.
 
 ## Verifiziert
 
-- `npm test` im Backend: 37 Tests ohne echte Kundendaten und ohne externe Modell- oder APICalc-Aufrufe, darunter Löschung, Löschung während eines laufenden Aufrufs, Ablauf ohne Folgeanfrage und Abweisung von Profil-/Formularfeldern vor Themenprüfung und Antwort.
+- `npm test` im Backend: 45 Tests ohne echte Kundendaten und ohne externe Modell- oder APICalc-Aufrufe, darunter Löschung, Löschung während eines laufenden Aufrufs, Ablauf ohne Folgeanfrage und Abweisung von Profil-/Formularfeldern vor Themenprüfung und Antwort.
 - Gegen das laufende Backend: `DELETE /api/chat` liefert `204` bzw. `400`; ein Chat-Request mit `profile`-Feld liefert `400`.
 - Zwei kurze Live-Gespräche mit erfundenen Müller-Angaben gegen OpenAI (ohne APICalc-Token); die Sitzungen wurden danach gelöscht.
 - Angular-Produktionsbuild erfolgreich. Die Oberfläche wurde nicht automatisiert im Browser durchgeklickt, und es gab keinen Live-Modellaufruf und keine juristische Prüfung.
 
-- Pensionierungs-Erweiterung: neuer Datenfluss im Frontend-Hinweis ergänzt; 37 lokale Tests, Typecheck und Angular-Build erfolgreich. Separater Live-Verbindungstest mit synthetischem Einpersonenfall gegen APICalc erfolgreich. Keine fachliche oder rechtliche Freigabe.
+- Pensionierungs-Erweiterung: neuer Datenfluss im Frontend-Hinweis ergänzt; 45 lokale Tests, Typecheck und Angular-Build erfolgreich. Separater Live-Verbindungstest mit synthetischem Einpersonenfall gegen APICalc erfolgreich. Keine fachliche oder rechtliche Freigabe.
+
+Spar-Erweiterung: zusätzlicher API-Datenfluss und Modellannahmen sind im Einstiegshinweis und Ergebnis-Panel beschrieben. Die berechnete Monatsrate wird als zusätzlicher Lösungsweg erklärt; keine neue Datenspeicherung auf Datenträger. Der direkte Verbindungstest `npm run test:sparen` sendet ausschließlich synthetische Daten, ruft aber die echte API auf.

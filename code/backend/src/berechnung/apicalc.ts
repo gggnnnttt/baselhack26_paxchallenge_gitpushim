@@ -1,3 +1,4 @@
+import { SavingRequest, SavingResponse, type SparRechner } from './sparen.js';
 import { z } from 'zod';
 import { RetirementRequest, RetirementResponse, type PensionierungsRechner } from './pensionierung.js';
 import { RiskResponse, type RiskRequest } from './risiko.js';
@@ -5,9 +6,11 @@ import { RiskResponse, type RiskRequest } from './risiko.js';
 export interface RisikoRechner {
   berechneRisiko(request: RiskRequest): Promise<RiskResponse>;
   berechnePensionierung?: PensionierungsRechner['berechnePensionierung'];
+  berechneSparen?: SparRechner['berechneSparen'];
 }
-export interface VorsorgeRechner extends RisikoRechner, PensionierungsRechner {
+export interface VorsorgeRechner extends RisikoRechner, PensionierungsRechner, SparRechner {
   berechnePensionierung: PensionierungsRechner['berechnePensionierung'];
+  berechneSparen: SparRechner['berechneSparen'];
 }
 
 export interface ApiCalcOptionen {
@@ -34,6 +37,7 @@ export function createApiCalcClient({ baseUrl, token, tenant, timeoutMs = 15000,
     return parsed.data;
   }
   return {
+    berechneSparen: request => senden('APICalc_calculateSaving', SavingRequest.parse(request), SavingResponse),
     berechneRisiko: request => senden('APICalc_calculateRisk', request, RiskResponse),
     berechnePensionierung: request => senden('APICalc_calculateRetirement', RetirementRequest.parse(request), RetirementResponse),
   };

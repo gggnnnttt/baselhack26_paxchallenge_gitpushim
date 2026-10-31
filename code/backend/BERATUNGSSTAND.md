@@ -100,3 +100,25 @@ Im Panel erscheint ein eigener Abschnitt „Pensionierung · Basisrechnung“. E
 ### Verifikation
 
 37 lokale Tests bestehen, einschließlich Pensionierungs-Mapping, Monats-/Jahresumrechnung, ausdrücklicher Nullwerte, fehlender Bestätigung, Paare, veralteter Ergebnisse, fachlicher Fehlercodes und unabhängigem Risiko-/Pensionierungsablauf. Backend-Typecheck und Angular-Produktionsbuild erfolgreich. Der Chatpfad wurde zusätzlich mit dem oben genannten synthetischen Text gegen das laufende Backend, die echte KI und APICalc geprüft: Ergebnis vorhanden, keine fehlenden Angaben, keine abgelehnten Profiländerungen. Die Testsitzung wurde anschließend gelöscht. Ein beobachteter Aussetzer bei der Übernahme der ausdrücklich bestätigten Basisannahmen wird durch einen engen lokalen Erkenner des vollständigen Bestätigungssatzes abgefangen; Nennungen, Fragen, unvollständige Annahmen und spätere Einschränkungen gelten darüber nicht als Zustimmung. Dafür gibt es Regressionstests.
+
+## Zusätzlicher Sparbedarf aus der Pensionierungs-Kapitallücke
+
+`src/berechnung/sparen.ts` leitet nach einer aktuellen erfolgreichen Pensionierungsrechnung ein zusätzliches Sparszenario ab. Die Basisrechnung selbst wird nicht verändert. `APICalc_calculateSaving` wird mit `SavingGoal=2` (periodische Einzahlung bestimmen), `InvestmentMonthly=true`, `InterestRate=0`, `InitialInvestment=0` und `EndCapital=CapitalGap` aufgerufen. Das bereits in der Kapitallücke angerechnete private Vermögen wird nicht doppelt verwendet.
+
+Die Spardauer ist eine Näherung in ganzen Jahren: `min(BirthYear + DesiredRetirementAge) - Berechnungsjahr`, bei Paaren bis zum ersten Rentenfall. Geburtsmonate/-tage fehlen; es ist kein taggenauer Sparplan. Keine positive Kapitallücke: kein API-Aufruf und keine pauschale Entwarnung für die Gesamtvorsorge. Kein verbleibendes volles Jahr: kein ableitbarer monatlicher Sparplan. Fehlende, fehlerhafte oder veraltete Pensionierungsergebnisse löschen den sichtbaren Sparbetrag. Unveränderte Grundlagen verwenden das bestehende Ergebnis; Änderungen berechnen neu. Der gesamte Stand wird weiterhin erst mit einer akzeptierten Chatantwort übernommen.
+
+Der Sparrechner rundet im geprüften Live-Fall die Monatsrate auf ganze CHF. Die Anwendung prüft bei 0 % Zins die Konsistenz zwischen Rate, Einzahlungen und Endkapital. Bis zu CHF 1 zusätzliche Einzahlung pro Monat wird als Rundung akzeptiert. Unterdeckung von mehr als CHF 1 insgesamt oder inkonsistente Werte werden zurückgewiesen. Sichtbar sind der API-Sparbetrag sowie das tatsächliche Endkapital. Keine eigenen Ersatzwerte bei Fehlern.
+
+Live-Test am 31.10.2026: synthetischer Einpersonenfall wie oben, jedoch CHF 70’000 jährlicher Bedarf. Pensionierungs-Kapitallücke CHF 116’530, Zieljahr 2055, 29 Jahre. APICalc liefert CHF 335 monatlich, Einzahlungen und Endkapital CHF 116’580, Zinsen CHF 0. Die zusätzliche Monatsrate ist keine Versicherungsprämie; Budget-Tragbarkeit, Produkte, Kosten, Steuern und Inflation sind nicht geprüft. `IncomeTotal` enthält in diesen API-Fällen den Vermögensverzehr bereits; die Oberfläche nennt den Wert deshalb „Gesamte verfügbare Einnahmen“.
+
+Direkter Verbindungstest im Backend-Verzeichnis (echte API, ausschließlich synthetische Daten, keine KI):
+
+```bash
+npm run test:sparen
+```
+
+Lokale Prüfung: 45 Tests und Backend-Typecheck erfolgreich; Angular-Produktionsbuild erfolgreich. Zusätzliche Tests prüfen positive/fehlende Kapitallücke, Rundung, keine doppelte Vermögensanrechnung, ersten Rentenfall bei Paaren, ungültige Antworten, Ablauf ohne Sparzeit, Cache und veraltete Grundlagen.
+
+Im Chat: nach Backend-Neustart denselben synthetischen Pensionierungsfall mit CHF 70’000 Jahresbedarf verwenden. Im Panel erscheint „Zusätzlicher Sparbedarf bis zur Pensionierung“. Bei CHF 60’000 Bedarf ist in diesem Beispiel keine Kapitallücke und damit kein zusätzlicher Sparbedarf für dieses Modellziel vorhanden.
+
+Der vollständige Chatpfad wurde anschließend mit dem synthetischen CHF-70’000-Fall gegen das laufende Backend, die echte KI und beide APICalc-Rechner erfolgreich geprüft: Pensionierung und Sparen jeweils `berechnet`, Monatsrate CHF 335 und korrekte Erklärung im Chat. Die Testsitzung wurde danach gelöscht.

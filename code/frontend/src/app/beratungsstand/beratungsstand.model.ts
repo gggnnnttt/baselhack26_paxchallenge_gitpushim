@@ -97,5 +97,12 @@ export interface Beratungsstand {
     } } | null;
     fehler: string | null;
   };
+  sparen: {
+    phase: 'wartet' | 'bereit' | 'berechnet' | 'kein_bedarf' | 'nicht_moeglich' | 'fehlgeschlagen';
+    phaseText: string; hinweise: string[]; fehler: string | null;
+    zielkapital: number | null; zieljahr: number | null; dauerJahre: number | null;
+    request: unknown;
+    ergebnis: { zeitpunkt: string; monatlicherSparbetrag: number; einzahlungen: number; endkapital: number } | null;
+  };
   letzteNachricht: { uebernommen: Protokolleintrag[]; abgelehnt: Protokolleintrag[] };
 }

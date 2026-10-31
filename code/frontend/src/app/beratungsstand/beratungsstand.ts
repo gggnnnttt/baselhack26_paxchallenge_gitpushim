@@ -40,6 +40,7 @@ export class BeratungsstandPanel {
   readonly stand = input<Beratungsstand | null>(null);
 
   protected readonly chf = chf;
+  protected readonly sparbetrag = (wert: number) => `CHF ${wert.toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   protected readonly haushalt = computed<Zeile[]>(() => {
     const h = this.stand()?.profil.haushalt;

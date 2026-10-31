@@ -162,10 +162,10 @@
           <caption>Einkommenswerte pro Jahr</caption>
           <tbody>
             <tr><th scope="row">Gewünschter Bedarf</th><td>{{ betrag(e.werte.IncomeNeed) }}</td></tr>
-            <tr><th scope="row">Renteneinkommen laut API</th><td>{{ betrag(e.werte.IncomeTotal) }}</td></tr>
+            <tr><th scope="row">Gesamte verfügbare Einnahmen</th><td>{{ betrag(e.werte.IncomeTotal) }}</td></tr>
             <tr><th scope="row">Davon 1. Säule</th><td>{{ betrag(e.werte.IncomePillar1) }}</td></tr>
             <tr><th scope="row">Davon 2. Säule</th><td>{{ betrag(e.werte.IncomePillar2) }}</td></tr>
-            <tr><th scope="row">Vermögensverzehr laut API</th><td>{{ betrag(e.werte.IncomeWithdrawal) }}</td></tr>
+            <tr><th scope="row">Davon Vermögensverzehr</th><td>{{ betrag(e.werte.IncomeWithdrawal) }}</td></tr>
             <tr><th scope="row">Einkommenslücke laut API</th><td>{{ betrag(e.werte.IncomeGap) }}</td></tr>
           </tbody>
         </table>
@@ -185,6 +185,30 @@
       </details>
       @if (p.request) {
         <details><summary>Berechnungsgrundlage</summary><pre>{{ p.request | json }}</pre></details>
+      }
+    </section>
+
+    <section>
+      <h3>Zusätzlicher Sparbedarf bis zur Pensionierung</h3>
+      @let spar = s.sparen;
+      <p [class]="'phase ' + spar.phase">{{ spar.phaseText }}</p>
+      @if (spar.fehler) { <p class="fehler" role="alert">{{ spar.fehler }}</p> }
+      @if (spar.ergebnis; as e) {
+        <p><strong>{{ sparbetrag(e.monatlicherSparbetrag) }} pro Monat</strong></p>
+        <p>Zum Aufbau von zusätzlich {{ betrag(spar.zielkapital ?? undefined) }} bis {{ spar.zieljahr }}
+          über näherungsweise {{ spar.dauerJahre }} Jahre bei 0 % Verzinsung.</p>
+        <p>Vorhandenes Vermögen ist bereits berücksichtigt. Zusätzliches Startkapital: CHF 0.</p>
+        <p>Endkapital laut Sparrechner: {{ betrag(e.endkapital) }}. Die API-Rundung der Monatsrate kann zu einem etwas höheren Betrag als dem Sparziel führen.</p>
+        <p><strong>Tragbarkeit noch nicht geprüft:</strong> Der Betrag muss anschließend mit eurem Haushaltsbudget abgeglichen werden.</p>
+        <p>Ergebnis vom {{ e.zeitpunkt.slice(0, 16).replace('T', ' ') }}. Dies ist ein zusätzliches Szenario;
+          die Pensionierungs-Basisrechnung oben enthält weiterhin keine weiteren Sparbeiträge.</p>
+      }
+      <details>
+        <summary>Annahmen und Berechnungsgrenzen</summary>
+        <ul class="hinweise">@for (h of spar.hinweise; track h) { <li>{{ h }}</li> }</ul>
+      </details>
+      @if (spar.request) {
+        <details><summary>Berechnungsgrundlage</summary><pre>{{ spar.request | json }}</pre></details>
       }
     </section>
 
