@@ -1,29 +1,34 @@
-# Beratungsstand: Profil, Ablauf und Risikoberechnung
+# Beratungsstand: Planer, Gesprächsführer und Berechnungen
 
-Stand: 31.10.2026. Beschreibt den implementierten ersten Schritt: ein Profil aus dem Gespräch, dessen Daten direkt in `APICalc_calculateRisk` verwendet werden. Produkte und Empfehlungslogik sind noch nicht gebaut.
+Stand: 31.10.2026. Implementiert sind das Haushaltsprofil, ein Beratungsplan pro Sitzung, Risiko- und Pensionierungsberechnungen über APICalc, Familienszenarien und eine lokale Eigenheimrechnung. Die Empfehlungsgrundlage erlaubt die Vorbereitung von Lösungsklassen; geprüfte Produktdaten, Offerten und Vertragsabschluss sind nicht angeschlossen.
 
 ## Ablauf pro Nachricht
 
 ```text
-lokale Eingabeprüfung → Themenprüfung
-  → Profilerfassung (eigener Modellaufruf, strikte JSON-Struktur aus Zod)
-  → Backend prüft jeden Vorschlag: Beleg wörtlich in der Nachricht? Ableitung begründet? Wert gültig?
-  → Beratungsablauf (XState) auf einer Kopie: Eingaben prüfen, ggf. APICalc rechnen
-  → Antwortaufruf mit Systemprompt + Beratungsstand (Profil, vorhanden/fehlend, Grenzen, Ergebnis)
-  → Ausgabeprüfung → erst jetzt werden Verlauf, Profil und Berechnung der Sitzung übernommen
+lokale Eingabeprüfung
+  → parallel: Themenprüfung + Planer (vorhandener Profilerfassungs-Aufruf)
+  → nur bei erlaubtem Thema: Änderungsvorschläge anhand von Belegen und Wertebereichen prüfen
+  → XState bewertet das aktualisierte Profil und prüft den vorgeschlagenen Schritt
+  → bei erlaubtem Berechnungsauftrag: genau die gewählte Rechnung ausführen, Stand neu bewerten
+  → Gesprächsführer erhält aktuellen Verlauf, kompaktes Profil, geprüften Schritt und ausgewählte Ergebnisse
+  → lokale Ausgabeprüfung
+  → erst bei Erfolg: Verlauf, Profil, akzeptierten Plan und Ergebnisse gemeinsam übernehmen
 ```
 
-Das LLM schlägt Profiländerungen nur vor; das Backend entscheidet. Gültiges JSON beweist nicht, dass eine Angabe stimmt. Darum trägt jeder Wert `quelle` (Aussage/Ableitung), ein wörtliches `beleg`-Zitat, bei Ableitungen eine `begruendung` und den Index der Nutzernachricht. Im Panel „Was ich bisher verstanden habe“ sind diese Herkunftsangaben per Tooltip sichtbar.
+Ein API-Key und ein konfiguriertes Modell reichen. Es gibt zwei Rollen mit getrennten Anweisungen und zusätzlich die bestehende Themenprüfung: normalerweise drei Modellaufrufe, davon zwei parallel. Auch abgelehnte Themen erreichen bereits Themenprüfung und Planer. Keine zusätzliche AI-Library wurde eingeführt.
 
-## Stack
+## Zuständigkeiten
 
-| Baustein | Wozu | Warum |
-|---|---|---|
-| **Zod 4** (`src/profil/profil.ts`, `aenderungen.ts`, `berechnung/risiko.ts`) | Profilschema, Änderungsvorschläge, APICalc-Request und -Antwort | Eine Quelle für TypeScript-Typen, Laufzeitprüfung und das JSON-Schema der Structured Outputs (`z.toJSONSchema`). |
-| **XState 5** (`src/beratung/ablauf.ts`) | Beratungsablauf mit Erfassungsschleife | Explizite Zustände und Übergänge, Guards statt verstreuter `if`s, asynchrone Berechnung als `invoke`, Snapshot pro Sitzung. Später erweiterbar um Empfehlung, Angemessenheitsprüfung, Abschluss und Übergabe an eine Beratungsperson. Visualisierbar mit Stately. |
-| Kein LangGraph/LangChain | – | Würde die bestehende modellunabhängige Pipeline und Guardrails ersetzen statt ergänzen. Der Ablauf hier ist deterministisch; das LLM steuert ihn nicht. |
+- **Planer** (`src/profil/extraktion.ts`): schlägt belegte Profiländerungen, den Kundenwunsch und einen Plan vor. Er sieht die letzten sechs Nachrichten, das Profil, Themen, offene Punkte, Rechnungsstatus, die Empfehlungsgrundlage und den letzten akzeptierten Plan. Der alte Plan ist ein Vorschlag, keine Kundenangabe; geänderte Ziele müssen neu bewertet werden.
+- **Zod** (`src/beratung/plan.ts`): begrenzt die Planstruktur. Gültiges JSON belegt keine fachliche Richtigkeit. Profilwerte behalten Aussage/Ableitung, Beleg, Begründung und Nachrichtenindex.
+- **XState** (`src/beratung/ablauf.ts`): prüft Anliegen- und Rechnungskennungen sowie aktuelle Voraussetzungen. Eine Empfehlung braucht die bestehende Empfehlungsgrundlage; eine Rückfrage braucht eine Frage; eine Berechnung braucht vollständige Eingaben und einen verfügbaren Rechner; das Zeigen braucht ein aktuelles Ergebnis.
+- **Gesprächsführer** (`advisor.instructions.md`): beantwortet das aktuelle Anliegen in der Regel in zwei bis vier kurzen Sätzen, mit höchstens einer zentralen Rückfrage. Er sieht keine vollständigen Fehllisten und keine unbeteiligten Berechnungsergebnisse.
 
-Zustände: `erfassung` (Schleife, solange Angaben fehlen) → `berechnung` → `berechnet`. Ohne APICalc-Zugang: `bereit` (Request fertig, nicht gesendet). Bei Fehler: `fehlgeschlagen` (nächste Nachricht versucht erneut). Ändert sich ein Wert, wird neu geprüft: gleicher Request → Ergebnis bleibt; geänderter vollständiger Request → neue Berechnung; unvollständig → zurück in `erfassung`, altes Ergebnis als **veraltet** markiert.
+`szenario_berechnen` ist ein Planungsauftrag; nach erfolgreicher Berechnung lautet die sichtbare Aktion `szenario_zeigen`. Ein unveränderter Request verwendet das vorhandene Ergebnis. Veränderte oder entfernte Eingaben machen frühere Ergebnisse unbrauchbar, bis erneut gerechnet wurde. Fehlgeschlagene Berechnungen können in einer Folgerunde erneut angefordert werden.
+
+Bei einem ungültigen Plan übernimmt die bisherige deterministische Schrittwahl und protokolliert den Ablehnungsgrund. Der ungültige Plan wird nicht als Gedächtnis gespeichert. Bei `plan: null` bleibt auch die bisherige automatische Berechnung vollständiger, geänderter Requests als Fallback erhalten. Ein Wunsch nach menschlicher Beratung startet keine Berechnungen. `quelle: planer | fallback` ist Diagnoseinformation, kein zusätzlicher Kundendialog.
+
+Themenablehnung oder blockierte Ausgabe übernehmen weder Profil noch Plan. Nach einer Löschung wird vor nachfolgenden Schritten geprüft, ob die Sitzung noch existiert. Bereits laufende externe Aufrufe werden dadurch nicht rückgängig gemacht. Datenschutz und Grenzen: [DATENSCHUTZ.md](../DATENSCHUTZ.md).
 
 ## Abbildung Profil → `calculateRisk` (APICalc-Swagger v1.2)
 
@@ -45,19 +50,11 @@ Die Liste „noch fehlend“ ist eine interne Rechenhilfe für den Advisor, kein
 
 ## Heute und Zukunft
 
-Personenfelder beschreiben nur die heutige Situation. Pläne (`plaene`) haben eigene Felder für Zeitpunkt (Jahr, Monat, Formulierung), künftiges Pensum, künftiges Einkommen und Sicherheit und fliessen **nicht** in die heutige Berechnung ein. Der strukturierte Zeitpunkt ist bewusst so gewählt, dass ein späterer interaktiver Zeitstrahl Pläne platzieren und verschieben kann. Das Modell sieht sie dann über denselben Beratungsstand.
+Personenfelder beschreiben die heutige Situation. Pläne haben getrennte Felder für Zeitpunkt, Pensum, Einkommen und Sicherheit. Familienszenarien verändern eine Profilkopie und nennen ihre Annahmen; sie sind keine Prognose und keine vollständige Simulation aller zukünftigen Zeitphasen.
 
-## Offene Punkte, idealerweise mit Pax klären
+## Offene Punkte
 
-- Bedeutung von `WithChildren`, von `RelationshipSinceYear` bei Alleinstehenden und ob volljährige Kinder zu zählen sind.
-- Welche Annahmen APICalc ohne `Pillar2Pensions` trifft.
-- Ob `NeedDeath` einer Person den Bedarf der Hinterbliebenen beim Tod dieser Person meint. Davon gehen wir aus; der Pax-Vorsorgecheck zeigt Bedarf pro Person in % des Einkommens.
-- Bestehende private Vorsorge (3. Säule) und weitere Versicherungen sind nicht berücksichtigt. Ein aktuelles Ergebnis bedeutet nicht, dass die gesamte bestehende Absicherung geprüft wurde.
-- Eine gespeicherte Berechnungsgrundlage unterstützt Nachvollziehbarkeit, erfüllt aber nicht automatisch das ganze Legal Framework.
-
-## Nächste Schritte
-
-1. APICalc-Token setzen (`APICALC_TOKEN` in `.env`) und das Ergebnis für die Müllers mit dem Pax-Vorsorgecheck vergleichen.
-2. Szenarien aus Plänen: Profil-Kopie mit angewendeten Plänen (z. B. Wiedereinstieg 40 %) neu berechnen und klar als Szenario kennzeichnen, nicht als Prognose.
-3. Zeitstrahl im Frontend mit eigenem, validiertem Endpunkt für Pläne (gleiche Zod-Schemas, Herkunft „Eingabe im Zeitstrahl“).
-4. Altersvorsorge (`calculateRetirement`), bestehende Vorsorge, danach Produktkarten und Empfehlungsgrundlage als weitere Ablaufzustände.
+- APICalc-Annahmen ohne `Pillar2Pensions`, `WithChildren` und das Beziehungsjahr bei Alleinstehenden fachlich mit Pax abgleichen.
+- Private Deckungen werden in der Empfehlungsgrundlage berücksichtigt; Laufzeiten, Wartezeiten und Deckungsbedingungen sind noch nicht geprüft. Guthaben in 3a sind keine gesonderte Risikoversicherung.
+- Neue Planer-Prompts wurden lokal mit simulierten Modellantworten geprüft. Natürlichkeit, korrekte Extraktion und fachliche Qualität müssen mit synthetischen Live-Gesprächen bewertet werden.
+- Nächste Produktarbeit: geprüfte Produktkarten und ein Zeitstrahl mit validierten Planänderungen. Ein strukturierter Beratungsstand allein beweist keine rechtliche Konformität.

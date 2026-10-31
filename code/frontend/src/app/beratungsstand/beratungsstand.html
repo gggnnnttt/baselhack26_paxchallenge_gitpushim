@@ -8,102 +8,47 @@
   </dd>
 </ng-template>
 
-<aside>
-  <h2>Was ich bisher verstanden habe</h2>
-
-  @if (!stand()) {
-    <p class="leer">Noch nichts erfasst. Erzähl im Chat von deiner Situation.</p>
-  } @else {
-    @let s = stand()!;
-    <p class="phase" [class]="'phase ' + s.phase">{{ s.phaseText }}</p>
-
-    @if (s.profil.anliegen.length) {
-      <section>
-        <h3>Anliegen</h3>
-        <ul>
-          @for (a of s.profil.anliegen; track a.id) {
-            <li [title]="herkunftText(a.herkunft)">{{ a.text }}</li>
-          }
-        </ul>
-      </section>
-    }
-
-    @if (haushalt().length) {
-      <section>
-        <h3>Haushalt</h3>
+<ng-template #ergebnis let-r>
+  @switch (r.ergebnis.art) {
+    @case ('pensionierung') {
+      @let p = r.ergebnis.pension;
+      @if (p.fehler) {
+        <p class="fehler">{{ p.fehler }}</p>
+      } @else {
         <dl>
-          @for (z of haushalt(); track z.label) {
-            <ng-container [ngTemplateOutlet]="wert" [ngTemplateOutletContext]="{ $implicit: z }" />
-          }
+          <dt>Bedarf im Alter</dt><dd>{{ betrag(p.bedarf) }} / Jahr</dd>
+          <dt>1. Säule</dt><dd>{{ betrag(p.ersteSaeule) }}</dd>
+          <dt>2. Säule</dt><dd>{{ betrag(p.zweiteSaeule) }}</dd>
+          <dt>Vermögensverzehr</dt><dd>{{ betrag(p.vermoegensverzehr) }}</dd>
+          <dt>Lücke</dt><dd [class.luecke]="(p.luecke ?? 0) > 0">{{ betrag(p.luecke) }} / Jahr</dd>
+          <dt>Vermögen bei Pension</dt><dd>{{ betrag(p.verfuegbaresVermoegen) }} (nötig {{ betrag(p.noetigesVermoegen) }})</dd>
         </dl>
-      </section>
-    }
-
-    @for (p of personen(); track p.titel) {
-      <section>
-        <h3>{{ p.titel }}</h3>
-        <dl>
-          @for (z of p.zeilen; track z.label) {
-            <ng-container [ngTemplateOutlet]="wert" [ngTemplateOutletContext]="{ $implicit: z }" />
-          }
-        </dl>
-      </section>
-    }
-
-    @if (kinder().length) {
-      <section>
-        <h3>Kinder</h3>
-        @for (k of kinder(); track k.titel) {
-          <h4 [title]="herkunftText(k.herkunft)">{{ k.titel }}</h4>
-          <dl>
-            @for (z of k.zeilen; track z.label) {
-              <ng-container [ngTemplateOutlet]="wert" [ngTemplateOutletContext]="{ $implicit: z }" />
-            }
-          </dl>
-        }
-      </section>
-    }
-
-    @if (plaene().length) {
-      <section>
-        <h3>Pläne <small>(Zukunft, nicht in der Berechnung)</small></h3>
-        @for (p of plaene(); track p.titel) {
-          <h4 [title]="herkunftText(p.herkunft)">{{ p.titel }} <small>{{ p.untertitel }}</small></h4>
-          <dl>
-            @for (z of p.zeilen; track z.label) {
-              <ng-container [ngTemplateOutlet]="wert" [ngTemplateOutletContext]="{ $implicit: z }" />
-            }
-          </dl>
-        }
-      </section>
-    }
-
-    <section>
-      <h3>Risikoberechnung (Erwerbsunfähigkeit, Todesfall)</h3>
-      @if (s.risiko.fehlend.length) {
-        <p>Für diese Berechnung fehlt noch:</p>
-        <ul class="fehlend">
-          @for (f of s.risiko.fehlend; track f.label) {
-            <li>{{ f.label }}@if (f.warum) {<br /><small>{{ f.warum }}</small>}</li>
-          }
-        </ul>
       }
-      @if (s.risiko.fehler) {
-        <p class="fehler">{{ s.risiko.fehler }}</p>
-      }
-      @if (s.risiko.ergebnis; as e) {
-        <p>
-          Ergebnis vom {{ e.zeitpunkt.slice(0, 16).replace('T', ' ') }} (Beträge pro Jahr)
-          @if (e.veraltet) {
-            <span class="badge warnung">veraltet</span>
-          }
-        </p>
-        <table [class.veraltet]="e.veraltet">
-          <thead>
-            <tr><th>Szenario</th><th>Bedarf</th><th>Einnahmen</th><th>Lücke</th><th>Kapitalisiert</th></tr>
-          </thead>
-          <tbody>
-            @for (z of e.szenarien; track z.szenario) {
+    }
+    @case ('eigenheim') {
+      @let h = r.ergebnis.eigenheim;
+      <dl>
+        <dt>Kaufpreis {{ h.kaufjahr }}</dt><dd>{{ chf(h.kaufpreis) }}</dd>
+        <dt>Eigenmittel bis dann</dt><dd>{{ chf(h.eigenmittelBeiKauf) }} von {{ chf(h.eigenmittelNoetig) }}</dd>
+        @if (h.eigenmittelLuecke > 0) {
+          <dt>Fehlende Eigenmittel</dt><dd class="luecke">{{ chf(h.eigenmittelLuecke) }}</dd>
+        }
+        @if (h.sparbetragFuerZielJahr !== null) {
+          <dt>Nötiger Sparbetrag</dt><dd>{{ chf(h.sparbetragFuerZielJahr) }} / Jahr</dd>
+        }
+        <dt>Hypothek</dt><dd>{{ chf(h.hypothek) }}</dd>
+        <dt>Tragbarkeit</dt><dd [class.luecke]="!h.tragbar">{{ h.tragbarkeitProzent }} % ({{ h.tragbar ? 'tragbar' : 'über 33 %' }})</dd>
+        <dt>Tragbar bis etwa</dt><dd>{{ chf(h.maxKaufpreisNachEinkommen) }}</dd>
+      </dl>
+    }
+    @default {
+      <table>
+        <thead>
+          <tr><th>Fall</th><th>Bedarf</th><th>Einnahmen</th><th>Lücke</th><th>Kapitalisiert</th></tr>
+        </thead>
+        <tbody>
+          @for (z of r.ergebnis.szenarien; track z.szenario) {
+            @if (z.fehler || (z.bedarf ?? 0) > 0) {
               <tr>
                 <td>{{ z.szenario }}</td>
                 @if (z.fehler) {
@@ -111,34 +56,169 @@
                 } @else {
                   <td>{{ betrag(z.bedarf) }}</td>
                   <td [title]="'1. Säule ' + betrag(z.ersteSaeule) + ', 2. Säule ' + betrag(z.zweiteSaeule) + ', Partner/in ' + betrag(z.partner)">{{ betrag(z.einnahmen) }}</td>
-                  <td>{{ betrag(z.luecke) }}</td>
+                  <td [class.luecke]="(z.luecke ?? 0) > 0">{{ betrag(z.luecke) }}</td>
                   <td>{{ betrag(z.kapitalisierteLuecke) }}</td>
                 }
               </tr>
             }
-          </tbody>
-        </table>
+          }
+        </tbody>
+      </table>
+    }
+  }
+  <details>
+    <summary>Annahmen, Grenzen und Eingaben</summary>
+    <ul>
+      @for (a of r.pruefung.annahmen; track a) {
+        <li>{{ a }}</li>
       }
-      <details>
-        <summary>Vorhanden ({{ s.risiko.vorhanden.length }}) und Grenzen</summary>
+    </ul>
+    <ul class="hinweise">
+      @for (h of r.pruefung.hinweise; track h) {
+        <li>{{ h }}</li>
+      }
+    </ul>
+    <ul>
+      @for (v of r.pruefung.vorhanden; track v.label) {
+        <li>{{ v.label }}: {{ v.wert }}</li>
+      }
+    </ul>
+    @if (r.pruefung.request) {
+      <pre>{{ r.pruefung.request | json }}</pre>
+    }
+  </details>
+</ng-template>
+
+<aside>
+  <h2>Was ich bisher verstanden habe</h2>
+
+  @if (!stand()) {
+    <p class="leer">Noch nichts erfasst. Erzähl im Chat von deiner Situation.</p>
+  } @else {
+    @let s = stand()!;
+
+    @if (s.schritt; as schritt) {
+      <section class="schritt" [class]="'schritt ' + schritt.aktion">
+        <h3>Nächster Schritt: {{ aktionLabel[schritt.aktion] }}</h3>
+        <p>{{ schritt.begruendung }}</p>
+        @if (schritt.fokus) {
+          <p><small>Fokus: {{ schritt.fokus.label }}</small></p>
+        }
+      </section>
+    }
+
+    @if (s.stand.menschlicheBeratung.length) {
+      <section class="hinweis-box">
+        <h3>Persönliche Beratung empfohlen</h3>
         <ul>
-          @for (v of s.risiko.vorhanden; track v.label) {
-            <li>{{ v.label }}: {{ v.wert }}@if (v.quelle !== 'aussage') { <span class="badge">{{ v.quelle === 'backend' ? 'Backend' : 'abgeleitet' }}</span> }</li>
+          @for (g of s.stand.menschlicheBeratung; track g) {
+            <li>{{ g }}</li>
           }
         </ul>
-        <ul class="hinweise">
-          @for (h of s.risiko.hinweise; track h) {
-            <li>{{ h }}</li>
+      </section>
+    }
+
+    @if (s.stand.anliegen.length) {
+      <section>
+        <h3>Anliegen</h3>
+        <ul class="status-liste">
+          @for (a of s.stand.anliegen; track a.id) {
+            <li>
+              <span class="chip" [class]="'chip ' + a.status">{{ a.status === 'ergebnis' ? 'Ergebnis' : a.status === 'in_klaerung' ? 'in Klärung' : 'offen' }}</span>
+              {{ a.text }}
+            </li>
           }
         </ul>
-      </details>
-      @if (s.risiko.request) {
-        <details>
-          <summary>Request an APICalc</summary>
-          <pre>{{ s.risiko.request | json }}</pre>
-        </details>
-      }
+      </section>
+    }
+
+    <section>
+      <h3>Gesamtbild</h3>
+      <ul class="status-liste themen">
+        @for (t of s.stand.themen; track t.id) {
+          @if (t.anlass || t.status !== 'offen' || t.id.startsWith('saeule') || t.offen.length) {
+            <li [title]="t.offen.length ? 'Offen: ' + t.offen.map(o => o.label).join('; ') : ''">
+              <span class="chip" [class]="'chip ' + t.status">{{ t.status === 'geklaert' ? '✓' : t.status === 'teilweise' ? '◐' : '○' }}</span>
+              <strong>{{ t.titel }}</strong><br />
+              <small>{{ t.zusammenfassung }}</small>
+            </li>
+          }
+        }
+      </ul>
     </section>
+
+    @for (r of ergebnisse(); track r.id) {
+      <section class="ergebnis" [class.neu]="istNeu(r)">
+        <h3>{{ r.titel }} @if (istNeu(r)) {<span class="badge neu">neu</span>}</h3>
+        <ng-container [ngTemplateOutlet]="ergebnis" [ngTemplateOutletContext]="{ $implicit: r }" />
+      </section>
+    }
+
+    @if (s.stand.empfehlung.luecken.length) {
+      <section>
+        <h3>Lücken nach bestehenden Leistungen</h3>
+        <ul>
+          @for (l of s.stand.empfehlung.luecken; track l.text) {
+            <li>{{ l.text }}: <strong>{{ chf(l.betrag) }}</strong> {{ l.einheit === 'pro_jahr' ? 'pro Jahr' : 'Kapital' }}</li>
+          }
+        </ul>
+      </section>
+    }
+
+    @if (inArbeit().length) {
+      <section>
+        <h3>Berechnungen in Vorbereitung</h3>
+        @for (r of inArbeit(); track r.id) {
+          <h4>{{ r.titel }} <span class="badge" [class.warnung]="r.status !== 'unvollstaendig'">{{ statusLabel[r.status] }}</span></h4>
+          @if (r.fehler) {
+            <p class="fehler">{{ r.fehler }}</p>
+          }
+          @if (r.pruefung.fehlend.length) {
+            <ul class="fehlend">
+              @for (f of r.pruefung.fehlend; track f.label) {
+                <li>{{ f.label }}</li>
+              }
+            </ul>
+          }
+        }
+      </section>
+    }
+
+    <details class="profil">
+      <summary>Profil ({{ haushalt().length + personen().length + kinder().length + plaene().length }} Bereiche)</summary>
+      @if (haushalt().length) {
+        <h4>Haushalt</h4>
+        <dl>
+          @for (z of haushalt(); track z.label) {
+            <ng-container [ngTemplateOutlet]="wert" [ngTemplateOutletContext]="{ $implicit: z }" />
+          }
+        </dl>
+      }
+      @for (p of personen(); track p.titel) {
+        <h4>{{ p.titel }}</h4>
+        <dl>
+          @for (z of p.zeilen; track z.label) {
+            <ng-container [ngTemplateOutlet]="wert" [ngTemplateOutletContext]="{ $implicit: z }" />
+          }
+        </dl>
+      }
+      @for (k of kinder(); track k.titel) {
+        <h4 [title]="herkunftText(k.herkunft)">{{ k.titel }}</h4>
+        <dl>
+          @for (z of k.zeilen; track z.label) {
+            <ng-container [ngTemplateOutlet]="wert" [ngTemplateOutletContext]="{ $implicit: z }" />
+          }
+        </dl>
+      }
+      @for (p of plaene(); track p.titel) {
+        <h4 [title]="herkunftText(p.herkunft)">Plan: {{ p.titel }} <small>{{ p.untertitel }}</small></h4>
+        <dl>
+          @for (z of p.zeilen; track z.label) {
+            <ng-container [ngTemplateOutlet]="wert" [ngTemplateOutletContext]="{ $implicit: z }" />
+          }
+        </dl>
+      }
+    </details>
 
     @if (s.letzteNachricht.uebernommen.length || s.letzteNachricht.abgelehnt.length) {
       <details class="protokoll">

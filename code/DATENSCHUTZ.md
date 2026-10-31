@@ -8,17 +8,17 @@ Stand: 31.10.2026. Diese Datei beschreibt, was der Code tatsächlich tut. Sie is
 Browser (Angular, Verlauf nur im Arbeitsspeicher)
   → Angular-Dev-Proxy → Backend auf 127.0.0.1:3000
       → lokale Eingabeprüfung: Muster blockieren oder maskieren (siehe unten)
-      → OpenAI-Aufruf 1: Themenprüfung mit den letzten höchstens 7 akzeptierten Nachrichten
-      → OpenAI-Aufruf 2: Profilerfassung mit dem bisherigen Profil und den letzten höchstens 6 Nachrichten
+      → parallel: OpenAI-Aufruf 1 (Themenprüfung, höchstens 7 Nachrichten) und Aufruf 2
+        (Planer/Profilerfassung, Profil, Beratungsstand, letzter akzeptierter Plan, höchstens 6 Nachrichten)
       → lokale Prüfung der Profilvorschläge (Beleg in der Nachricht, Wertebereiche)
-      → nur wenn alle Angaben vollständig sind und APICALC_TOKEN gesetzt ist: APICalc calculateRisk
+      → nur bei erlaubtem Thema, vollständigen Recheneingaben und freigegebenem Berechnungsschritt: APICalc calculateRisk / calculateRetirement (Eigenheim-Szenario lokal)
       → OpenAI-Aufruf 3: Antwort mit dem akzeptierten Verlauf (höchstens 40 Nachrichten) und dem Beratungsstand
       → lokale Ausgabeprüfung
   ← Antwort an den Browser
 ```
 
 - An OpenAI gehen: der Systemprompt, die Chatnachrichten nach der lokalen Prüfung und der daraus abgeleitete Beratungsstand (Profil, fehlende Angaben, Berechnungsergebnis). Sitzungskennung, IP-Adresse oder Benutzerkennungen werden nicht mitgeschickt.
-- An APICalc (`baselhackathon2026.azurewebsites.net`, vom Hackathon bereitgestellt) gehen nur die Felder des `calculateRisk`-Requests: Beziehungsstatus und -jahr, Geschlecht, Geburtsjahr, Bruttoeinkommen, Pensionskasse ja/nein, Bedarf und Anzahl Kinder. Keine Namen, keine vollständigen Geburtsdaten, keine Chattexte. Ohne `APICALC_TOKEN` findet kein Aufruf statt.
+- An APICalc (`baselhackathon2026.azurewebsites.net`, vom Hackathon bereitgestellt) gehen nur die Felder der `calculateRisk`- und `calculateRetirement`-Requests: Beziehungsstatus und -jahr, Geschlecht, Geburtsjahr, Bruttoeinkommen, Pensionskasse ja/nein, Bedarf, Anzahl Kinder, gewünschtes Pensionierungsalter sowie Vermögen (Ersparnisse + bekanntes 3a-Guthaben) und jährlicher Sparbetrag. Familienszenarien senden denselben Risiko-Request mit den Werten des Plans. Keine Namen, keine vollständigen Geburtsdaten, keine Chattexte. Ohne `APICALC_TOKEN` findet kein Aufruf statt.
 - Eine Nachricht, die erst die Themenprüfung oder die Ausgabeprüfung ablehnt, **wurde bereits an OpenAI übertragen**. Nur lokal blockierte Eingaben erreichen den Anbieter nie.
 - OpenAI wird mit `store: false` aufgerufen. Das schliesst eine Aufbewahrung beim Anbieter nach dessen Bedingungen (z. B. zur Missbrauchsüberwachung) nicht aus. Wir können sie nicht steuern.
 - Backend → OpenAI läuft über HTTPS, Browser → Backend in der Demo über unverschlüsseltes HTTP auf localhost. Transportverschlüsselung schützt die Übertragung, sie anonymisiert nichts.
@@ -48,7 +48,7 @@ Browser (Angular, Verlauf nur im Arbeitsspeicher)
 ## Getrennte Datenwege für Formulare
 
 - `POST /api/chat` akzeptiert nur `message` und `sessionId`. Zusätzliche Felder wie `profile` oder `formData` werden vor jedem Modellaufruf mit `400` abgelehnt.
-- Themenprüfung, Profilerfassung und Antwort erhalten ausschliesslich akzeptierte Chatnachrichten derselben Sitzung (`ModelRequest` in `backend/src/chat.ts`). Das Profil entsteht nur aus diesen Nachrichten und geht denselben Weg wie der Chat.
+- Themenprüfung, Planer/Profilerfassung und Antwort erhalten die lokal geprüfte aktuelle Nachricht und akzeptierte Chatnachrichten derselben Sitzung (`ModelRequest` in `backend/src/chat.ts`). Das Profil entsteht nur aus diesen Nachrichten und geht denselben Weg wie der Chat.
 - Das Profilschema hat keine Felder für Namen, Adressen, Identifikations-, Zahlungs- oder Gesundheitsdaten. Vom Geburtsdatum wird nur das Jahr gespeichert.
 - Profil- oder Antragsformulare gibt es noch nicht. Regel für später: eigener Endpunkt und eigener Speicher, keine Nutzung von `ChatService` oder `ModelAdapter`. Formularwerte werden nie automatisch in Chatnachrichten, Zusammenfassungen oder die Themenprüfung übernommen. Wer Formularwerte an ein Modell geben will, muss das als eigene Entscheidung prüfen.
 - Gesundheitsformulare sind bewusst nicht gebaut: Die APICalc-Schnittstelle (`APICalc-swagger.yaml`) enthält keine Felder für Diagnosen, Medikamente oder Rauchverhalten. Der Systemprompt weist das Modell an, solche Angaben im Chat nicht zu erfragen und ungefragt genannte nicht zu verwerten.
@@ -76,7 +76,7 @@ Nichts davon ist umgesetzt oder geprüft.
 
 ## Verifiziert
 
-- `npm test` im Backend: 28 Tests ohne echte Kundendaten und ohne externe Modell- oder APICalc-Aufrufe, darunter Löschung, Löschung während eines laufenden Aufrufs, Ablauf ohne Folgeanfrage und Abweisung von Profil-/Formularfeldern vor Themenprüfung und Antwort.
+- `npm test` im Backend: lokale Tests ohne echte Kundendaten und ohne externe Modell- oder APICalc-Aufrufe, darunter Löschung, Löschung während eines laufenden Aufrufs, Ablauf ohne Folgeanfrage und Abweisung von Profil-/Formularfeldern vor Themenprüfung und Antwort.
 - Gegen das laufende Backend: `DELETE /api/chat` liefert `204` bzw. `400`; ein Chat-Request mit `profile`-Feld liefert `400`.
 - Zwei kurze Live-Gespräche mit erfundenen Müller-Angaben gegen OpenAI (ohne APICalc-Token); die Sitzungen wurden danach gelöscht.
 - Angular-Produktionsbuild erfolgreich. Die Oberfläche wurde nicht automatisiert im Browser durchgeklickt, und es gab keinen Live-Modellaufruf und keine juristische Prüfung.

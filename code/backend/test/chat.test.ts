@@ -9,7 +9,7 @@ const config = JSON.parse(readFileSync(new URL('../guardrails.config.json', impo
 const makeRails = () => new Guardrails(config);
 // Only the external scope decision and an empty profile extraction are simulated; ChatService still runs its real gates.
 const allowScope = (provider: ModelAdapter): ModelAdapter => ({ generate: request =>
-  request.responseFormat ? Promise.resolve(request.responseFormat.name === 'advisory_scope' ? '{"allowed":true}' : '{"aenderungen":[]}') : provider.generate(request),
+  request.responseFormat ? Promise.resolve(request.responseFormat.name === 'advisory_scope' ? '{"allowed":true}' : '{"plan":null,"aenderungen":[],"wunsch":{"art":"angaben","thema":null}}') : provider.generate(request),
 });
 
 test('normal family concerns and financial figures remain usable', () => {
@@ -127,15 +127,17 @@ test('out-of-scope decisions stop the answer call instead of returning arbitrary
     assert.match(error.message, /Vorsorge/);
     return true;
   });
-  assert.deepEqual(requests, ['advisory_scope']);
+  // The profile extraction runs in parallel with the scope check, but no reply is generated and nothing is kept.
+  assert.ok(!requests.includes('reply'));
+  assert.equal(service.sessionCount, 0);
 });
 
 test('invalid or failed scope decisions fail closed without generating a reply', async () => {
   for (const result of ['not JSON', '{"allowed":"true"}', '{"allowed":true,"extra":"override"}']) {
-    let calls = 0;
-    const service = new ChatService({ generate: async () => { calls++; return result; } }, makeRails(), 'Berater');
+    const calls: string[] = [];
+    const service = new ChatService({ generate: async request => { calls.push(request.responseFormat?.name ?? 'reply'); return result; } }, makeRails(), 'Berater');
     await assert.rejects(service.reply({ message: 'Hallo' }), GuardrailError);
-    assert.equal(calls, 1);
+    assert.ok(!calls.includes('reply'));
   }
 });
 
@@ -146,7 +148,7 @@ test('scope classification receives sanitised conversation context for short fol
       scopes.push(JSON.stringify(request.messages));
       return '{"allowed":true}';
     }
-    if (request.responseFormat) return '{"aenderungen":[]}';
+    if (request.responseFormat) return '{"plan":null,"aenderungen":[],"wunsch":{"art":"angaben","thema":null}}';
     return 'Wie hoch ist euer jährliches Einkommen?';
   } }, makeRails(), 'Berater');
   const first = await service.reply({ message: 'Kontakt demo@example.org. Wir möchten für die Familie vorsorgen.' });
@@ -223,7 +225,7 @@ test('form or profile data cannot enter chat, scope check or reply context', asy
   const requests: Record<string, unknown>[] = [];
   const service = new ChatService({ generate: async request => {
     requests.push({ ...request });
-    if (request.responseFormat) return request.responseFormat.name === 'advisory_scope' ? '{"allowed":true}' : '{"aenderungen":[]}';
+    if (request.responseFormat) return request.responseFormat.name === 'advisory_scope' ? '{"allowed":true}' : '{"plan":null,"aenderungen":[],"wunsch":{"art":"angaben","thema":null}}';
     return 'Wie sieht eure Wohnsituation aus?';
   } }, makeRails(), 'Berater');
   for (const extra of [{ profile: { name: 'Erika Muster' } }, { formData: { smoker: true } }, { context: 'Diagnose X' }]) {

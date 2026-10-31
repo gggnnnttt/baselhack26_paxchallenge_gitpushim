@@ -52,18 +52,89 @@ ul {
   color: #666;
 }
 
-.phase {
-  padding: 0.4rem 0.6rem;
+.schritt {
+  padding: 0.4rem 0.7rem;
   border-radius: 6px;
   background: #eef2f7;
 
-  &.berechnet {
+  h3 {
+    margin-top: 0.2rem;
+  }
+
+  p {
+    margin: 0.2rem 0;
+  }
+
+  &.szenario_zeigen {
     background: #e3f4e6;
   }
 
-  &.fehlgeschlagen {
-    background: #fbe4e4;
+  &.empfehlung_vorbereiten {
+    background: #e6eefc;
   }
+
+  &.beratungsperson {
+    background: #fff4d6;
+  }
+}
+
+.hinweis-box {
+  margin-top: 0.6rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 6px;
+  background: #fff4d6;
+}
+
+.status-liste {
+  list-style: none;
+  padding-left: 0;
+
+  li {
+    margin-bottom: 0.35rem;
+  }
+}
+
+.chip {
+  display: inline-block;
+  min-width: 1.4rem;
+  margin-right: 0.3rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: #ececec;
+  font-size: 0.75rem;
+  text-align: center;
+
+  &.geklaert,
+  &.ergebnis {
+    background: #d6f0db;
+    color: #1d6b2c;
+  }
+
+  &.teilweise,
+  &.in_klaerung {
+    background: #fff0c2;
+    color: #7a5b00;
+  }
+}
+
+.themen li {
+  cursor: help;
+}
+
+.ergebnis {
+  margin-top: 0.8rem;
+  padding: 0.2rem 0.6rem 0.5rem;
+  border: 1px solid #e3e3e3;
+  border-radius: 6px;
+
+  &.neu {
+    border-color: #8cc79a;
+  }
+}
+
+.luecke {
+  color: #b00020;
+  font-weight: 600;
 }
 
 .badge {
@@ -76,6 +147,10 @@ ul {
 
   &.warnung {
     background: #fff0c2;
+  }
+
+  &.neu {
+    background: #d6f0db;
   }
 }
 

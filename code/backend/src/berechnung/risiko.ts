@@ -1,5 +1,7 @@
 import { z } from 'zod';
-import { istPaar, kindLabel, personLabel, type Bedarf, type Einkommen, type Person, type PersonId, type Profil } from '../profil/profil.js';
+import { istPaar, kindLabel, personLabel, type Person, type PersonId, type Profil } from '../profil/profil.js';
+import { abschliessen, basisVollstaendig, bedarfText, neuePruefung, pruefeBasisPerson, pruefeBeziehung, type Pruefung } from './basis.js';
+export type { Angabe } from './basis.js';
 
 // Request and response of APICalc_calculateRisk as specified in APICalc-swagger.yaml (v1.2).
 const RiskPerson = z.object({
@@ -43,158 +45,66 @@ export type RiskRequest = z.infer<typeof RiskRequest>;
 export type RiskResponse = z.infer<typeof RiskResponse>;
 type RiskPerson = z.infer<typeof RiskPerson>;
 
-export interface Angabe { label: string; wert?: string; quelle?: 'aussage' | 'ableitung' | 'backend'; warum?: string }
-export interface RisikoPruefung {
-  bereit: boolean;
-  vorhanden: Angabe[];
-  fehlend: Angabe[];
-  hinweise: string[];
-  request: RiskRequest | null;
-  requestJson: string | null;
-}
-
-const chf = (betrag: number) => `CHF ${Math.round(betrag).toLocaleString('de-CH')}`;
-const BEZIEHUNG_API = { ledig: 1, geschieden: 1, verwitwet: 1, verheiratet: 2, konkubinat: 3, eingetragene_partnerschaft: 4 } as const;
-const BEZIEHUNG_SEIT = { verheiratet: 'Jahr der Heirat', konkubinat: 'Seit welchem Jahr ihr zusammenlebt', eingetragene_partnerschaft: 'Jahr der Eintragung der Partnerschaft' } as const;
+export type RisikoPruefung = Pruefung<RiskRequest>;
 
 /**
  * Checks which inputs for the risk calculation are present and builds the request only when nothing is missing.
  * The missing list is an internal aid for the advisor, not a prescribed order of questions.
  */
 export function pruefeRisiko(profil: Profil, jahr: number): RisikoPruefung {
-  const vorhanden: Angabe[] = [];
-  const fehlend: Angabe[] = [];
-  const hinweise: string[] = [];
-  const beziehung = profil.haushalt.beziehung;
+  const p = neuePruefung<RiskRequest>();
   const paar = istPaar(profil);
+  const beziehung = pruefeBeziehung(profil, jahr, p);
 
-  if (!beziehung) {
-    fehlend.push({ label: 'Beziehungsstatus (ledig, verheiratet, Konkubinat, eingetragene Partnerschaft …)', warum: 'Bestimmt, ob Leistungen für eine hinterbliebene Partnerin oder einen hinterbliebenen Partner berechnet werden.' });
-  } else {
-    vorhanden.push({ label: 'Beziehungsstatus', wert: beziehung.wert.replace('_', ' '), quelle: beziehung.quelle });
-    if (beziehung.wert === 'geschieden' || beziehung.wert === 'verwitwet') hinweise.push(`Beziehungsstatus „${beziehung.wert}“ wird als „Single“ übermittelt; Ansprüche aus einer früheren Ehe sind nicht berücksichtigt.`);
-  }
-
-  let seitJahr: number | null = null;
-  if (paar && beziehung) {
-    const seit = profil.haushalt.beziehungSeitJahr;
-    const label = BEZIEHUNG_SEIT[beziehung.wert as keyof typeof BEZIEHUNG_SEIT];
-    if (seit) {
-      seitJahr = seit.wert;
-      vorhanden.push({ label, wert: String(seit.wert), quelle: seit.quelle });
-    } else {
-      fehlend.push({ label, warum: 'Pflichtangabe der Risikoberechnung (RelationshipSinceYear).' });
-    }
-  } else if (beziehung) {
-    seitJahr = jahr;
-    hinweise.push('Für Alleinstehende verlangt APICalc ebenfalls ein Beziehungsjahr; die Bedeutung ist nicht dokumentiert. Übermittelt wird das aktuelle Jahr.');
-  }
-
-  const person1 = pruefePerson(profil.personen.A, 'A', vorhanden, fehlend, hinweise);
+  const person1 = pruefePerson(profil.personen.A, 'A', p);
   let person2: RiskPerson | null = null;
-  if (paar) person2 = pruefePerson(profil.personen.B ?? {}, 'B', vorhanden, fehlend, hinweise);
-  else if (profil.personen.B && beziehung) hinweise.push('Person B ist erfasst, wird ohne Paarbeziehung aber nicht in die Berechnung übernommen.');
+  if (paar) person2 = pruefePerson(profil.personen.B ?? {}, 'B', p);
+  else if (profil.personen.B && profil.haushalt.beziehung) p.hinweise.push('Person B ist erfasst, wird ohne Paarbeziehung aber nicht in die Berechnung übernommen.');
 
-  const kinder = pruefeKinder(profil, paar, jahr, vorhanden, fehlend, hinweise);
+  const kinder = pruefeKinder(profil, paar, jahr, p);
 
-  hinweise.push(
-    'Bestehende private Vorsorge (3. Säule) und weitere Versicherungen sind in dieser Berechnung nicht berücksichtigt.',
+  p.hinweise.push(
+    'Bestehende private Absicherung (3. Säule, private Risikoversicherungen) ist in der APICalc-Berechnung nicht enthalten; bekannte private Leistungen weist das Backend separat aus.',
     'Leistungen der Pensionskasse werden nicht aus einem Vorsorgeausweis übernommen. Welche Annahmen APICalc ohne diese Werte trifft, ist nicht dokumentiert.',
   );
-  if (profil.plaene.length > 0) hinweise.push('Erfasste Pläne fliessen nicht ein: Die Berechnung beschreibt die heutige Situation.');
+  if (profil.plaene.length > 0) p.hinweise.push('Pläne fliessen nicht ein: Diese Berechnung beschreibt die heutige Situation. Pläne werden als eigene Szenarien gerechnet.');
 
-  if (fehlend.length > 0 || !beziehung || seitJahr === null || !person1 || (paar && !person2) || !kinder) {
-    return { bereit: false, vorhanden, fehlend, hinweise, request: null, requestJson: null };
-  }
+  if (p.fehlend.length > 0 || !beziehung || !person1 || (paar && !person2) || !kinder) return p;
   if (kinder.person1 > 0) person1.NumberOfChildren = kinder.person1;
   if (person2 && kinder.person2 > 0) person2.NumberOfChildren = kinder.person2;
-  const request = RiskRequest.parse({
-    Relationship: BEZIEHUNG_API[beziehung.wert],
-    RelationshipSinceYear: seitJahr,
+  return abschliessen(p, RiskRequest.parse({
+    ...beziehung,
     Person1: person1,
     ...(person2 ? { Person2: person2 } : {}),
     NumberOfChildren: kinder.gemeinsam,
     WithChildren: kinder.gemeinsam + kinder.person1 + kinder.person2 > 0,
-  });
-  return { bereit: true, vorhanden, fehlend, hinweise, request, requestJson: JSON.stringify(request) };
+  }));
 }
 
-function pruefePerson(person: Person, id: PersonId, vorhanden: Angabe[], fehlend: Angabe[], hinweise: string[]): RiskPerson | null {
+function pruefePerson(person: Person, id: PersonId, p: Pruefung<unknown>): RiskPerson | null {
   const name = personLabel(id);
-  const ergebnis: Partial<RiskPerson> = {};
-
-  if (person.geschlecht) {
-    ergebnis.Sex = person.geschlecht.wert === 'maennlich' ? 1 : 2;
-    vorhanden.push({ label: `Geschlecht ${name}`, wert: person.geschlecht.wert === 'maennlich' ? 'männlich' : 'weiblich', quelle: person.geschlecht.quelle });
-  } else {
-    fehlend.push({ label: `Geschlecht ${name}`, warum: 'Pflichtangabe der Risikoberechnung (Sex).' });
-  }
-
-  if (person.geburtsjahr) {
-    ergebnis.BirthYear = person.geburtsjahr.wert;
-    vorhanden.push({ label: `Geburtsjahr ${name}`, wert: String(person.geburtsjahr.wert), quelle: person.geburtsjahr.quelle });
-  } else {
-    fehlend.push({ label: `Geburtsjahr ${name}`, warum: 'Pflichtangabe; Leistungen hängen vom Alter ab.' });
-  }
-
-  const erwerb = person.erwerb?.wert;
-  if (person.einkommen) {
-    const brutto = bruttoJahr(person.einkommen.wert);
-    if (typeof brutto === 'number') {
-      ergebnis.GrossIncome = brutto;
-      vorhanden.push({ label: `Bruttoeinkommen ${name}`, wert: `${chf(brutto)} pro Jahr`, quelle: person.einkommen.quelle });
-    } else {
-      fehlend.push({ label: `${brutto} (${name})`, warum: 'Die Berechnung verlangt das Bruttoeinkommen pro Jahr.' });
-    }
-  } else if (erwerb === 'nicht_erwerbstaetig') {
-    ergebnis.GrossIncome = 0;
-    vorhanden.push({ label: `Bruttoeinkommen ${name}`, wert: 'CHF 0 (nicht erwerbstätig)', quelle: 'backend' });
-  } else {
-    fehlend.push({ label: `Erwerbssituation und Bruttoeinkommen ${name}`, warum: 'Grundlage für Leistungen und Bedarf.' });
-  }
-
-  if (person.bvgVersichert) {
-    ergebnis.WithBVG = person.bvgVersichert.wert;
-    vorhanden.push({ label: `Pensionskasse ${name}`, wert: person.bvgVersichert.wert ? 'versichert' : 'nicht versichert', quelle: person.bvgVersichert.quelle });
-  } else if (erwerb === 'nicht_erwerbstaetig') {
-    ergebnis.WithBVG = false;
-    vorhanden.push({ label: `Pensionskasse ${name}`, wert: 'nicht versichert (abgeleitet: nicht erwerbstätig)', quelle: 'backend' });
-    hinweise.push(`${name}: Ohne Erwerb wird keine Pensionskasse angenommen. Ein Freizügigkeitsguthaben ist nicht berücksichtigt.`);
-  } else {
-    fehlend.push({ label: `Ob ${name} bei einer Pensionskasse versichert ist`, warum: 'Ohne Pensionskasse entfallen Leistungen der 2. Säule.' });
-  }
-
-  const einkommen = ergebnis.GrossIncome;
+  const basis = pruefeBasisPerson(person, id, p);
+  const ergebnis: Partial<RiskPerson> = { ...basis };
+  const einkommen = basis.GrossIncome;
   for (const [feld, art, pc, need] of [['bedarfInvaliditaet', 'bei Erwerbsunfähigkeit', 'NeedInPcDisability', 'NeedDisability'], ['bedarfTodesfall', 'im Todesfall', 'NeedInPcDeath', 'NeedDeath']] as const) {
     const wert = person[feld];
     if (wert) {
       ergebnis[pc] = wert.wert.einheit === 'prozent';
       ergebnis[need] = wert.wert.hoehe;
-      vorhanden.push({ label: `Bedarf ${art} von ${name}`, wert: bedarfText(wert.wert), quelle: wert.quelle });
-      if (wert.wert.einheit === 'prozent' && einkommen === 0) hinweise.push(`${name}: Ein Bedarf in Prozent eines Einkommens von 0 ergibt 0. Für Betreuungs- oder Haushaltskosten einen Betrag in CHF verwenden.`);
+      p.vorhanden.push({ label: `Bedarf ${art} von ${name}`, wert: bedarfText(wert.wert), quelle: wert.quelle });
+      if (wert.wert.einheit === 'prozent' && einkommen === 0) p.hinweise.push(`${name}: Ein Bedarf in Prozent eines Einkommens von 0 ergibt 0. Für Betreuungs- oder Haushaltskosten einen Betrag in CHF verwenden.`);
     } else if (einkommen === 0) {
-      hinweise.push(`${name}: Kein Bedarf ${art} erfasst. Ohne Bedarf zeigt die Berechnung voraussichtlich keine Lücke, obwohl etwa Betreuungskosten entstehen können.`);
+      p.hinweise.push(`${name}: Kein Bedarf ${art} erfasst. Ohne Bedarf zeigt die Berechnung voraussichtlich keine Lücke, obwohl etwa Betreuungskosten entstehen können.`);
     } else {
-      fehlend.push({ label: `Gewünschtes Einkommen ${art} von ${name} (in % des heutigen Einkommens oder CHF pro Jahr)`, warum: 'Ohne Bedarf lässt sich keine Lücke bestimmen.' });
+      p.fehlend.push({ label: `Gewünschtes Einkommen ${art} von ${name} (in % des heutigen Einkommens oder CHF pro Jahr)`, warum: 'Ohne Bedarf lässt sich keine Lücke bestimmen.' });
     }
   }
-
-  const vollstaendig = ergebnis.Sex !== undefined && ergebnis.BirthYear !== undefined && ergebnis.WithBVG !== undefined && ergebnis.GrossIncome !== undefined
-    && (ergebnis.GrossIncome === 0 || (ergebnis.NeedDisability !== undefined && ergebnis.NeedDeath !== undefined));
+  const vollstaendig = basisVollstaendig(basis) && (basis.GrossIncome === 0 || (ergebnis.NeedDisability !== undefined && ergebnis.NeedDeath !== undefined));
   return vollstaendig ? ergebnis as RiskPerson : null;
 }
 
-function bruttoJahr(einkommen: Einkommen): number | string {
-  if (einkommen.basis === 'netto') return 'Bruttoeinkommen (genannt wurde ein Nettobetrag)';
-  if (einkommen.basis === null) return 'Ob das genannte Einkommen brutto oder netto ist';
-  if (einkommen.einheit === 'chf_jahr') return einkommen.betrag;
-  if (einkommen.monatsloehne === null) return 'Anzahl Monatslöhne (12 oder 13)';
-  return einkommen.betrag * einkommen.monatsloehne;
-}
-
-const bedarfText = (bedarf: Bedarf) => (bedarf.einheit === 'prozent' ? `${bedarf.hoehe} % des heutigen Einkommens` : `${chf(bedarf.hoehe)} pro Jahr`);
-
-function pruefeKinder(profil: Profil, paar: boolean, jahr: number, vorhanden: Angabe[], fehlend: Angabe[], hinweise: string[]) {
+function pruefeKinder(profil: Profil, paar: boolean, jahr: number, p: Pruefung<unknown>) {
+  const { vorhanden, fehlend, hinweise } = p;
   const hatKinder = profil.haushalt.hatKinder;
   if (profil.kinder.length === 0) {
     if (hatKinder?.wert === false) {
@@ -242,27 +152,35 @@ function pruefeKinder(profil: Profil, paar: boolean, jahr: number, vorhanden: An
   return vollstaendig ? anzahl : null;
 }
 
-const SZENARIEN: Record<number, string> = {
-  1: 'Erwerbsunfähigkeit durch Krankheit – Person A',
-  2: 'Erwerbsunfähigkeit durch Unfall – Person A',
-  3: 'Todesfall durch Krankheit – Person A',
-  4: 'Todesfall durch Unfall – Person A',
-  5: 'Erwerbsunfähigkeit durch Krankheit – Person B',
-  6: 'Erwerbsunfähigkeit durch Unfall – Person B',
-  7: 'Todesfall durch Krankheit – Person B',
-  8: 'Todesfall durch Unfall – Person B',
+const SZENARIEN: Record<number, { person: PersonId; fall: 'erwerbsunfaehigkeit' | 'tod'; ursache: 'Krankheit' | 'Unfall' }> = {
+  1: { person: 'A', fall: 'erwerbsunfaehigkeit', ursache: 'Krankheit' },
+  2: { person: 'A', fall: 'erwerbsunfaehigkeit', ursache: 'Unfall' },
+  3: { person: 'A', fall: 'tod', ursache: 'Krankheit' },
+  4: { person: 'A', fall: 'tod', ursache: 'Unfall' },
+  5: { person: 'B', fall: 'erwerbsunfaehigkeit', ursache: 'Krankheit' },
+  6: { person: 'B', fall: 'erwerbsunfaehigkeit', ursache: 'Unfall' },
+  7: { person: 'B', fall: 'tod', ursache: 'Krankheit' },
+  8: { person: 'B', fall: 'tod', ursache: 'Unfall' },
 };
 const FEHLERCODES: Record<number, string> = { 2: 'interner Fehler der Berechnung', 8: 'Person A ist bereits oder bald pensioniert', 9: 'Person B ist bereits oder bald pensioniert' };
 
 export interface Szenario {
   szenario: string;
+  person: PersonId | null;
+  fall: 'erwerbsunfaehigkeit' | 'tod' | null;
   fehler: string | null;
   bedarf?: number; einnahmen?: number; ersteSaeule?: number; zweiteSaeule?: number; partner?: number; luecke?: number; ueberschuss?: number; kapitalisierteLuecke?: number;
 }
 
-export const szenarien = (antwort: RiskResponse): Szenario[] => antwort.response.RiskScenarioSummaries.map(s => ({
-  szenario: SZENARIEN[s.Scenario] ?? `Szenario ${s.Scenario}`,
-  fehler: s.ErrorCode && s.ErrorCode !== 1 ? FEHLERCODES[s.ErrorCode] ?? `Fehlercode ${s.ErrorCode}` : null,
-  bedarf: s.IncomeNeed, einnahmen: s.IncomeTotal, ersteSaeule: s.IncomePillar1, zweiteSaeule: s.IncomePillar2,
-  partner: s.IncomePartner, luecke: s.IncomeGap, ueberschuss: s.IncomeSurplus, kapitalisierteLuecke: s.CapitalGap,
-}));
+// APICalc returns 0 for OK in practice, 1 in the specification; both mean OK.
+export const szenarien = (antwort: RiskResponse): Szenario[] => antwort.response.RiskScenarioSummaries.map(s => {
+  const art = SZENARIEN[s.Scenario];
+  return {
+    szenario: art ? `${art.fall === 'tod' ? 'Todesfall' : 'Erwerbsunfähigkeit'} durch ${art.ursache} – Person ${art.person}` : `Szenario ${s.Scenario}`,
+    person: art?.person ?? null,
+    fall: art?.fall ?? null,
+    fehler: s.ErrorCode && s.ErrorCode !== 1 ? FEHLERCODES[s.ErrorCode] ?? `Fehlercode ${s.ErrorCode}` : null,
+    bedarf: s.IncomeNeed, einnahmen: s.IncomeTotal, ersteSaeule: s.IncomePillar1, zweiteSaeule: s.IncomePillar2,
+    partner: s.IncomePartner, luecke: s.IncomeGap, ueberschuss: s.IncomeSurplus, kapitalisierteLuecke: s.CapitalGap,
+  };
+});

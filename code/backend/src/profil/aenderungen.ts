@@ -1,13 +1,25 @@
 import { z } from 'zod';
-import { BEZIEHUNGEN, ERWERB, PLANARTEN, Profil, type Bedarf, type Einkommen, type Herkunft, type Kind, type Person, type Plan } from './profil.js';
+import { ANLIEGEN_THEMEN, BEZIEHUNGEN, ERWERB, PLANARTEN, Profil, type Bedarf, type Einkommen, type Herkunft, type Kind, type Person, type Plan, type Sparbetrag } from './profil.js';
 
 // Change proposals produced by the model. All keys are required (nullable) so the schema works with strict structured outputs.
 export const FELDER = [
   'anliegen', 'beziehung', 'beziehung_seit_jahr', 'hat_kinder', 'gemeinsamer_haushalt',
-  'geschlecht', 'geburtsjahr', 'erwerb', 'pensum', 'einkommen', 'bvg_versichert', 'bedarf_invaliditaet', 'bedarf_todesfall',
+  'wohnen', 'hypothek', 'vermoegen', 'sparbetrag', 'bedarf_alter',
+  'geschlecht', 'geburtsjahr', 'erwerb', 'pensum', 'einkommen', 'bvg_versichert', 'saeule3a', 'saeule3a_guthaben',
+  'todesfallkapital', 'erwerbsunfaehigkeitsrente', 'bedarf_invaliditaet', 'bedarf_todesfall',
   'kind', 'kind_geburtsjahr', 'kind_elternteil', 'kind_alleiniges_sorgerecht',
-  'plan', 'plan_zeitpunkt', 'plan_pensum', 'plan_einkommen', 'plan_sicherheit',
+  'plan', 'plan_zeitpunkt', 'plan_pensum', 'plan_einkommen', 'plan_sicherheit', 'plan_alter', 'plan_kaufpreis',
 ] as const;
+
+// What the customer wants from this turn. The backend uses it to choose the next step; it never bypasses the flow's guards.
+export const WUNSCH_ARTEN = ['angaben', 'frage', 'szenario', 'empfehlung', 'beratungsperson'] as const;
+export const WUNSCH_THEMEN = ['absicherung', 'familie', 'eigenheim', 'pensionierung', 'sparen'] as const;
+export const Wunsch = z.object({
+  art: z.enum(WUNSCH_ARTEN),
+  thema: z.enum(WUNSCH_THEMEN).nullable(),
+}).strict();
+export type Wunsch = z.infer<typeof Wunsch>;
+export const KEIN_WUNSCH: Wunsch = { art: 'angaben', thema: null };
 
 export const Aenderung = z.object({
   aktion: z.enum(['setzen', 'entfernen']),
@@ -22,12 +34,12 @@ export const Aenderung = z.object({
   einkommensbasis: z.enum(['brutto', 'netto']).nullable(),
   monatsloehne: z.number().nullable(),
   planart: z.enum(PLANARTEN).nullable(),
+  anliegenthema: z.enum(ANLIEGEN_THEMEN).nullable(),
   quelle: z.enum(['aussage', 'ableitung']),
   beleg: z.string().max(300),
   begruendung: z.string().max(300).nullable(),
 }).strict();
 
-export const Extraktion = z.object({ aenderungen: z.array(Aenderung).max(30) }).strict();
 export type Aenderung = z.infer<typeof Aenderung>;
 
 export interface Protokolleintrag { feld: string; text: string; grund?: string }
@@ -37,8 +49,12 @@ export interface Nachricht { text: string; index: number; jahr: number }
 class Ablehnung extends Error {}
 const ablehnen = (grund: string): never => { throw new Ablehnung(grund); };
 
+// Thousands separators (100'000, 100’000, 100 000, 100.000) are removed so that a quote matches however the number was written.
 export const normalisiere = (value: string) => value.normalize('NFKC').toLowerCase()
-  .replace(/[’‘`´]/g, "'").replace(/[“”„«»]/g, '"').replace(/\s+/g, ' ').trim();
+  .replace(/[’‘`´]/g, "'").replace(/[“”„«»]/g, '"').replace(/\s+/g, ' ')
+  .replace(/(\d)['. ](?=\d{3}(?!\d))/g, '$1')
+  // Punctuation does not change what was said; a quote ending with "." instead of "," still counts.
+  .replace(/[.,;:!?()"–-]+/g, ' ').replace(/\s+/g, ' ').trim();
 
 /**
  * Applies proposals to a copy of the profile. A proposal is only accepted if its quote occurs in the
@@ -66,7 +82,7 @@ export function wendeAenderungenAn(ausgang: Profil, aenderungen: readonly Aender
 function pruefeHerkunft(aenderung: Aenderung, nachricht: string, index: number): Herkunft {
   const beleg = aenderung.beleg.trim();
   if (!beleg) ablehnen('Kein Beleg aus der Nachricht.');
-  if (!nachricht.includes(normalisiere(beleg))) ablehnen('Der Beleg steht nicht in der Nachricht.');
+  if (!nachricht.includes(normalisiere(beleg))) ablehnen(`Der Beleg „${beleg.slice(0, 80)}“ steht nicht in der Nachricht.`);
   const begruendung = aenderung.begruendung?.trim() || null;
   if (aenderung.quelle === 'ableitung' && !begruendung) ablehnen('Ableitung ohne Begründung.');
   return { quelle: aenderung.quelle, beleg, begruendung, nachricht: index };
@@ -75,7 +91,7 @@ function pruefeHerkunft(aenderung: Aenderung, nachricht: string, index: number):
 function beschreibe(a: Aenderung): string {
   const ziel = [a.person && `Person ${a.person}`, a.ziel].filter(Boolean).join(' ');
   const wert = a.aktion === 'entfernen' ? 'entfernt'
-    : [a.planart, a.text, a.zahl, a.monat && `Monat ${a.monat}`, a.ja_nein === null ? null : a.ja_nein ? 'ja' : 'nein', a.einheit, a.einkommensbasis, a.monatsloehne && `${a.monatsloehne} Monatslöhne`]
+    : [a.planart, a.anliegenthema, a.text, a.zahl, a.monat && `Monat ${a.monat}`, a.ja_nein === null ? null : a.ja_nein ? 'ja' : 'nein', a.einheit, a.einkommensbasis, a.monatsloehne && `${a.monatsloehne} Monatslöhne`]
       .filter(value => value !== null && value !== undefined && value !== '').join(' ');
   return `${a.feld}${ziel ? ` (${ziel})` : ''}: ${wert}`;
 }
@@ -95,6 +111,17 @@ const einkommen = (a: Aenderung): Einkommen => {
   if (a.einheit !== 'chf_jahr' && a.einheit !== 'chf_monat') return ablehnen('Einkommen braucht die Einheit chf_jahr oder chf_monat.');
   if (a.monatsloehne !== null && a.monatsloehne !== 12 && a.monatsloehne !== 13) return ablehnen('Monatslöhne: nur 12 oder 13.');
   return { betrag: a.zahl, einheit: a.einheit, basis: a.einkommensbasis, monatsloehne: a.einheit === 'chf_monat' ? a.monatsloehne as 12 | 13 | null : null };
+};
+
+const chfBetrag = (a: Aenderung, name: string): number => {
+  if (a.zahl === null || a.zahl < 0 || a.zahl > 100_000_000) return ablehnen(`${name} braucht einen Betrag in CHF (0 = keine).`);
+  return a.zahl;
+};
+
+const sparbetrag = (a: Aenderung): Sparbetrag => {
+  if (a.zahl === null || a.zahl < 0 || a.zahl > 10_000_000) return ablehnen('Sparbetrag braucht einen Betrag in CHF.');
+  if (a.einheit !== 'chf_jahr' && a.einheit !== 'chf_monat') return ablehnen('Sparbetrag braucht die Einheit chf_jahr oder chf_monat.');
+  return { betrag: a.zahl, einheit: a.einheit };
 };
 
 const bedarf = (a: Aenderung): Bedarf => {
@@ -145,9 +172,15 @@ function wende(profil: Profil, a: Aenderung, herkunft: Herkunft, neueIds: Map<st
         profil.anliegen.splice(index, 1);
         return;
       }
+      const bestehend = profil.anliegen.find(anliegen => anliegen.id === a.ziel);
+      if (bestehend) {
+        if (a.text?.trim()) bestehend.text = a.text.trim();
+        if (a.anliegenthema) bestehend.thema = a.anliegenthema;
+        return;
+      }
       const text = a.text?.trim() || ablehnen('Anliegen braucht einen Text.');
       if (profil.anliegen.length >= 10) ablehnen('Es sind bereits 10 Anliegen erfasst.');
-      profil.anliegen.push({ id: `a${profil.naechsteId.anliegen++}`, text, herkunft });
+      profil.anliegen.push({ id: `a${profil.naechsteId.anliegen++}`, text, thema: a.anliegenthema ?? 'sonstiges', herkunft });
       return;
     }
     case 'beziehung':
@@ -165,6 +198,38 @@ function wende(profil: Profil, a: Aenderung, herkunft: Herkunft, neueIds: Map<st
     case 'gemeinsamer_haushalt':
       if (setzen) profil.haushalt.gemeinsamerHaushalt = fakt(janein(a, 'Gemeinsamer Haushalt'));
       else delete profil.haushalt.gemeinsamerHaushalt;
+      return;
+    case 'wohnen':
+      if (setzen) profil.haushalt.wohnen = fakt(auswahl(a, ['miete', 'eigentum'] as const, 'Wohnen'));
+      else delete profil.haushalt.wohnen;
+      return;
+    case 'hypothek':
+      if (setzen) profil.haushalt.hypothek = fakt(chfBetrag(a, 'Hypothek'));
+      else delete profil.haushalt.hypothek;
+      return;
+    case 'vermoegen':
+      if (setzen) profil.haushalt.vermoegen = fakt(chfBetrag(a, 'Vermögen'));
+      else delete profil.haushalt.vermoegen;
+      return;
+    case 'sparbetrag':
+      if (setzen) profil.haushalt.sparbetrag = fakt(sparbetrag(a));
+      else delete profil.haushalt.sparbetrag;
+      return;
+    case 'bedarf_alter':
+      if (setzen) profil.haushalt.bedarfAlter = fakt(bedarf(a));
+      else delete profil.haushalt.bedarfAlter;
+      return;
+    case 'saeule3a':
+      personFeld(profil, a, 'saeule3a', () => fakt(janein(a, 'Säule 3a')));
+      return;
+    case 'saeule3a_guthaben':
+      personFeld(profil, a, 'saeule3aGuthaben', () => fakt(chfBetrag(a, 'Guthaben Säule 3a')));
+      return;
+    case 'todesfallkapital':
+      personFeld(profil, a, 'todesfallkapital', () => fakt(chfBetrag(a, 'Todesfallkapital')));
+      return;
+    case 'erwerbsunfaehigkeitsrente':
+      personFeld(profil, a, 'erwerbsunfaehigkeitsrente', () => fakt(chfBetrag(a, 'Erwerbsunfähigkeitsrente')));
       return;
     case 'geschlecht':
       personFeld(profil, a, 'geschlecht', () => fakt(auswahl(a, ['weiblich', 'maennlich'] as const, 'Geschlecht')));
@@ -260,6 +325,22 @@ function wende(profil: Profil, a: Aenderung, herkunft: Herkunft, neueIds: Map<st
       const plan = planFinden(profil, a, neueIds);
       if (setzen) plan.einkommen = fakt(einkommen(a));
       else delete plan.einkommen;
+      return;
+    }
+    case 'plan_alter': {
+      const plan = planFinden(profil, a, neueIds);
+      if (setzen) plan.alter = fakt(ganzzahl(a, 50, 75, 'Pensionierungsalter'));
+      else delete plan.alter;
+      return;
+    }
+    case 'plan_kaufpreis': {
+      const plan = planFinden(profil, a, neueIds);
+      if (!setzen) {
+        delete plan.kaufpreis;
+        return;
+      }
+      if (a.zahl === null || a.zahl <= 0 || a.zahl > 100_000_000) ablehnen('Kaufpreis braucht einen positiven Betrag in CHF.');
+      plan.kaufpreis = fakt(a.zahl!);
       return;
     }
     case 'plan_sicherheit': {

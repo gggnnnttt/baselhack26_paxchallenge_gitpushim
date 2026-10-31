@@ -8,8 +8,8 @@ Stand: 31.10.2026. Beim nächsten Backend-Start aktiv. Keine Abhängigkeit von `
 POST /api/chat { message, sessionId? }
   → lokale Eingabeprüfung und Kontaktmaskierung
   → akzeptierter Verlauf aus dem Backend
-  → Themenprüfung über denselben ModelAdapter (strikte Ja/Nein-Entscheidung)
-  → nur bei erlaubtem Thema: Profilerfassung und Beratungsablauf (siehe BERATUNGSSTAND.md)
+  → parallel: Themenprüfung + Planer/Profilerfassung über denselben ModelAdapter
+  → nur bei erlaubtem Thema: Vorschläge prüfen und Beratungsablauf ausführen (siehe BERATUNGSSTAND.md)
   → ModelAdapter.generate({ instructions + Beratungsstand, messages, maxOutputTokens })
   → lokale Ausgabeprüfung
   → nur bei Erfolg: Verlauf ergänzen und Antwort ausliefern
@@ -23,7 +23,7 @@ POST /api/chat { message, sessionId? }
 - `advisor.instructions.md`: wird beim Start serverseitig geladen und bei jedem Modellaufruf als Instruktionen übergeben.
 - `src/server.ts`: lädt Dateien relativ zum Modul, initialisiert die Pipeline und liefert ausschliesslich feste Fehlermeldungen zurück.
 
-Für einen anderen Anbieter implementiert das spätere Team das Interface `ModelAdapter` und übergibt dessen Implementierung an `ChatService`. Alle lokalen Kontrollen bleiben davor und danach erhalten. Ob ein neues Modell passende Antworten liefert, muss separat getestet werden. Die Themenprüfung erfolgt über denselben austauschbaren Adapter. Aktuell sind deshalb Themenprüfung, Profilerfassung und Antwort OpenAI-Aufrufe. Bei einem späteren anderen Adapter darf dessen Implementierung keine versteckten OpenAI-Aufrufe enthalten. Das optionale `responseFormat` (`{ name, schema }`) verlangt eine strikte JSON-Antwort, für die Themenprüfung mit genau einem booleschen Feld `allowed`, für die Profilerfassung nach dem aus Zod erzeugten Schema. Der OpenAI-Adapter verwendet dafür Structured Outputs; andere Adapter müssen das gleiche Ergebnis liefern.
+Für einen anderen Anbieter implementiert das spätere Team das Interface `ModelAdapter` und übergibt dessen Implementierung an `ChatService`. Alle lokalen Kontrollen bleiben davor und danach erhalten. Ob ein neues Modell passende Antworten liefert, muss separat getestet werden. Die Themenprüfung erfolgt über denselben austauschbaren Adapter. Aktuell sind deshalb Themenprüfung, Profilerfassung und Antwort OpenAI-Aufrufe. Bei einem späteren anderen Adapter darf dessen Implementierung keine versteckten OpenAI-Aufrufe enthalten. Das optionale `responseFormat` (`{ name, schema }`) verlangt eine strikte JSON-Antwort, für die Themenprüfung mit genau einem booleschen Feld `allowed`, für Planer/Profilerfassung einschliesslich Beratungsplan nach dem aus Zod erzeugten Schema. Der OpenAI-Adapter verwendet dafür Structured Outputs; andere Adapter müssen das gleiche Ergebnis liefern.
 
 ## Fachliche Grenze
 
@@ -33,7 +33,7 @@ Vor der eigentlichen Antwort lässt das Backend die letzten höchstens sieben be
 
 Das ist eine semantische Modellprüfung und keine unfehlbare Erkennung. Die Grenze wird technisch durchgesetzt, die Einordnung selbst kann sich irren. Kein fester Fragenkatalog und keine reine Schlagwortliste für erlaubte Themen.
 
-**Kosten:** Jede Nachricht nach lokaler Eingabeprüfung verursacht einen Themenprüfungsaufruf mit bis zu 512 Ausgabetokens. Erlaubte Nachrichten verursachen anschliessend einen Profilerfassungsaufruf (bis zu 4000 Ausgabetokens) und den Antwortaufruf, also drei Modellaufrufe pro Nachricht. Fachfremde Anfragen sind somit nicht kostenlos; sie erhalten aber keine allgemeine Aufgabenlösung. Die Konfiguration ist keine accountweite Kosten- oder Missbrauchssperre.
+**Kosten:** Nach lokaler Eingabeprüfung laufen Themenprüfung (bis zu 512 Ausgabetokens) und Planer/Profilerfassung (bis zu 4000 Ausgabetokens) parallel. Bei erlaubtem Thema und gültiger Verarbeitung folgt der Antwortaufruf: normalerweise drei Aufrufe pro Nachricht. Auch fachfremde Anfragen verursachen somit zwei Aufrufe, aber keine allgemeine Aufgabenlösung. Die Konfiguration ist keine accountweite Kosten- oder Missbrauchssperre.
 
 ## Was tatsächlich durchgesetzt wird
 
@@ -42,7 +42,7 @@ Das ist eine semantische Modellprüfung und keine unfehlbare Erkennung. Die Gren
 - Bekannte Muster etwa für AHV-Nummern, IBANs, Kartenwerte und technische Geheimnisse werden vor dem Provider blockiert. Kontaktmuster werden lokal ersetzt. Normalisierung erfasst einige Unicode-Abwandlungen.
 - Auch späterer Modellkontext verwendet nur bereits bereinigte und akzeptierte Nachrichten.
 - Bekannte sensible Begriffe werden in Modellantworten konservativ blockiert, unabhängig davon, ob das Modell sie als Frage, Liste oder Upload-Bitte formuliert. Dadurch können auch harmlose Erklärungen zu solchen Begriffen zurückgehalten werden. Feste Backend-Fehlermeldungen erklären den zulässigen Erfassungsweg.
-- Bekannte Behauptungsmuster über bereits ausgeführte Berechnungen oder Vertragsaktionen werden zurückgehalten. Reale Aktionswerkzeuge sind dem Modell überhaupt nicht bereitgestellt.
+- Bekannte Behauptungsmuster über bereits ausgeführte Berechnungen oder Vertragsaktionen werden zurückgehalten. Berechnungen werden nur vom Backend ausgeführt; Vertragsaktionen sind nicht angeschlossen.
 - Blockierte Antworten und zugehörige neue Nutzernachrichten werden nicht in den akzeptierten Verlauf aufgenommen.
 - Bei ungültiger oder leerer Modellantwort, Providerfehler oder lokaler Prüfverletzung wird nichts ungeprüft ausgeliefert. Keine Umgehung über einen zweiten Client.
 - Die Antwort wird vollständig geprüft, bevor das Frontend sie erhält; kein Streaming.
@@ -74,6 +74,6 @@ Frontend in einem zweiten Terminal wie bisher mit `npm start` starten. Nach dem 
 
 ## Verifiziert
 
-`npm test` führt 28 lokale Tests aus (`test/chat.test.ts`, `test/beratung.test.ts`): normale Familienanliegen, sensible Eingaben vor dem Provider, bereinigter Kontext, abgewiesene eingeschleuste Rollen, blockierte Ausgaben ohne Historienübernahme, sichere Providerfehler, gleiche Pipeline mit anderem Adapter, Sitzungs-/Eingabegrenzen, Konfigurationsprüfung sowie der echte OpenAI-SDK-Adapter mit simuliertem HTTP-Transport. Weitere Regressionstests prüfen die durchgesetzte Themenablehnung ohne Antwortaufruf, ungültige Themenentscheidungen, bereinigten Klassifikationskontext und das JSON-Schema im OpenAI-Adapter. Datenschutztests prüfen Sitzungslöschung (auch während eines laufenden Modellaufrufs), Ablauf ohne Folgeanfrage und dass zusätzliche Profil-/Formularfelder weder Themenprüfung noch Antwortaufruf erreichen. Dabei erfolgen keine externen Modellaufrufe. Die semantische Trefferrate der Themenentscheidung ist damit nicht gemessen; die Entscheidungen werden in den Tests simuliert.
+`npm test` führt die lokalen Tests über `test/all.ts` aus (`test/chat.test.ts`, `test/beratung.test.ts`): normale Familienanliegen, sensible Eingaben vor dem Provider, bereinigter Kontext, abgewiesene eingeschleuste Rollen, blockierte Ausgaben ohne Historienübernahme, sichere Providerfehler, gleiche Pipeline mit anderem Adapter, Sitzungs-/Eingabegrenzen, Konfigurationsprüfung sowie der echte OpenAI-SDK-Adapter mit simuliertem HTTP-Transport. Weitere Regressionstests prüfen die durchgesetzte Themenablehnung ohne Antwortaufruf, ungültige Themenentscheidungen, bereinigten Klassifikationskontext und das JSON-Schema im OpenAI-Adapter. Datenschutztests prüfen Sitzungslöschung (auch während eines laufenden Modellaufrufs), Ablauf ohne Folgeanfrage und dass zusätzliche Profil-/Formularfelder weder Themenprüfung noch Antwortaufruf erreichen. Dabei erfolgen keine externen Modellaufrufe. Die semantische Trefferrate der Themenentscheidung ist damit nicht gemessen; die Entscheidungen werden in den Tests simuliert.
 
 Backend-Typecheck und Angular-Produktionsbuild wurden zusätzlich ausgeführt. Zwei kurze Live-Gespräche mit erfundenen Angaben wurden gegen das echte Modell geführt, um Strict-Schema und Profilerfassung zu prüfen; das ist keine systematische Qualitätsmessung. Andere Modellanbieter sind noch nicht implementiert, das Adapterinterface ist vorhanden.

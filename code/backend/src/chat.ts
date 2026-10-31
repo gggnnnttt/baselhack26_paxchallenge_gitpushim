@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { RisikoRechner } from './berechnung/apicalc.js';
+import type { Rechner } from './berechnung/apicalc.js';
 import { Beratungsablauf, type AblaufStand } from './beratung/ablauf.js';
 import { ansicht, beratungsKontext, type BeratungsstandAnsicht } from './beratung/darstellung.js';
 import { GuardrailError, Guardrails } from './guardrails.js';
@@ -15,7 +15,7 @@ export interface ModelRequest { instructions: string; messages: ChatMessage[]; m
 // Provider-neutral request for a strict JSON answer; adapters map it to their structured-output feature.
 export interface StrukturFormat { name: string; schema: Record<string, unknown> }
 export interface ModelAdapter { generate(request: ModelRequest): Promise<string> }
-export interface ChatOptionen { rechner?: RisikoRechner | null; heute?: () => Date }
+export interface ChatOptionen { rechner?: Rechner | null; heute?: () => Date }
 export interface ChatAntwort { reply: string; sessionId: string; beratungsstand: BeratungsstandAnsicht }
 interface Session { messages: ChatMessage[]; updated: number; busy: boolean; ablauf: AblaufStand }
 
@@ -52,12 +52,20 @@ export class ChatService {
     this.sessions.set(sessionId, session);
     try {
       const context = [...session.messages.map(message => ({ ...message })), userMessage];
-      await checkScope(this.provider, context);
-      // Profile changes and calculations are worked out on copies and only committed with an accepted reply.
+      // Scope check and profile extraction run in parallel to save one model round trip.
+      // The extraction result is discarded unless the scope check allows the message.
       const vorher = session.ablauf.kontext.profil;
-      const aenderungen = await extrahiereAenderungen(this.provider, vorher, context, this.heute());
-      const angewendet = wendeAenderungenAn(vorher, aenderungen, { text: content, index: session.messages.length, jahr: session.ablauf.kontext.jahr });
-      const ablauf = await this.ablauf.aktualisiere(session.ablauf, angewendet.profil);
+      const [scope, erfassung] = await Promise.allSettled([
+        checkScope(this.provider, context),
+        extrahiereAenderungen(this.provider, vorher, context, this.heute(), session.ablauf.kontext),
+      ]);
+      if (scope.status === 'rejected') throw scope.reason;
+      if (erfassung.status === 'rejected') throw erfassung.reason;
+      if (this.sessions.get(sessionId) !== session) throw new GuardrailError('Dieser Chat wurde gelöscht.', 410);
+      // Profile changes and calculations are worked out on copies and only committed with an accepted reply.
+      const angewendet = wendeAenderungenAn(vorher, erfassung.value.aenderungen, { text: content, index: session.messages.length, jahr: session.ablauf.kontext.jahr });
+      const ablauf = await this.ablauf.aktualisiere(session.ablauf, angewendet.profil, erfassung.value.wunsch, erfassung.value.plan);
+      if (this.sessions.get(sessionId) !== session) throw new GuardrailError('Dieser Chat wurde gelöscht.', 410);
       const candidate = await this.provider.generate({
         instructions: `${this.instructions}\n\n${beratungsKontext(ablauf, angewendet)}`,
         messages: context,

@@ -1,12 +1,17 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
-import { createApiCalcClient, type RisikoRechner } from '../src/berechnung/apicalc.js';
+import { createApiCalcClient, type Rechner } from '../src/berechnung/apicalc.js';
+import { berechneEigenheim, pruefeEigenheim } from '../src/berechnung/eigenheim.js';
+import { pruefeFamilienSzenario } from '../src/berechnung/familie.js';
+import { pruefePensionierung, type RetirementRequest, type RetirementResponse } from '../src/berechnung/pensionierung.js';
 import { pruefeRisiko, type RiskRequest, type RiskResponse } from '../src/berechnung/risiko.js';
 import { Beratungsablauf } from '../src/beratung/ablauf.js';
+import type { BeratungsstandAnsicht } from '../src/beratung/darstellung.js';
+import { bewerteStand, waehleFokus } from '../src/beratung/stand.js';
 import { ChatService, type ChatAntwort, type ModelAdapter, type ModelRequest } from '../src/chat.js';
 import { GuardrailError, Guardrails } from '../src/guardrails.js';
-import { wendeAenderungenAn, type Aenderung } from '../src/profil/aenderungen.js';
+import { wendeAenderungenAn, type Aenderung, type Wunsch } from '../src/profil/aenderungen.js';
 import { EXTRAKTION_FORMAT } from '../src/profil/extraktion.js';
 import { leeresProfil, type Profil } from '../src/profil/profil.js';
 
@@ -17,7 +22,7 @@ const HEUTE = new Date('2026-10-31T12:00:00');
 
 const op = (feld: Aenderung['feld'], werte: Partial<Aenderung> & { beleg: string }): Aenderung => ({
   aktion: 'setzen', feld, person: null, ziel: null, text: null, zahl: null, monat: null, ja_nein: null, einheit: null,
-  einkommensbasis: null, monatsloehne: null, planart: null, quelle: 'aussage', begruendung: null, ...werte,
+  einkommensbasis: null, monatsloehne: null, planart: null, anliegenthema: null, quelle: 'aussage', begruendung: null, ...werte,
 });
 const anwenden = (profil: Profil, text: string, aenderungen: Aenderung[], index = 0) => wendeAenderungenAn(profil, aenderungen, { text, index, jahr: JAHR });
 
@@ -31,7 +36,7 @@ const MUELLER: { nachricht: string; aenderungen: Aenderung[] }[] = [
   {
     nachricht: 'Wir sind verheiratet und haben ein fünf Monate altes Baby. Wir möchten unsere Familie absichern, falls einem von uns etwas passiert.',
     aenderungen: [
-      op('anliegen', { text: 'Familie absichern, falls einem Elternteil etwas passiert', beleg: 'Wir möchten unsere Familie absichern' }),
+      op('anliegen', { text: 'Familie absichern, falls einem Elternteil etwas passiert', anliegenthema: 'absicherung', beleg: 'Wir möchten unsere Familie absichern' }),
       op('beziehung', { text: 'verheiratet', beleg: 'Wir sind verheiratet' }),
       op('kind', { ziel: 'neu1', text: 'Kind', beleg: 'ein fünf Monate altes Baby' }),
       op('kind_geburtsjahr', { ziel: 'neu1', zahl: 2026, beleg: 'fünf Monate altes Baby', quelle: 'ableitung', begruendung: '5 Monate alt im Oktober 2026 → geboren 2026' }),
@@ -90,22 +95,31 @@ const ERWARTETER_REQUEST: RiskRequest = {
   WithChildren: true,
 };
 
-function skriptModell(skript: Aenderung[][], antworten: (request: ModelRequest) => string = () => 'Danke, ich habe das notiert.') {
+const KEIN: Wunsch = { art: 'angaben', thema: null };
+const risiko = (a: BeratungsstandAnsicht) => a.stand.rechnungen.find(r => r.id === 'risiko')!;
+
+function skriptModell(skript: Aenderung[][], antworten: (request: ModelRequest) => string = () => 'Danke, ich habe das notiert.', wuensche: Wunsch[] = []) {
   const anweisungen: string[] = [];
   let zug = 0;
   const provider: ModelAdapter = { generate: async request => {
     if (request.responseFormat?.name === 'advisory_scope') return '{"allowed":true}';
-    if (request.responseFormat?.name === 'profil_aenderungen') return JSON.stringify({ aenderungen: skript[zug++] ?? [] });
+    if (request.responseFormat?.name === 'profil_aenderungen') { const i = zug++; return JSON.stringify({ aenderungen: skript[i] ?? [], wunsch: wuensche[i] ?? KEIN, plan: null }); }
     anweisungen.push(request.instructions);
     return antworten(request);
   } };
   return { provider, anweisungen };
 }
 
+const PENSION: RetirementResponse = { response: { ErrorCode: 1, GrossIncome: 100000, IncomeNeed: 80000, IncomeGap: 4996, IncomeTotal: 75004, IncomePillar1: 48581, IncomePillar2: 26423, IncomeWithdrawal: 0, AvailableFortune: 0, CapitalNeed: 157592, CapitalGap: 157592 } };
+
 function zaehlenderRechner(antwort: RiskResponse = ANTWORT) {
   const requests: RiskRequest[] = [];
-  const rechner: RisikoRechner = { berechneRisiko: async request => { requests.push(request); return antwort; } };
-  return { rechner, requests };
+  const pensionen: RetirementRequest[] = [];
+  const rechner: Rechner = {
+    berechneRisiko: async request => { requests.push(request); return antwort; },
+    berechnePensionierung: async request => { pensionen.push(request); return PENSION; },
+  };
+  return { rechner, requests, pensionen };
 }
 
 test('Müller conversation builds a correct calculateRisk request step by step', async () => {
@@ -122,22 +136,24 @@ test('Müller conversation builds a correct calculateRisk request step by step',
   const [erst, zweit, dritt, viert, fuenft] = staende.map(s => s.beratungsstand);
 
   // Turn 1: invented quote rejected, the child is a common child.
-  assert.equal(erst!.phase, 'erfassung');
-  assert.deepEqual(erst!.letzteNachricht.abgelehnt.map(e => e.grund), ['Der Beleg steht nicht in der Nachricht.']);
+  assert.equal(erst!.phase, 'nachfragen');
+  assert.deepEqual(erst!.letzteNachricht.abgelehnt.map(e => e.grund), ['Der Beleg „seit 2020 verheiratet“ steht nicht in der Nachricht.']);
   assert.equal(erst!.profil.haushalt.beziehungSeitJahr, undefined);
   assert.equal(erst!.profil.kinder[0]!.elternteil!.wert, 'beide');
-  assert.ok(erst!.risiko.fehlend.some(a => a.label === 'Jahr der Heirat'));
+  assert.ok(risiko(erst!).pruefung.fehlend.some(a => a.label === 'Jahr der Heirat'));
+  assert.equal(erst!.schritt!.fokus!.label, 'Jahr der Heirat');
+  assert.equal(erst!.stand.anliegen[0]!.status, 'in_klaerung');
 
   // Turn 2: derivation without reason rejected; Person A's sex is not guessed.
   assert.deepEqual(zweit!.letzteNachricht.abgelehnt.map(e => e.grund), ['Ableitung ohne Begründung.']);
   assert.equal(zweit!.profil.kinder[0]!.bezeichnung, 'Kind');
-  assert.ok(zweit!.risiko.fehlend.some(a => a.label === 'Geschlecht Person A (du)'));
+  assert.ok(risiko(zweit!).pruefung.fehlend.some(a => a.label === 'Geschlecht Person A (du)'));
   assert.equal(zweit!.profil.personen.B!.geschlecht!.quelle, 'ableitung');
 
   // Turn 3: typographic apostrophe in the message still matches the quote.
   assert.equal(dritt!.letzteNachricht.abgelehnt.length, 0);
   assert.equal(dritt!.profil.personen.B!.einkommen!.wert.betrag, 100000);
-  assert.deepEqual(dritt!.risiko.fehlend.map(a => a.label), [
+  assert.deepEqual(risiko(dritt!).pruefung.fehlend.map(a => a.label), [
     'Gewünschtes Einkommen bei Erwerbsunfähigkeit von Person B (Partner/in) (in % des heutigen Einkommens oder CHF pro Jahr)',
     'Gewünschtes Einkommen im Todesfall von Person B (Partner/in) (in % des heutigen Einkommens oder CHF pro Jahr)',
   ]);
@@ -147,24 +163,36 @@ test('Müller conversation builds a correct calculateRisk request step by step',
   assert.deepEqual([plan.art, plan.person, plan.zeitpunkt!.wert.jahr, plan.zeitpunkt!.wert.monat, plan.pensumProzent!.wert, plan.sicherheit!.wert], ['wiedereinstieg', 'A', 2027, 3, 40, 'unsicher']);
   assert.equal(viert!.profil.personen.A.erwerb!.wert, 'nicht_erwerbstaetig');
   assert.equal(viert!.profil.personen.A.einkommen, undefined);
-  assert.equal(viert!.phase, 'erfassung');
+  assert.equal(risiko(viert!).status, 'unvollstaendig');
+  // The return-to-work scenario needs what the household would need if Person A could no longer work afterwards.
+  const szenario = viert!.stand.rechnungen.find(r => r.art === 'familie')!;
+  assert.equal(szenario.status, 'unvollstaendig');
+  assert.ok(szenario.pruefung.annahmen.some(a => a.includes('BVG-Eintrittsschwelle')));
 
   // Turn 5: complete → exactly one calculation with the expected request.
-  assert.equal(fuenft!.phase, 'berechnet');
-  assert.deepEqual(fuenft!.risiko.request, ERWARTETER_REQUEST);
+  assert.equal(fuenft!.phase, 'szenario_zeigen');
+  assert.deepEqual(fuenft!.schritt!.rechnungen, ['risiko']);
+  assert.equal(risiko(fuenft!).status, 'berechnet');
+  assert.deepEqual(risiko(fuenft!).pruefung.request, ERWARTETER_REQUEST);
   assert.deepEqual(requests, [ERWARTETER_REQUEST]);
-  assert.equal(fuenft!.risiko.ergebnis!.szenarien[1]!.luecke, 12000);
-  assert.ok(fuenft!.risiko.hinweise.some(h => h.includes('3. Säule')));
-  assert.ok(fuenft!.risiko.hinweise.some(h => h.includes('Pläne fliessen nicht ein')));
+  const ergebnis = risiko(fuenft!).ergebnis!;
+  assert.ok(ergebnis.art === 'risiko' && ergebnis.szenarien[1]!.luecke === 12000);
+  assert.ok(risiko(fuenft!).pruefung.hinweise.some(h => h.includes('3. Säule')));
+  assert.ok(risiko(fuenft!).pruefung.hinweise.some(h => h.includes('Pläne fliessen nicht ein')));
+  assert.equal(fuenft!.stand.anliegen[0]!.status, 'ergebnis');
+  // Not yet allowed: existing pillar 3a and private cover are unknown.
+  assert.equal(fuenft!.stand.empfehlung.erlaubt, false);
+  assert.ok(fuenft!.schritt!.nichtErlaubt.some(n => n.aktion === 'empfehlung_vorbereiten'));
 
   // Every accepted value points back to the user message it came from.
   assert.equal(fuenft!.profil.personen.B!.bedarfTodesfall!.nachricht, 8);
   assert.equal(fuenft!.profil.haushalt.beziehung!.nachricht, 0);
 
-  // The reply model sees missing inputs first and the result only once it exists.
-  assert.match(anweisungen[0]!, /Noch fehlend[^]*Jahr der Heirat/);
-  assert.match(anweisungen[0]!, /Noch kein Berechnungsergebnis/);
-  assert.match(anweisungen[4]!, /Todesfall durch Krankheit – Person B: Bedarf CHF 70.000/);
+  // The reply model sees one focus instead of the full missing list, and results only once they exist.
+  assert.match(anweisungen[0]!, /Fokus für die eine Rückfrage: Jahr der Heirat/);
+  assert.doesNotMatch(anweisungen[0]!, /Geschlecht Person A/);
+  assert.doesNotMatch(anweisungen[0]!, /Ergebnisse für diesen Schritt/);
+  assert.match(anweisungen[4]!, /Ergebnisse für diesen Schritt[^]*Todesfall durch Krankheit – Person B: Bedarf CHF 70.000/);
 });
 
 test('corrections recalculate, incomplete changes mark the result as outdated', async () => {
@@ -178,10 +206,10 @@ test('corrections recalculate, incomplete changes mark the result as outdated', 
   const nachKorrektur = (await service.reply({ message: "Korrektur: Er verdient 110'000 brutto pro Jahr.", sessionId })).beratungsstand;
   assert.equal(requests.length, 2);
   assert.equal(requests[1]!.Person2!.GrossIncome, 110000);
-  assert.equal(nachKorrektur.phase, 'berechnet');
+  assert.equal(risiko(nachKorrektur).status, 'berechnet');
   const nachWiderruf = (await service.reply({ message: 'Das Heiratsjahr stimmt nicht, das muss ich nachschauen.', sessionId })).beratungsstand;
-  assert.equal(nachWiderruf.phase, 'erfassung');
-  assert.equal(nachWiderruf.risiko.ergebnis!.veraltet, true);
+  assert.equal(risiko(nachWiderruf).status, 'veraltet');
+  assert.equal(risiko(nachWiderruf).ergebnis, null);
   assert.equal(requests.length, 2);
 });
 
@@ -202,7 +230,7 @@ test('nothing is committed when the reply is blocked, the extraction is invalid 
   let antwortAufrufe = 0;
   const kaputt = new ChatService({ generate: async request => {
     if (request.responseFormat?.name === 'advisory_scope') return '{"allowed":true}';
-    if (request.responseFormat) return '{"aenderungen":[{"feld":"name","text":"Erika"}]}';
+    if (request.responseFormat) return '{"aenderungen":[{"feld":"name","text":"Erika"}],"wunsch":{"art":"angaben","thema":null}}';
     antwortAufrufe++;
     return 'Antwort';
   } }, new Guardrails(config), 'Berater');
@@ -212,7 +240,7 @@ test('nothing is committed when the reply is blocked, the extraction is invalid 
 
   // Deleted while APICalc is running: no reply, no stored state.
   let freigeben!: () => void;
-  const langsam: RisikoRechner = { berechneRisiko: () => new Promise(resolve => { freigeben = () => resolve(ANTWORT); }) };
+  const langsam: Rechner = { berechneRisiko: () => new Promise(resolve => { freigeben = () => resolve(ANTWORT); }), berechnePensionierung: async () => PENSION };
   const skript = skriptModell(MUELLER.map(zug => zug.aenderungen));
   const geloescht = new ChatService(skript.provider, new Guardrails(config), 'Berater', { rechner: langsam, heute: () => HEUTE });
   let sessionId: string | undefined;
@@ -247,6 +275,15 @@ test('profile proposals are checked against the message and field rules', () => 
   const pruefung = pruefeRisiko(profil, JAHR);
   assert.ok(pruefung.fehlend.some(a => a.label === 'Seit welchem Jahr ihr zusammenlebt'));
   assert.ok(pruefung.fehlend.some(a => a.label === 'Bruttoeinkommen (genannt wurde ein Nettobetrag) (Person A (du))'));
+});
+
+test('quotes match regardless of how thousands are written', () => {
+  const { uebernommen } = anwenden(leeresProfil(), 'Ich verdiene etwa 57’000 brutto.', [
+    op('einkommen', { person: 'A', zahl: 57000, einheit: 'chf_jahr', einkommensbasis: 'brutto', beleg: '57000 brutto' }),
+  ]);
+  assert.equal(uebernommen.length, 1);
+  const satz = anwenden(leeresProfil(), 'Ich bin 1991 geboren, er 1989.', [op('geburtsjahr', { person: 'A', zahl: 1991, beleg: 'Ich bin 1991 geboren.' })]);
+  assert.equal(satz.uebernommen.length, 1);
 });
 
 test('corrections overwrite, removals delete, and children are not duplicated', () => {
@@ -290,19 +327,21 @@ test('income, single parents and custody map to the documented API fields', () =
 
 test('flow waits without APICalc access, reports failures and does not recalculate unchanged inputs', async () => {
   const komplett = MUELLER.reduce((profil, zug, index) => anwenden(profil, zug.nachricht, zug.aenderungen, index * 2).profil, leeresProfil());
+  const risikoStand = (s: Awaited<ReturnType<Beratungsablauf['aktualisiere']>>) => s.kontext.stand.rechnungen.find(r => r.id === 'risiko')!;
   const ohne = new Beratungsablauf(null);
-  assert.equal((await ohne.aktualisiere(ohne.start(JAHR), komplett)).phase, 'bereit');
+  assert.equal(risikoStand(await ohne.aktualisiere(ohne.start(JAHR), komplett)).status, 'bereit');
 
-  const fehler = new Beratungsablauf({ berechneRisiko: async () => { throw new Error('APICalc antwortete mit HTTP 401.'); } });
+  const kaputt = async () => { throw new Error('APICalc antwortete mit HTTP 401.'); };
+  const fehler = new Beratungsablauf({ berechneRisiko: kaputt, berechnePensionierung: kaputt });
   const fehlgeschlagen = await fehler.aktualisiere(fehler.start(JAHR), komplett);
-  assert.equal(fehlgeschlagen.phase, 'fehlgeschlagen');
-  assert.equal(fehlgeschlagen.kontext.fehler, 'APICalc antwortete mit HTTP 401.');
+  assert.equal(risikoStand(fehlgeschlagen).status, 'fehlgeschlagen');
+  assert.equal(risikoStand(fehlgeschlagen).fehler, 'APICalc antwortete mit HTTP 401.');
 
   const { rechner, requests } = zaehlenderRechner();
   const ablauf = new Beratungsablauf(rechner);
   const einmal = await ablauf.aktualisiere(ablauf.start(JAHR), komplett);
   const zweimal = await ablauf.aktualisiere(einmal, structuredClone(komplett));
-  assert.equal(zweimal.phase, 'berechnet');
+  assert.equal(risikoStand(zweimal).status, 'berechnet');
   assert.equal(requests.length, 1);
 });
 
@@ -337,4 +376,208 @@ test('extraction schema is usable as a strict structured output', () => {
   // No field for names, addresses or health data exists.
   const felder: string[] = (EXTRAKTION_FORMAT.schema as any).properties.aenderungen.items.properties.feld.enum;
   assert.ok(!felder.some(feld => /name|adresse|gesundheit|diagnose|raucher/i.test(feld)));
+});
+
+const MUELLER_PROFIL = () => MUELLER.reduce((profil, zug, index) => anwenden(profil, zug.nachricht, zug.aenderungen, index * 2).profil, leeresProfil());
+
+test('retirement request uses known savings and the desired age from a plan', () => {
+  const text = 'Im Alter möchten wir 80 % unseres Einkommens. Wir haben 50000 gespart und legen 500 im Monat zur Seite. Mein Mann möchte mit 60 aufhören.';
+  const profil = anwenden(MUELLER_PROFIL(), text, [
+    op('bedarf_alter', { zahl: 80, einheit: 'prozent', beleg: '80 % unseres Einkommens' }),
+    op('vermoegen', { zahl: 50000, beleg: '50000 gespart' }),
+    op('sparbetrag', { zahl: 500, einheit: 'chf_monat', beleg: '500 im Monat' }),
+    op('plan', { ziel: 'neu1', text: 'Frühpensionierung', planart: 'fruehpensionierung', person: 'B', beleg: 'möchte mit 60 aufhören' }),
+    op('plan_alter', { ziel: 'neu1', zahl: 60, beleg: 'mit 60 aufhören' }),
+  ], 10).profil;
+  const basis = {
+    Relationship: 2, RelationshipSinceYear: 2023,
+    Person1: { Sex: 2, BirthYear: 1986, GrossIncome: 0, WithBVG: false },
+    Person2: { Sex: 1, BirthYear: 1984, GrossIncome: 100000, WithBVG: true },
+    CurrentFortune: 50000, Saving: 6000, NeedInPcRetirement: true, NeedRetirement: 80,
+  };
+  const regulaer = pruefePensionierung(profil, JAHR);
+  assert.deepEqual(regulaer.request, basis);
+  // Pillar 3a is unknown: named as not considered, not assumed to be zero silently.
+  assert.ok(regulaer.optional.some(a => a.label.includes('Säule 3a')));
+  const frueh = pruefePensionierung(profil, JAHR, profil.plaene[1]!);
+  assert.deepEqual(frueh.request, { ...basis, Person2: { ...basis.Person2, DesiredRetirementAge: 60 } });
+});
+
+test('home ownership scenario is calculated locally with named rules of thumb', () => {
+  const text = 'Ich bin ledig, verdiene 120000 brutto im Jahr, habe 60000 gespart und spare 1500 pro Monat. 2030 möchte ich eine Wohnung für 800000 kaufen.';
+  const profil = anwenden(leeresProfil(), text, [
+    op('beziehung', { text: 'ledig', beleg: 'ledig' }),
+    op('erwerb', { person: 'A', text: 'angestellt', beleg: 'verdiene 120000', quelle: 'ableitung', begruendung: 'Lohn → angestellt' }),
+    op('einkommen', { person: 'A', zahl: 120000, einheit: 'chf_jahr', einkommensbasis: 'brutto', beleg: '120000 brutto im Jahr' }),
+    op('vermoegen', { zahl: 60000, beleg: '60000 gespart' }),
+    op('sparbetrag', { zahl: 1500, einheit: 'chf_monat', beleg: '1500 pro Monat' }),
+    op('plan', { ziel: 'neu1', text: 'Wohnung kaufen', planart: 'wohneigentum', beleg: 'eine Wohnung für 800000 kaufen' }),
+    op('plan_zeitpunkt', { ziel: 'neu1', zahl: 2030, beleg: '2030' }),
+    op('plan_kaufpreis', { ziel: 'neu1', zahl: 800000, beleg: 'für 800000' }),
+  ]).profil;
+  const pruefung = pruefeEigenheim(profil, profil.plaene[0]!, JAHR);
+  assert.equal(pruefung.bereit, true);
+  assert.ok(pruefung.annahmen.some(a => a.includes('kalkulatorischer Zins 5 %')));
+  assert.deepEqual(berechneEigenheim(pruefung.request!), {
+    kaufpreis: 800000, kaufjahr: 2030,
+    eigenmittelBeiKauf: 132000, eigenmittelNoetig: 160000, eigenmittelLuecke: 28000, sparbetragFuerZielJahr: 25000,
+    hypothek: 668000, kostenJahr: 50378, tragbarkeitProzent: 42, tragbar: false, maxKaufpreisNachEinkommen: 679000, saeule3aMoeglich: 0,
+  });
+});
+
+test('family scenario recalculates on a copy with the plan applied and names its assumptions', () => {
+  const text = 'Wenn ich nach dem Wiedereinstieg ausfalle, bräuchten wir 20000 im Jahr, und wenn ich sterbe 30000 im Jahr.';
+  const profil = anwenden(MUELLER_PROFIL(), text, [
+    op('bedarf_invaliditaet', { person: 'A', zahl: 20000, einheit: 'chf_jahr', beleg: 'bräuchten wir 20000 im Jahr' }),
+    op('bedarf_todesfall', { person: 'A', zahl: 30000, einheit: 'chf_jahr', beleg: 'wenn ich sterbe 30000 im Jahr' }),
+  ], 10).profil;
+  const szenario = pruefeFamilienSzenario(profil, profil.plaene[0]!, JAHR);
+  assert.equal(szenario.bereit, true);
+  assert.deepEqual((szenario.request as RiskRequest).Person1, {
+    Sex: 2, BirthYear: 1986, GrossIncome: 30000, WithBVG: true, NeedInPcDisability: false, NeedDisability: 20000, NeedInPcDeath: false, NeedDeath: 30000,
+  });
+  assert.ok(szenario.annahmen.some(a => a.includes('Pensionskasse angenommen')));
+  // Today's profile is untouched.
+  assert.equal(profil.personen.A.erwerb!.wert, 'nicht_erwerbstaetig');
+  assert.deepEqual(pruefeRisiko(profil, JAHR).request!.Person1, { Sex: 2, BirthYear: 1986, GrossIncome: 0, WithBVG: false, NeedInPcDisability: false, NeedDisability: 20000, NeedInPcDeath: false, NeedDeath: 30000 });
+});
+
+test('a recommendation is only prepared once needs, existing provision and results are known', async () => {
+  const vorsorge = 'Wir haben beide keine Säule 3a. Mein Mann hat eine Todesfallversicherung über 100000, aber keine Erwerbsunfähigkeitsrente. Wir können etwa 800 im Monat sparen. Was empfiehlst du uns?';
+  const skript = [...MUELLER.map(zug => zug.aenderungen), [], [
+    op('saeule3a', { person: 'A', ja_nein: false, beleg: 'beide keine Säule 3a' }),
+    op('saeule3a', { person: 'B', ja_nein: false, beleg: 'beide keine Säule 3a' }),
+    op('todesfallkapital', { person: 'B', zahl: 100000, beleg: 'Todesfallversicherung über 100000' }),
+    op('erwerbsunfaehigkeitsrente', { person: 'B', zahl: 0, beleg: 'keine Erwerbsunfähigkeitsrente' }),
+    op('sparbetrag', { zahl: 800, einheit: 'chf_monat', beleg: '800 im Monat' }),
+  ]];
+  const empfehlung: Wunsch = { art: 'empfehlung', thema: null };
+  const wuensche = [...MUELLER.map(() => KEIN), empfehlung, empfehlung];
+  const { provider, anweisungen } = skriptModell(skript, undefined, wuensche);
+  const { rechner } = zaehlenderRechner();
+  const service = new ChatService(provider, new Guardrails(config), 'Berater', { rechner, heute: () => HEUTE });
+  let sessionId: string | undefined;
+  for (const zug of MUELLER) sessionId = (await service.reply({ message: zug.nachricht, ...(sessionId ? { sessionId } : {}) })).sessionId;
+
+  const zuFrueh = (await service.reply({ message: 'Was sollen wir abschliessen?', sessionId })).beratungsstand;
+  assert.equal(zuFrueh.phase, 'nachfragen');
+  assert.match(zuFrueh.schritt!.begruendung, /Empfehlung fehlt noch Grundlage/);
+  assert.equal(zuFrueh.schritt!.fokus!.thema, 'saeule3');
+  assert.match(anweisungen.at(-1)!, /Nicht erlaubt: empfehlung_vorbereiten/);
+
+  const bereit = (await service.reply({ message: vorsorge, sessionId })).beratungsstand;
+  assert.equal(bereit.phase, 'empfehlung_vorbereiten');
+  assert.equal(bereit.stand.empfehlung.erlaubt, true);
+  // Death of Person B: capitalised gap 250'000 minus existing private death cover 100'000.
+  assert.deepEqual(bereit.stand.empfehlung.luecken.map(l => [l.betrag, l.einheit]), [[150000, 'kapital']]);
+  assert.match(anweisungen.at(-1)!, /Empfehlungsgrundlage[^]*private Todesfallversicherung CHF 100.000/);
+});
+
+test('the next focus follows the most recent concern instead of a fixed order', () => {
+  const text = 'Wir wollen die Familie absichern. Und wir träumen von einem eigenen Haus.';
+  const profil = anwenden(leeresProfil(), text, [
+    op('anliegen', { text: 'Familie absichern', anliegenthema: 'absicherung', beleg: 'Familie absichern' }),
+    op('anliegen', { text: 'Eigenes Haus', anliegenthema: 'eigenheim', beleg: 'einem eigenen Haus' }),
+    op('plan', { ziel: 'neu1', text: 'Haus kaufen', planart: 'wohneigentum', beleg: 'einem eigenen Haus' }),
+  ]).profil;
+  const stand = bewerteStand(profil, JAHR, {});
+  assert.equal(waehleFokus(stand, KEIN)!.punkt.label, 'Ungefährer Kaufpreis des Eigenheims');
+  assert.equal(waehleFokus(stand, { art: 'szenario', thema: 'absicherung' })!.punkt.thema, 'risiko');
+  // Pillars are part of the picture even without a concern about them.
+  assert.ok(['saeule1', 'saeule2', 'saeule3'].every(id => stand.themen.some(t => t.id === id)));
+});
+
+const VORSCHLAG = {
+  fokusAnliegen: null, ungeklaert: ['Ziel der Familie'], aktion: 'nachfragen' as const,
+  rechnung: null, frage: 'Was ist euch für eure Familie besonders wichtig?', begruendung: 'Zuerst das Anliegen verstehen.',
+};
+
+test('a planner question replaces the fixed focus and the plan survives the turn', async () => {
+  const ablauf = new Beratungsablauf(null);
+  const stand = await ablauf.aktualisiere(ablauf.start(JAHR), leeresProfil(), KEIN, VORSCHLAG);
+  assert.equal(stand.kontext.schritt!.quelle, 'planer');
+  assert.equal(stand.kontext.schritt!.frage, VORSCHLAG.frage);
+  assert.deepEqual(stand.kontext.plan, VORSCHLAG);
+});
+
+test('a planner cannot skip recommendation prerequisites or invent a result', async () => {
+  const ablauf = new Beratungsablauf(null);
+  for (const aktion of ['empfehlung_vorbereiten', 'szenario_zeigen'] as const) {
+    const stand = await ablauf.aktualisiere(ablauf.start(JAHR), leeresProfil(), KEIN,
+      { ...VORSCHLAG, aktion, frage: null, rechnung: aktion === 'szenario_zeigen' ? 'risiko' : null });
+    assert.equal(stand.phase, 'nachfragen');
+    assert.equal(stand.kontext.schritt!.quelle, 'fallback');
+    assert.ok(stand.kontext.schritt!.nichtErlaubt.some(n => n.aktion === aktion));
+    assert.equal(stand.kontext.plan, null);
+  }
+});
+
+test('a planner calculation runs only the selected scenario and presents the result', async () => {
+  const { rechner, requests, pensionen } = zaehlenderRechner();
+  const ablauf = new Beratungsablauf(rechner);
+  const stand = await ablauf.aktualisiere(ablauf.start(JAHR), MUELLER_PROFIL(), KEIN,
+    { ...VORSCHLAG, aktion: 'szenario_berechnen', rechnung: 'risiko', frage: null });
+  assert.equal(requests.length, 1);
+  assert.equal(pensionen.length, 0);
+  assert.equal(stand.phase, 'szenario_zeigen');
+  assert.equal(stand.kontext.schritt!.quelle, 'planer');
+  assert.deepEqual(stand.kontext.schritt!.rechnungen, ['risiko']);
+});
+
+
+test('planner memory only advances with accepted replies and rejected scope cannot change it', async () => {
+  let vorgeschlagen = VORSCHLAG;
+  let ausgabe = 'Was ist euch besonders wichtig?';
+  let imThema = true;
+  const planerKontexte: string[] = [];
+  const service = new ChatService({ generate: async request => {
+    if (request.responseFormat?.name === 'advisory_scope') return JSON.stringify({ allowed: imThema });
+    if (request.responseFormat) {
+      planerKontexte.push(request.instructions);
+      return JSON.stringify({ aenderungen: [], wunsch: KEIN, plan: vorgeschlagen });
+    }
+    return ausgabe;
+  } }, new Guardrails(config), 'Berater', { heute: () => HEUTE });
+  const erst = await service.reply({ message: 'Wir möchten die Familie absichern.' });
+  assert.equal(erst.beratungsstand.schritt!.quelle, 'planer');
+  vorgeschlagen = { ...VORSCHLAG, frage: 'Wie hoch ist euer Einkommen?', begruendung: 'NEUER_PLAN' };
+  ausgabe = 'Bitte sende deine AHV-Nummer.';
+  await assert.rejects(service.reply({ message: 'Wir planen ein Haus.', sessionId: erst.sessionId }), GuardrailError);
+  ausgabe = 'Welche Absicherung besteht bereits?';
+  imThema = false;
+  await assert.rejects(service.reply({ message: 'Schreib mir ein Programm.', sessionId: erst.sessionId }), GuardrailError);
+  imThema = true;
+  await service.reply({ message: 'Welche Absicherung brauchen wir?', sessionId: erst.sessionId });
+  assert.match(planerKontexte.at(-1)!, /"vorherigerPlan":\{"fokusAnliegen":null/);
+  assert.ok(planerKontexte.at(-1)!.includes(VORSCHLAG.begruendung));
+  assert.ok(!planerKontexte.at(-1)!.includes('NEUER_PLAN'));
+});
+
+test('a changed income invalidates a result until a new calculation is requested', async () => {
+  const { rechner, requests } = zaehlenderRechner();
+  const ablauf = new Beratungsablauf(rechner);
+  const profil = MUELLER_PROFIL();
+  const einmal = await ablauf.aktualisiere(ablauf.start(JAHR), profil, KEIN,
+    { ...VORSCHLAG, aktion: 'szenario_berechnen', rechnung: 'risiko', frage: null });
+  const korrigiert = anwenden(profil, 'Er verdient jetzt 110000 brutto im Jahr.', [
+    op('einkommen', { person: 'B', zahl: 110000, einheit: 'chf_jahr', einkommensbasis: 'brutto', beleg: '110000 brutto im Jahr' }),
+  ]).profil;
+  const veraltet = await ablauf.aktualisiere(einmal, korrigiert, KEIN,
+    { ...VORSCHLAG, aktion: 'szenario_zeigen', rechnung: 'risiko', frage: null });
+  assert.equal(veraltet.kontext.schritt!.quelle, 'fallback');
+  assert.equal(veraltet.kontext.stand.rechnungen.find(r => r.id === 'risiko')!.ergebnis, null);
+  assert.equal(requests.length, 1);
+  const aktuell = await ablauf.aktualisiere(veraltet, korrigiert, KEIN,
+    { ...VORSCHLAG, aktion: 'szenario_berechnen', rechnung: 'risiko', frage: null });
+  assert.equal(aktuell.phase, 'szenario_zeigen');
+  assert.equal(requests.length, 2);
+  assert.equal(requests[1]!.Person2!.GrossIncome, 110000);
+});
+
+test('requesting a human does not start otherwise ready calculations', async () => {
+  const { rechner, requests, pensionen } = zaehlenderRechner();
+  const ablauf = new Beratungsablauf(rechner);
+  const stand = await ablauf.aktualisiere(ablauf.start(JAHR), MUELLER_PROFIL(), { art: 'beratungsperson', thema: null });
+  assert.equal(stand.phase, 'beratungsperson');
+  assert.equal(requests.length + pensionen.length, 0);
 });
