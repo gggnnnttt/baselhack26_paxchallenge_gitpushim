@@ -30,7 +30,7 @@ test('contact information is redacted in all retained model context', async () =
   const seen: string[] = [];
   const service = new ChatService(allowScope({ generate: async (request) => {
     seen.push(JSON.stringify(request.messages));
-    assert.ok(request.instructions.startsWith('Berater\n\n## Beratungsstand'));
+    assert.ok(request.instructions.startsWith('Berater\n\n## Lagebild'));
     return 'Wie ist eure Arbeit aufgeteilt?';
   } }), makeRails(), 'Berater');
   const first = await service.reply({ message: 'Kontakt demo@example.org, wir haben ein Baby.' });
