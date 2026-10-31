@@ -30,8 +30,6 @@
 </ng-template>
 
 <main>
-  <h1>Chat</h1>
-
   @if (!accepted()) {
     <section class="notice intro-notice">
       <h2>Bevor du startest</h2>
@@ -55,18 +53,26 @@
       </button>
     </section>
   } @else {
-    <details class="notice">
-      <summary>Demo · nur erfundene Angaben · Nachrichten gehen an OpenAI, Berechnungsdaten an APICalc</summary>
-      <ng-container [ngTemplateOutlet]="privacyNotice" />
+    <details class="pax-accordion">
+      <summary>
+        <span class="accordion-title">Demo · nur erfundene Angaben · Nachrichten gehen an OpenAI, Berechnungsdaten an APICalc</span>
+        <svg class="accordion-chevron" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
+          <path d="M7 10L12 15L17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </summary>
+      <div class="accordion-body">
+        <ng-container [ngTemplateOutlet]="privacyNotice" />
+      </div>
     </details>
 
     <div class="layout">
       <div class="chat">
-        <button type="button" (click)="deleteChat()" [disabled]="loading()">Chat löschen</button>
+        <button class="pax-button pax-delete-chat" type="button" (click)="deleteDialog.showModal()" [disabled]="loading()">Chat löschen</button>
+        <div class="chat-history" tabindex="0" role="region" aria-label="Chatverlauf">
 
         <div class="messages">
           @for (m of messages(); track $index) {
-            <div class="message" [class.user]="m.role === 'user'">{{ m.content }}</div>
+            @if (m.role === 'assistant') {<div class="message message-markdown" [innerHTML]="m.content | markdown"></div>} @else {<div class="message user">{{ m.content }}</div>}
           }
           @if (loading()) {
             <div class="message">…</div>
@@ -75,16 +81,40 @@
             <div class="error">{{ error() }}</div>
           }
           @if (info()) {
-            <div class="info">{{ info() }}</div>
+            <div class="pax-dialog-result" role="status">{{ info() }}</div>
           }
         </div>
 
-        <form (ngSubmit)="send()">
-          <input name="input" [(ngModel)]="input" placeholder="Nachricht eingeben (nur erfundene Angaben)…" autocomplete="off" />
-          <button type="submit" [disabled]="loading()">Senden</button>
+        </div>
+
+        <form class="chat-composer" (ngSubmit)="send()">
+          <input class="pax-input" type="text" name="input" [(ngModel)]="input" aria-label="Nachricht" placeholder="Nachricht eingeben (nur erfundene Angaben)…" autocomplete="off" />
+          <button class="pax-button pax-icon-button" type="submit" [disabled]="loading() || !input.trim()" aria-label="Nachricht senden" title="Nachricht senden">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+              <path d="M5 12h14" />
+              <path d="m12 5 7 7-7 7" />
+            </svg>
+          </button>
         </form>
       </div>
-      <app-beratungsstand [stand]="stand()" />
+      <div class="consultation-sidebar">
+        <div class="pax-face">
+          <img src="pax-face-v4.svg" alt="PAX Gesicht" width="256" height="256" />
+        </div>
+        <app-beratungsstand [stand]="stand()" />
+      </div>
     </div>
   }
 </main>
+
+<dialog #deleteDialog class="pax-warning-dialog" aria-labelledby="delete-dialog-title" aria-describedby="delete-dialog-description">
+  <button class="dialog-close" type="button" aria-label="Dialog schliessen" (click)="deleteDialog.close()">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+  </button>
+  <h2 id="delete-dialog-title">Chat löschen?</h2>
+  <p id="delete-dialog-description">Dein Chatverlauf und das erfasste Profil werden gelöscht. Diese Aktion kann nicht rückgängig gemacht werden. Möchtest du fortfahren?</p>
+  <div class="dialog-actions">
+    <button class="pax-button dialog-cancel" type="button" autofocus (click)="deleteDialog.close()">Abbrechen</button>
+    <button class="pax-button dialog-delete" type="button" [disabled]="loading()" (click)="deleteDialog.close(); deleteChat()">Löschen</button>
+  </div>
+</dialog>

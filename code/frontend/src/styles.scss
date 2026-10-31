@@ -3,3 +3,182 @@
 body {
   margin: 0;
 }
+
+.pax-start-button,
+.pax-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  box-sizing: border-box;
+  height: 54px;
+  padding: 16px 32px;
+  border: 0;
+  border-radius: 1000px;
+  background: #8ccd0f;
+  color: #121212;
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: background-color 300ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  svg {
+    display: block;
+    flex-shrink: 0;
+  }
+
+  &:hover:not(:disabled) {
+    background: #5ca700;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #8ccd0f;
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    background: rgba(18, 18, 18, 0.1);
+    color: rgba(18, 18, 18, 0.5);
+    cursor: not-allowed;
+  }
+}
+.pax-accordion {
+  margin-bottom: 24px;
+  border-top: 1px solid #ddd;
+  border-bottom: 1px solid #ddd;
+  background: #fff;
+  color: #121212;
+
+  summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 24px 32px 24px 0;
+    list-style: none;
+    cursor: pointer;
+
+    &::marker { content: ''; }
+    &::-webkit-details-marker { display: none; }
+
+    &:hover .accordion-title { color: #5ca700; }
+    &:focus-visible {
+      outline: 2px solid #8ccd0f;
+      outline-offset: -2px;
+    }
+  }
+
+  .accordion-title {
+    flex: 1;
+    min-width: 0;
+    font-size: 22px;
+    font-weight: 700;
+    line-height: 1.4;
+    transition: color 200ms;
+  }
+
+  .accordion-chevron {
+    flex-shrink: 0;
+    color: #8ccd0f;
+    transition: transform 300ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  &[open] .accordion-chevron { transform: rotate(180deg); }
+
+  .accordion-body { padding: 0 32px 24px 0; }
+
+  @media (max-width: 768px) {
+    summary { padding: 20px 16px 20px 0; }
+    .accordion-title { font-size: 20px; line-height: 28px; }
+    .accordion-body { padding-right: 16px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .accordion-chevron, .accordion-title { transition: none; }
+  }
+}
+.pax-warning-dialog {
+  box-sizing: border-box;
+  width: min(640px, calc(100% - 32px));
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 48px;
+  border: 0;
+  border-radius: 20px;
+  background: #fff;
+  color: #121212;
+  font-family: system-ui, sans-serif;
+
+  &::backdrop { background: rgba(0, 0, 0, 0.32); }
+
+  h2 { margin: 0 0 24px; font-size: 28px; line-height: 1.3; }
+  p { margin: 0 0 40px; font-size: 16px; line-height: 1.55; }
+
+  .dialog-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    display: grid;
+    place-items: center;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: #121212;
+    cursor: pointer;
+    border-radius: 50%;
+    &:focus-visible { outline: 2px solid #8ccd0f; }
+  }
+
+  .dialog-actions { display: flex; gap: 12px; }
+  .dialog-actions .pax-button { flex: 1; }
+
+  .dialog-cancel {
+    border: 1.5px solid #121212;
+    background: #fff;
+    &:hover:not(:disabled) { background: #f3f4f6; }
+  }
+
+  .dialog-delete {
+    background: #ff3030;
+    color: #fff;
+    &:hover:not(:disabled) { background: #d52626; }
+  }
+
+  @media (max-width: 480px) {
+    padding: 56px 24px 24px;
+    .dialog-actions { flex-direction: column; }
+    .dialog-actions .pax-button { flex: none; width: 100%; }
+  }
+}
+
+.pax-dialog-result {
+  padding: 16px;
+  border-radius: 20px;
+  background: #f3f4f6;
+  color: #121212;
+  font-size: 16px;
+  line-height: 1.5;
+}
+/* Markdown is inserted dynamically, so these rules belong in the global stylesheet. */
+.message.message-markdown {
+  white-space: normal;
+  overflow-wrap: anywhere;
+
+  > :first-child { margin-top: 0; }
+  > :last-child { margin-bottom: 0; }
+  p, ul, ol, pre, blockquote { margin: 0.6rem 0; }
+  strong { font-weight: 700; }
+  ul, ol { padding-left: 1.5rem; }
+  li + li { margin-top: 0.25rem; }
+  h1, h2, h3, h4, h5, h6 { margin: 0.8rem 0 0.4rem; font-size: 1.1em; }
+  pre { max-width: 100%; overflow-x: auto; white-space: pre; }
+  code { padding: 0.1em 0.25em; border-radius: 4px; background: rgba(0, 0, 0, 0.06); }
+  pre code { display: block; padding: 0.75rem; }
+  blockquote { padding-left: 0.75rem; border-left: 3px solid #8ccd0f; }
+  table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; }
+  th, td { padding: 0.4rem 0.6rem; border: 1px solid #ccc; }
+}

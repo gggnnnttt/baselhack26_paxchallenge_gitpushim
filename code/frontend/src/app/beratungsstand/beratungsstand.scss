@@ -1,14 +1,28 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
 aside {
-  font-size: 0.9rem;
-  border: 1px solid #d0d0d0;
-  border-radius: 8px;
-  padding: 0.8rem 1rem;
-  background: #fcfcfc;
+  box-sizing: border-box;
+  min-height: 200px;
+  padding: 48px 32px;
+  border: 0;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 0 16px rgba(0, 0, 0, 0.25);
+  color: #6a6a6a;
+  font-size: 16px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 h2 {
-  margin: 0 0 0.6rem;
-  font-size: 1.05rem;
+  margin: 0 0 24px;
+  color: #8ccd0f;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 32px;
 }
 
 h3 {
@@ -23,7 +37,7 @@ h4 {
 }
 
 small {
-  color: #666;
+  color: #6a6a6a;
   font-weight: normal;
 }
 
@@ -49,7 +63,7 @@ ul {
 }
 
 .leer {
-  color: #666;
+  color: #6a6a6a;
 }
 
 .phase {
@@ -123,4 +137,14 @@ pre {
   font-size: 0.75rem;
   background: #f4f4f4;
   padding: 0.5rem;
+}
+
+.leer {
+  margin: 0;
+}
+
+@media (max-width: 600px) {
+  aside {
+    padding: 32px 24px;
+  }
 }

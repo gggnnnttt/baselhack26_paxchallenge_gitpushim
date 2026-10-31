@@ -2,6 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { MarkdownPipe } from './markdown.pipe';
 import { firstValueFrom } from 'rxjs';
 import { BeratungsstandPanel } from './beratungsstand/beratungsstand';
 import type { Beratungsstand } from './beratungsstand/beratungsstand.model';
@@ -12,7 +13,7 @@ interface Message {
 }
 
 @Component({
-  imports: [FormsModule, NgTemplateOutlet, BeratungsstandPanel],
+  imports: [FormsModule, NgTemplateOutlet, BeratungsstandPanel, MarkdownPipe],
   selector: 'app-root',
   styleUrl: './app.scss',
   templateUrl: './app.html',

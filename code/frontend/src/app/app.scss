@@ -51,16 +51,7 @@ main {
   color: #b00020;
 }
 
-form {
-  display: flex;
-  gap: 0.5rem;
 
-  input {
-    flex: 1;
-    padding: 0.6rem;
-    font-size: 1rem;
-  }
-}
 
 .notice {
   margin-bottom: 1rem;
@@ -90,7 +81,7 @@ form {
 
 .layout {
   display: grid;
-  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
   gap: 1.5rem;
   align-items: start;
   margin-top: 0.8rem;
@@ -100,45 +91,7 @@ form {
   }
 }
 
-.pax-start-button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  box-sizing: border-box;
-  height: 54px;
-  padding: 16px 32px;
-  border: 0;
-  border-radius: 1000px;
-  background: #8ccd0f;
-  color: #121212;
-  font-family: inherit;
-  font-size: 16px;
-  font-weight: 500;
-  line-height: 1.4;
-  cursor: pointer;
-  transition: background-color 300ms cubic-bezier(0.4, 0, 0.2, 1);
 
-  svg {
-    display: block;
-    flex-shrink: 0;
-  }
-
-  &:hover:not(:disabled) {
-    background: #5ca700;
-  }
-
-  &:focus-visible {
-    outline: 2px solid #8ccd0f;
-    outline-offset: 2px;
-  }
-
-  &:disabled {
-    background: rgba(18, 18, 18, 0.1);
-    color: rgba(18, 18, 18, 0.5);
-    cursor: not-allowed;
-  }
-}
 .notice.intro-notice {
   padding: 48px 32px;
   border: 0;
@@ -280,4 +233,125 @@ form {
 
 .notice .acceptance-field.invalid input {
   border: 2px solid #d32f2f;
+}
+.chat > .pax-delete-chat {
+  flex: 0 0 auto;
+  align-self: flex-end;
+}
+
+.chat-composer {
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 12px;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.pax-button.pax-icon-button {
+  flex: 0 0 54px;
+  width: 54px;
+  height: 54px;
+  padding: 16px;
+}
+
+.pax-input {
+  flex: 1;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: 52px;
+  padding: 12px;
+  border: 1px solid #adadad;
+  border-radius: 10px;
+  background: #fff;
+  color: #121212;
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1.55;
+
+  transition: border-color 200ms ease-in-out;
+
+  &::placeholder {
+    color: #6b7280;
+    opacity: 1;
+  }
+
+  &:focus {
+    border-color: #8ccd0f;
+    outline: none;
+  }
+
+  &:focus-visible {
+    box-shadow: 0 0 0 1px #8ccd0f;
+  }
+
+  @media (min-width: 1024px) {
+    font-size: 18px;
+  }
+}
+.pax-button.pax-delete-chat {
+  height: 40px;
+  padding: 8px 20px;
+  font-size: 14px;
+}
+
+.consultation-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+}
+
+.pax-face {
+  display: flex;
+  justify-content: center;
+
+  img {
+    display: block;
+    width: min(100%, 256px);
+    height: auto;
+  }
+}
+
+.chat {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+  height: max(320px, calc(100dvh - 220px));
+}
+
+.chat-history {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  scrollbar-gutter: stable;
+  padding: 4px 8px 0 4px;
+}
+
+@media (min-width: 901px) {
+  .chat {
+    grid-column: 2;
+    grid-row: 1;
+    position: sticky;
+    top: 16px;
+  }
+
+  .consultation-sidebar {
+    grid-column: 1;
+    grid-row: 1;
+    align-self: start;
+  }
+
+  .pax-face {
+    flex: 0 0 256px;
+    height: 256px;
+  }
 }
