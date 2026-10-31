@@ -116,7 +116,6 @@ export function beratungsKontext(stand: AblaufStand, bericht: Aenderungsbericht)
     sparKontext(stand.sparen),
     budgetKontext(gleicheBudgetAb(stand.kontext.profil, stand.sparen)),
     handlungsplanKontext(erstelleHandlungsplan(stand)),
-    produktKontext(ermittleProduktvorschlaege(stand)),
     '',
     '### Aus der letzten Nachricht',
     `Übernommen: ${bericht.uebernommen.length ? bericht.uebernommen.map(e => e.text).join('; ') : 'nichts'}`,
@@ -189,24 +188,9 @@ function budgetKontext(b: BudgetAbgleich): string {
 
 function handlungsplanKontext(plan: Handlungsplan): string {
   return [
-    '### Priorisierter Handlungsplan (verbindliche Backend-Reihenfolge)', plan.hinweis,
-    'Erkläre die gelieferten Karten und den nächsten passenden Schritt. Erfinde keine Karten, Prioritäten, Abschlüsse oder erfolgten Übergaben. Bei Zwischenfragen beantworte das Anliegen; ändere deswegen die Kartenreihenfolge nicht. Ein Kartenklick ist nur ein Nachrichtenvorschlag, keine bereits ausgeführte Aktion.',
+    '### Handlungsplan (fachliche Prioritäten aus den Berechnungen)', plan.hinweis,
+    'Orientierung für deine Empfehlungen, keine Gesprächsreihenfolge: Das Gespräch führt das Lagebild. Erfinde keine Prioritäten, Abschlüsse oder erfolgten Übergaben.',
     ...plan.karten.map(k => `${k.reihenfolge}. [${k.id}, Priorität ${k.prioritaet}] ${k.titel}: ${k.begruendung} Grundlage: ${k.datengrundlage.map(d => `${d.quelle}: ${d.details}`).join('; ')} Offen: ${k.offeneFragen.join('; ')} Nächster Schritt: ${k.naechsterSchritt}`),
-  ].join('\n');
-}
-
-function produktKontext(p: Produktzuordnung): string {
-  return [
-    '### Bedarfsbezogene Pax-Produktzuordnung (ausschließlich Backend-Regeln)', p.statusText,
-    ...p.hinweise,
-    ...p.faelle.map(f => [
-      `[${f.id}; Regel ${f.regelId}; Status ${f.status}] ${f.szenario}: ${f.begruendung}`,
-      `Geltungsbereich: ${f.geltungsbereich}`,
-      ...f.datengrundlage.map(d => `Grundlage ${d.quelle}: ${d.details}`),
-      ...(f.produkt ? [`Prüfkandidat: ${f.produkt.name}. ${f.produkt.beschreibung} Quelle: ${f.produkt.quelle}, Quellenstand ${f.produkt.quellenstand}. ${f.produkt.fachlicheFreigabe}`] : ['Kein Produkt anzeigen oder aus eigener Auswahl ergänzen.']),
-      `Offen: ${f.offenePruefungen.join('; ')}`, `Nächster Schritt: ${f.naechsterSchritt}`,
-    ].join(' ')),
-    'Nur Fälle mit Status pruefkandidat dürfen mit dem gelieferten Produktnamen als Möglichkeit zur Prüfung erklärt werden. Das ist keine persönliche Kaufempfehlung. Bei abklaerung/nicht_bereit zuerst die fehlenden Grundlagen klären. Keine Versicherungssumme aus der Restlücke ableiten und keine Prämie erfinden.',
   ].join('\n');
 }
 

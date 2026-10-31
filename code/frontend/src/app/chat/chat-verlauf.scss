@@ -107,6 +107,36 @@
   svg { flex: none; margin-top: 2px; }
 }
 
+/* The way to the recommendations, once Pax understands enough. */
+.weiter-karte {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  align-self: stretch;
+  padding: 14px 18px;
+  border-radius: 16px;
+  background: var(--color-system-success-light);
+  box-shadow: inset 0 0 0 1.5px var(--color-brand-pax-green);
+
+  p { margin: 0; color: var(--color-brand-deep-green); }
+}
+
+.los {
+  padding: 10px 20px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--color-brand-pax-green);
+  color: var(--color-neutral-black);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+
+  &:hover { background: var(--color-brand-contrast-green); }
+  &:focus-visible { outline: 2px solid var(--color-brand-pax-purple); outline-offset: 2px; }
+}
+
 @media (max-width: 600px) {
   .message, .bot-turn { max-width: 92%; }
 }

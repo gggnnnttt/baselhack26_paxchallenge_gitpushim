@@ -9,14 +9,12 @@ import { ChatEingabe } from './chat/chat-eingabe';
 import { ChatVerlauf, type Message } from './chat/chat-verlauf';
 import type { Frage } from './frage-karte/frage-karte';
 import { PaxAvatar, type PaxAvatarState } from './pax-avatar/pax-avatar';
-import { PlanSchritte } from './plan/plan-schritte';
-import { PlanZahlen } from './plan/plan-zahlen';
-import { SzenarioPanel } from './szenario/szenario';
-import type { SzenarioVergleich } from './szenario/szenario.model';
+import { EmpfehlungenSeite } from './empfehlungen/empfehlungen-seite';
+import { PlanLagebild } from './plan/plan-lagebild';
 import { Zeitstrahl } from './zeitstrahl/zeitstrahl';
 import type { ZeitstrahlAktion } from './zeitstrahl/zeitstrahl.model';
 
-type PlanReiter = 'schritte' | 'weg' | 'zahlen';
+type PlanReiter = 'lagebild' | 'weg';
 
 interface ChatAntwort { reply: string; frage: Frage | null; sessionId: string; revision: number; beratungsstand: Beratungsstand }
 
@@ -29,7 +27,7 @@ const BEGRUESSUNG = 'Erzähl mir kurz, wie du lebst und was du vorhast. Ich zeig
 const PROFIL_OFFEN_AB = 1680;
 
 @Component({
-  imports: [FormsModule, NgTemplateOutlet, BeratungsstandPanel, ChatEingabe, ChatVerlauf, PaxAvatar, PlanSchritte, PlanZahlen, SzenarioPanel, Zeitstrahl],
+  imports: [FormsModule, NgTemplateOutlet, BeratungsstandPanel, ChatEingabe, ChatVerlauf, EmpfehlungenSeite, PaxAvatar, PlanLagebild, Zeitstrahl],
   selector: 'app-root',
   styleUrl: './app.scss',
   templateUrl: './app.html',
@@ -55,78 +53,31 @@ export class App {
   protected readonly status = computed(() =>
     this.loading() ? 'denkt nach …' : this.talking() ? 'antwortet' : 'dein Vorsorge-Berater',
   );
-  // How far the risk calculation is: the values it has against the values it still needs.
+  // How well Pax knows the customer, in their words: no calculation steps, only the way to the recommendations.
   protected readonly fortschritt = computed(() => {
-    const s = this.stand();
-    if (!s) return null;
-    const vorhanden = s.risiko.vorhanden.length;
-    const fehlend = s.risiko.fehlend.length;
-    const angaben = (n: number) => `${n} ${n === 1 ? 'Angabe' : 'Angaben'}`;
-    const fertig = s.phase === 'berechnet';
-    const text = fehlend ? `Noch ${angaben(fehlend)} bis zur Berechnung` : fertig ? 'Berechnung liegt vor' : 'Alle Angaben erfasst';
-    return { anteil: fertig ? 1 : vorhanden / Math.max(1, vorhanden + fehlend), text, fertig };
+    const l = this.stand()?.lagebild;
+    if (!l) return null;
+    const fertig = l.phase === 'empfehlen';
+    const text = fertig ? 'Deine Empfehlungen sind bereit' : l.phase === 'rechnen' ? 'Pax rechnet für dich' : 'Pax lernt dich kennen';
+    return { anteil: fertig ? 1 : Math.min(0.95, l.verstanden), text, fertig };
   });
-  // The plan in the middle column. A count shows the steps, a dot marks new results while the tab is not shown.
-  protected readonly planReiter = signal<PlanReiter>('weg');
-  protected readonly zahlenNeu = signal(false);
+  // The plan in the middle column; each tab keeps its own scroll position.
+  protected readonly planReiter = signal<PlanReiter>('lagebild');
   private readonly planSpalte = viewChild<ElementRef<HTMLElement>>('planSpalte');
   private readonly reiterScroll = new Map<PlanReiter, number>();
-  protected readonly reiter = computed(() => [
-    { id: 'schritte' as const, label: 'Nächste Schritte', anzahl: this.stand()?.handlungsplan.karten.length ?? 0, neu: false },
-    { id: 'weg' as const, label: 'Lebensweg', anzahl: 0, neu: false },
-    { id: 'zahlen' as const, label: 'Zahlen', anzahl: 0, neu: this.zahlenNeu() },
-  ]);
-  private readonly ergebnisse = computed(() => {
-    const s = this.stand();
-    return [s?.risiko.ergebnis?.zeitpunkt, s?.pensionierung.ergebnis?.zeitpunkt, s?.sparen.ergebnis?.zeitpunkt].join('|');
-  });
+  protected readonly reiter = [
+    { id: 'lagebild' as const, label: 'Lagebild' },
+    { id: 'weg' as const, label: 'Lebensweg' },
+  ];
+  // Once Pax understands enough to recommend, it leads to its own page with the recommendations.
+  protected readonly seite = signal<'beratung' | 'empfehlungen'>('beratung');
+  protected readonly empfehlungBereit = computed(() => this.stand()?.lagebild.phase === 'empfehlen');
   // The left sidebar; while it is collapsed a dot marks new values from Pax.
   protected readonly profilOffen = signal(typeof window === 'undefined' || window.innerWidth >= PROFIL_OFFEN_AB);
   protected readonly profilNeu = signal(false);
   private readonly verlauf = viewChild<ElementRef<HTMLElement>>('verlauf');
   private readonly eingabe = viewChild(ChatEingabe);
   private sessionId: string | undefined;
-  // Counts accepted profile changes; a scenario comparison is only valid for the revision it was computed on.
-  private revision = 0;
-  protected readonly vergleich = signal<SzenarioVergleich | null>(null);
-  protected readonly szenarioFehler = signal('');
-  protected readonly szenarioBusy = signal(false);
-
-  protected verwerfeSzenario() {
-    this.vergleich.set(null);
-    this.szenarioFehler.set('');
-  }
-
-  protected async berechneSzenario(jahresbedarf: number) {
-    if (this.loading() || !this.sessionId) return;
-    this.verwerfeSzenario();
-    this.loading.set(true);
-    this.szenarioBusy.set(true);
-    try {
-      this.vergleich.set(await firstValueFrom(this.http.post<SzenarioVergleich>('/api/szenario', {
-        sessionId: this.sessionId, revision: this.revision, jahresbedarf,
-      })));
-    } catch (err: any) { this.szenarioFehler.set(err?.error?.error ?? 'Die Alternative konnte nicht berechnet werden.'); }
-    finally { this.loading.set(false); this.szenarioBusy.set(false); }
-  }
-
-  protected async uebernehmeSzenario() {
-    const v = this.vergleich();
-    if (this.loading() || !v || !this.sessionId) return;
-    this.loading.set(true);
-    this.szenarioFehler.set('');
-    try {
-      const res = await firstValueFrom(this.http.post<ChatAntwort & { userMessage: string }>('/api/szenario/uebernehmen', {
-        sessionId: this.sessionId, revision: this.revision, szenarioId: v.id,
-      }));
-      this.revision = res.revision;
-      this.stand.set(res.beratungsstand);
-      this.messages.update(m => [...m, { role: 'user', content: res.userMessage }, { role: 'assistant', content: res.reply, frage: res.frage }]);
-      this.verwerfeSzenario();
-      this.startTalking(res.reply);
-    } catch (err: any) { this.szenarioFehler.set(err?.error?.error ?? 'Das Ziel konnte nicht übernommen werden.'); }
-    finally { this.loading.set(false); }
-  }
 
   private talkingTimer: ReturnType<typeof setTimeout> | undefined;
   // Timeline changes are collected briefly and sent together, so dragging several plans gives one reply.
@@ -136,9 +87,6 @@ export class App {
   protected readonly ausstehend = signal(0);
 
   constructor() {
-    effect(() => {
-      if (this.ergebnisse() !== '||' && untracked(this.planReiter) !== 'zahlen') this.zahlenNeu.set(true);
-    });
     effect(() => {
       if (this.stand() && !untracked(this.profilOffen)) this.profilNeu.set(true);
     });
@@ -159,17 +107,21 @@ export class App {
   }
 
   // The tabs share one scrolling column; each tab gets back the position it was left at.
+  protected seiteWechseln(seite: 'beratung' | 'empfehlungen') {
+    this.seite.set(seite);
+    window.scrollTo({ top: 0 });
+  }
+
   protected reiterWaehlen(id: PlanReiter) {
     const spalte = this.planSpalte()?.nativeElement;
     if (spalte) this.reiterScroll.set(this.planReiter(), spalte.scrollTop);
     this.planReiter.set(id);
-    if (id === 'zahlen') this.zahlenNeu.set(false);
     setTimeout(() => spalte?.scrollTo({ top: this.reiterScroll.get(id) ?? 0 }));
   }
 
   // Arrow keys move between the tabs, as in any tab list.
   protected reiterTaste(event: KeyboardEvent) {
-    const ids = this.reiter().map((r) => r.id);
+    const ids = this.reiter.map((r) => r.id);
     const schritt = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
     if (!schritt) return;
     event.preventDefault();
@@ -183,9 +135,10 @@ export class App {
     this.profilNeu.set(false);
   }
 
-  protected profilZeigen() {
-    this.profilOffen.set(true);
-    this.profilNeu.set(false);
+  // The progress in the chat header leads to what it describes: the recommendations or the Lagebild.
+  protected fortschrittOeffnen() {
+    if (this.fortschritt()?.fertig) this.seiteWechseln('empfehlungen');
+    else this.reiterWaehlen('lagebild');
   }
 
   // A correction from the advisory state goes through the chat like anything the customer says.
@@ -225,10 +178,8 @@ export class App {
     clearTimeout(this.zeitstrahlTimer);
     this.wartend = [];
     this.ausstehend.set(0);
-    this.revision = 0;
-    this.verwerfeSzenario();
-    this.planReiter.set('weg');
-    this.zahlenNeu.set(false);
+    this.planReiter.set('lagebild');
+    this.seite.set('beratung');
     this.messages.set([]);
     this.stand.set(null);
     this.eingabe()?.leeren();
@@ -242,7 +193,6 @@ export class App {
 
   private async senden(text: string) {
     if (this.loading()) return;
-    this.verwerfeSzenario();
     this.error.set('');
     this.info.set('');
     this.messages.update((m) => [...m, { role: 'user', content: text }]);
@@ -256,7 +206,6 @@ export class App {
         }),
       );
       this.sessionId = res.sessionId;
-      this.revision = res.revision;
       this.messages.update((m) => [...m, { role: 'assistant', content: res.reply, frage: res.frage }]);
       this.stand.set(res.beratungsstand);
       this.startTalking(res.reply);
@@ -292,8 +241,6 @@ export class App {
         }),
       );
       this.sessionId = res.sessionId;
-      this.revision = res.revision;
-      this.verwerfeSzenario();
       const { uebernommen, abgelehnt } = res.beratungsstand.letzteNachricht;
       this.messages.update((m) => [
         ...m,

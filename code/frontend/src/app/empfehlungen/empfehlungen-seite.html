@@ -1,0 +1,71 @@
+<div class="seite">
+  <button class="zurueck" type="button" (click)="zurueck.emit()">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
+    Zurück zur Beratung
+  </button>
+
+  <div class="raster">
+    <!-- Pax, large as on the start screen, says what this page is. -->
+    <div class="pax">
+      <app-pax-avatar class="gesicht" [state]="avatar()" />
+      <p class="sprechblase">Ich habe mir deine Situation angesehen. Das empfehle ich dir.</p>
+    </div>
+
+    <section class="empfehlungen" aria-labelledby="empfehlungen-titel">
+      <h1 id="empfehlungen-titel">Unsere Empfehlungen für dich</h1>
+      <p class="einleitung">Abgeleitet aus deinen drei Säulen und dem, was dir wichtig ist.</p>
+
+      <ol class="liste">
+        @for (e of empfehlungen(); track e.id; let i = $index) {
+          <li class="empfehlung">
+            <span class="rang" aria-hidden="true">{{ i + 1 }}</span>
+            <div>
+              <h2>{{ e.titel }}</h2>
+              <p class="warum-titel">Warum Pax das empfiehlt</p>
+              <ul class="gruende">
+                @for (g of e.gruende; track track(g)) { <li>{{ g.text }}</li> }
+              </ul>
+              <!-- Placeholder: the package logic is designed separately with Pax's product data. -->
+              <div class="paket">{{ e.paket }}</div>
+            </div>
+          </li>
+        } @empty {
+          <li class="empfehlung">
+            <span class="rang" aria-hidden="true">✓</span>
+            <div>
+              <h2>Deine Vorsorge ist auf Kurs</h2>
+              <ul class="gruende">
+                @for (g of gutes(); track track(g)) { <li>{{ g.text }}</li> }
+              </ul>
+              <div class="paket">Wie du deine Vorsorge weiter stärken kannst, zeigt Pax hier.</div>
+            </div>
+          </li>
+        }
+      </ol>
+    </section>
+
+    <aside class="verstanden" aria-labelledby="verstanden-titel">
+      <h2 id="verstanden-titel">Das hat Pax verstanden</h2>
+      <ul class="saeulen">
+        @for (s of saeulen(); track s.nummer) {
+          <li>
+            <span class="nummer" aria-hidden="true">{{ s.nummer }}</span>
+            <div>
+              <strong>{{ s.name }}</strong>
+              <span>{{ s.text }}</span>
+            </div>
+          </li>
+        }
+      </ul>
+
+      @if (hinweise().length) {
+        <h2>Was Pax erkannt hat</h2>
+        <ul class="erkenntnisse">
+          @for (h of hinweise(); track track(h)) { <li>{{ h.text }}</li> }
+        </ul>
+      }
+
+      <p class="korrektur">Stimmt etwas nicht? <button class="link" type="button" (click)="zurueck.emit()">In der Beratung anpassen</button></p>
+    </aside>
+  </div>
+</div>

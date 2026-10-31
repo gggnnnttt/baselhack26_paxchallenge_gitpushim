@@ -1,0 +1,68 @@
+@if (lagebild(); as l) {
+  <!-- Once Pax understands enough, the recommendations get their own page. -->
+  @if (l.phase === 'empfehlen') {
+    <section class="bereit" aria-labelledby="bereit-titel">
+      <h2 id="bereit-titel">Pax kennt jetzt deine Situation</h2>
+      <p>Alle drei Säulen und dein Anliegen sind klar. Deine Empfehlungen sind bereit.</p>
+      <button class="los" type="button" (click)="empfehlungen.emit()">Deine Empfehlungen ansehen</button>
+    </section>
+  } @else {
+    <p class="einleitung" role="status">{{ einleitung() }}</p>
+  }
+
+  <section aria-labelledby="saeulen-titel">
+    <h2 id="saeulen-titel">Deine drei Säulen</h2>
+    <!-- The three pillars of Swiss provision, filled by how much Pax knows about each. -->
+    <div class="saeulen">
+      @for (s of l.saeulen; track s.nummer) {
+        <div class="saeule" [class.klar]="s.status === 'klar'">
+          <div class="schaft" role="img" [attr.aria-label]="s.titel + ', ' + s.untertitel + ': ' + (s.status === 'klar' ? 'verstanden' : s.status === 'teilweise' ? 'teilweise verstanden' : 'noch offen')">
+            <span class="fuellung" [style.height.%]="fuellung(s) * 100"></span>
+            <span class="nummer">{{ s.nummer }}</span>
+            @if (s.status === 'klar') {
+              <svg class="haken" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10" /></svg>
+            }
+          </div>
+          <h3>{{ s.untertitel }}</h3>
+          <p class="herkunft">{{ herkunft[s.nummer] }}</p>
+        </div>
+      }
+    </div>
+
+    <button class="details-schalter" type="button" (click)="details.set(!details())" [attr.aria-expanded]="details()" aria-controls="saeulen-details">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path [attr.d]="details() ? 'm6 15 6-6 6 6' : 'm6 9 6 6 6-6'" />
+      </svg>
+      {{ details() ? 'Details ausblenden' : 'Was Pax pro Säule weiss' }}
+    </button>
+    @if (details()) {
+      <div class="saeulen details" id="saeulen-details">
+        @for (s of l.saeulen; track s.nummer) {
+          <div>
+            @for (g of gruppen(s); track g.wer) {
+              @if (g.wer) { <p class="wer">{{ g.wer }}</p> }
+              <ul>
+                @for (f of g.fakten; track f) { <li>{{ f }}</li> }
+              </ul>
+            } @empty {
+              <p class="noch-nichts">Noch nichts</p>
+            }
+          </div>
+        }
+      </div>
+    }
+  </section>
+
+  @if (l.erkenntnisse.length) {
+    <section aria-labelledby="erkannt-titel">
+      <h2 id="erkannt-titel">Was Pax erkannt hat</h2>
+      <ul class="erkenntnisse">
+        @for (e of l.erkenntnisse; track e.text) {
+          <li [class]="e.art">{{ e.text }}</li>
+        }
+      </ul>
+    </section>
+  }
+} @else {
+  <p class="einleitung">Sobald du Pax von dir erzählst, füllen sich hier deine drei Säulen.</p>
+}

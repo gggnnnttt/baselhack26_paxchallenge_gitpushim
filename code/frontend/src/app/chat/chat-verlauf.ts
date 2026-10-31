@@ -24,6 +24,9 @@ export class ChatVerlauf {
   readonly loading = input(false);
   readonly talking = input(false);
   readonly error = input('');
+  // Pax understands enough to recommend: the conversation shows the way to the recommendations page.
+  readonly empfehlungBereit = input(false);
+  readonly empfehlungen = output<void>();
   // An answer chosen on the question card.
   readonly antwort = output<string>();
 }

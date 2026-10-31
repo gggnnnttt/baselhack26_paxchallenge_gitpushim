@@ -19,8 +19,6 @@
       nach deiner Bestätigung keine weiteren Sparbeiträge, 0 % Zins und einen Planungshorizont bis Alter 88.
       Dein zusätzlich verfügbares Pensionierungsbudget wird als Selbstauskunft im Profil und mit dem KI-Anbieter verarbeitet,
       für den Budgetabgleich aber nicht an APICalc gesendet.
-      Bei einem ausdrücklich angeforderten Szenariovergleich werden dieselben Berechnungen mit einem alternativen Jahresbedarf ausgeführt.
-      Die Alternative wird erst mit „Dieses Ziel übernehmen“ im Profil und Gespräch übernommen.
       Bei einer Kapitallücke wird daraus zusätzlich ein Sparszenario mit Zielkapital, Spardauer,
       monatlicher Einzahlung, Startkapital CHF 0 und 0 % Zins an APICalc gesendet.
     </span></li>
@@ -75,6 +73,11 @@
       </button>
     </section>
   } @else {
+    @if (seite() === 'empfehlungen') {
+      <app-empfehlungen-seite [stand]="stand()" (zurueck)="seiteWechseln('beratung')" />
+    }
+    <!-- Hidden, not removed, while the recommendations are shown: the conversation stays as it was. -->
+    <div [hidden]="seite() === 'empfehlungen'">
     <div class="arbeitsplatz" [class.gestartet]="gestartet()">
     <!-- Left: what Pax knows about you. The profile collapses to a narrow strip, the path through the years scrolls on its own. -->
     @if (gestartet()) {
@@ -101,30 +104,18 @@
       <!-- Middle: the plan. Hidden tabs stay mounted, so they keep their scroll position and state. -->
       <section class="weg-spalte" #planSpalte data-scrollbereich aria-label="Dein Plan">
         <div class="plan-reiter" role="tablist" aria-label="Dein Plan">
-          @for (r of reiter(); track r.id) {
+          @for (r of reiter; track r.id) {
             <button type="button" role="tab" [id]="'reiter-' + r.id" [attr.aria-selected]="planReiter() === r.id" [attr.aria-controls]="'plan-' + r.id"
               [tabIndex]="planReiter() === r.id ? 0 : -1" (click)="reiterWaehlen(r.id)" (keydown)="reiterTaste($event)">
               {{ r.label }}
-              @if (r.anzahl) {
-                <span class="anzahl">{{ r.anzahl }}</span>
-              }
-              @if (r.neu) {
-                <span class="neu-punkt" aria-label="neu"></span>
-              }
             </button>
           }
         </div>
-        <div role="tabpanel" id="plan-schritte" aria-labelledby="reiter-schritte" [hidden]="planReiter() !== 'schritte'">
-          <app-plan-schritte [stand]="stand()" [gesperrt]="loading()" (aktion)="vorschlagen($event)" />
+        <div role="tabpanel" id="plan-lagebild" aria-labelledby="reiter-lagebild" [hidden]="planReiter() !== 'lagebild'">
+          <app-plan-lagebild [stand]="stand()" (empfehlungen)="seiteWechseln('empfehlungen')" />
         </div>
         <div role="tabpanel" id="plan-weg" aria-labelledby="reiter-weg" [hidden]="planReiter() !== 'weg'">
           <app-zeitstrahl [stand]="stand()" [ausstehend]="ausstehend()" (aktion)="zeitstrahlAktion($event)" />
-        </div>
-        <div role="tabpanel" id="plan-zahlen" aria-labelledby="reiter-zahlen" [hidden]="planReiter() !== 'zahlen'">
-          <app-plan-zahlen [stand]="stand()" (frage)="nachfragen($event)">
-            <app-szenario slot="szenario" [stand]="stand()" [vergleich]="vergleich()" [disabled]="loading()" [busy]="szenarioBusy()" [fehler]="szenarioFehler()"
-              (berechnen)="berechneSzenario($event)" (uebernehmen)="uebernehmeSzenario()" (verwerfen)="verwerfeSzenario()" />
-          </app-plan-zahlen>
         </div>
       </section>
     }
@@ -144,8 +135,8 @@
             <span role="status">{{ status() }}</span>
           </div>
           @if (fortschritt(); as f) {
-            <button class="fortschritt" type="button" (click)="profilZeigen()" [class.fertig]="f.fertig"
-              [attr.aria-label]="f.text + '. Angaben anzeigen'">
+            <button class="fortschritt" type="button" (click)="fortschrittOeffnen()" [class.fertig]="f.fertig"
+              [attr.aria-label]="f.fertig ? f.text + '. Empfehlungen öffnen' : f.text + '. Lagebild anzeigen'">
               <span class="fortschritt-text">{{ f.text }}</span>
               <span class="fortschritt-balken" aria-hidden="true"><span [style.width.%]="f.anteil * 100"></span></span>
             </button>
@@ -163,7 +154,8 @@
         @if (gestartet()) {
           <div class="chat-history" #verlauf tabindex="0" role="log" aria-label="Chatverlauf">
             <app-chat-verlauf [messages]="messages()" [begruessung]="begruessung" [loading]="loading()" [talking]="talking()" [error]="error()"
-              (antwort)="beantworten($event)" />
+              [empfehlungBereit]="empfehlungBereit()"
+              (antwort)="beantworten($event)" (empfehlungen)="seiteWechseln('empfehlungen')" />
           </div>
         }
 
@@ -177,6 +169,7 @@
         <p class="pax-dialog-result" role="status">{{ info() }}</p>
       }
     </section>
+    </div>
     </div>
   }
 </main>

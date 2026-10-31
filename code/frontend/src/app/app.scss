@@ -155,7 +155,6 @@ main {
     &:hover { color: var(--color-neutral-black); }
     &:focus-visible { outline: 2px solid var(--color-brand-pax-purple); outline-offset: -2px; }
   }
-  .anzahl { min-width: 20px; padding: 0 6px; border-radius: var(--radius-full); background: var(--color-brand-pax-purple); color: var(--color-neutral-white); font-size: 12px; line-height: 20px; text-align: center; }
 }
 .weg-spalte { --zeitstrahl-kopf-oben: 52px; }
 

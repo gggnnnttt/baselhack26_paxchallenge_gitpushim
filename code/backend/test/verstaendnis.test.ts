@@ -63,5 +63,5 @@ test('with all three pillars, a concern and a calculation Pax is ready to advise
   const pension = l.themen.find(t => t.id === 'pensionierung')!;
   assert.equal(pension.status, 'berechnet');
   assert.equal(pension.luecke, true);
-  assert.ok(l.erkenntnisse.some(e => e.art === 'luecke' && /Pensionierung: Im Ruhestand fehlen CHF 7.240 pro Jahr/.test(e.text)));
+  assert.ok(l.erkenntnisse.some(e => e.art === 'luecke' && /Im Ruhestand fehlen dir rund CHF 7.240 pro Jahr/.test(e.text)));
 });

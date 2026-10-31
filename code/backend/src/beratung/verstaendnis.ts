@@ -10,8 +10,9 @@ import type { AblaufStand } from './ablauf.js';
  */
 export type SaeulenStatus = 'offen' | 'teilweise' | 'klar';
 export interface Saeule { nummer: 1 | 2 | 3; titel: string; untertitel: string; status: SaeulenStatus; bekannt: string[]; offen: string[] }
-export interface Thema { id: 'absicherung' | 'pensionierung'; titel: string; status: 'offen' | 'bereit' | 'berechnet' | 'fehlgeschlagen'; text: string; luecke: boolean }
-export interface Erkenntnis { art: 'hinweis' | 'luecke' | 'gut'; text: string }
+export interface Thema { id: 'absicherung' | 'pensionierung'; titel: string; status: 'offen' | 'bereit' | 'berechnet' | 'fehlgeschlagen'; text: string; luecke: boolean; betrag: number }
+// thema: the need a gap or a good result belongs to; the recommendations page groups by it.
+export interface Erkenntnis { art: 'hinweis' | 'luecke' | 'gut'; text: string; thema?: 'absicherung' | 'pensionierung' | 'sparen' }
 export interface Lagebild {
   // verstehen: pillars or concern still open; rechnen: understood, calculations still need inputs; empfehlen: ready to advise.
   phase: 'verstehen' | 'rechnen' | 'empfehlen';
@@ -82,20 +83,20 @@ function saeulen(profil: Profil): Saeule[] {
 
 function themen(stand: AblaufStand): Thema[] {
   const { pruefung, berechnung } = stand.kontext;
-  const risiko: Thema = { id: 'absicherung', titel: 'Absicherung bei Invalidität und Tod', status: 'offen', text: `Für die Berechnung fehlen noch ${pruefung.fehlend.length} Angaben.`, luecke: false };
+  const risiko: Thema = { id: 'absicherung', titel: 'Absicherung bei Invalidität und Tod', status: 'offen', text: `Für die Berechnung fehlen noch ${pruefung.fehlend.length} Angaben.`, luecke: false, betrag: 0 };
   if (stand.phase === 'bereit') Object.assign(risiko, { status: 'bereit', text: 'Angaben vollständig, der Rechner ist nicht verbunden.' });
   if (stand.phase === 'fehlgeschlagen') Object.assign(risiko, { status: 'fehlgeschlagen', text: 'Die Berechnung ist fehlgeschlagen.' });
   if (stand.phase === 'berechnet' && berechnung) {
     const groesste = szenarien(berechnung.antwort).filter(s => !s.fehler && (s.luecke ?? 0) > 0).sort((a, b) => (b.luecke ?? 0) - (a.luecke ?? 0))[0];
-    Object.assign(risiko, { status: 'berechnet', luecke: !!groesste, text: groesste ? `Grösste Lücke ${chf(groesste.luecke!)} pro Jahr (${groesste.szenario}).` : 'Die Berechnung zeigt keine Lücke.' });
+    Object.assign(risiko, { status: 'berechnet', luecke: !!groesste, betrag: groesste?.luecke ?? 0, text: groesste ? `Grösste Lücke ${chf(groesste.luecke!)} pro Jahr (${groesste.szenario}).` : 'Die Berechnung zeigt keine Lücke.' });
   }
   const p = stand.pensionierung;
-  const pension: Thema = { id: 'pensionierung', titel: 'Pensionierung', status: 'offen', text: `Für die Berechnung fehlen noch ${p.pruefung.fehlend.length} Angaben.`, luecke: false };
+  const pension: Thema = { id: 'pensionierung', titel: 'Pensionierung', status: 'offen', text: `Für die Berechnung fehlen noch ${p.pruefung.fehlend.length} Angaben.`, luecke: false, betrag: 0 };
   if (p.phase === 'bereit') Object.assign(pension, { status: 'bereit', text: 'Angaben vollständig, der Rechner ist nicht verbunden.' });
   if (p.phase === 'fehlgeschlagen') Object.assign(pension, { status: 'fehlgeschlagen', text: 'Die Berechnung ist fehlgeschlagen.' });
   if (p.phase === 'berechnet' && p.berechnung) {
     const w = p.berechnung.antwort.response;
-    Object.assign(pension, { status: 'berechnet', luecke: (w.IncomeGap ?? 0) > 0, text: (w.IncomeGap ?? 0) > 0
+    Object.assign(pension, { status: 'berechnet', luecke: (w.IncomeGap ?? 0) > 0, betrag: Math.max(0, w.IncomeGap ?? 0), text: (w.IncomeGap ?? 0) > 0
       ? `Im Ruhestand fehlen ${chf(w.IncomeGap!)} pro Jahr, Kapitallücke ${chf(w.CapitalGap ?? 0)}.`
       : 'Die Basisrechnung zeigt im Ruhestand keine Lücke.' });
   }
@@ -130,16 +131,25 @@ function erkenntnisse(stand: AblaufStand, themenListe: Thema[]): Erkenntnis[] {
   const frueh = personen(profil).some(({ person }) => (person.pensionierungsalter?.wert ?? 65) < 65) || profil.plaene.some(p => p.art === 'fruehpensionierung');
   if (frueh) liste.push({ art: 'hinweis', text: 'Eine Pensionierung vor 65 verkürzt die Beitragsjahre und verlängert die Zeit, die das Vermögen tragen muss.' });
 
-  for (const t of themenListe.filter(t => t.status === 'berechnet')) {
-    liste.push({ art: t.luecke ? 'luecke' : 'gut', text: `${t.titel}: ${t.text}` });
+  // In the customer's words: the size of the gap, without scenario names or calculation terms.
+  const [risiko, pension] = themenListe;
+  if (risiko?.status === 'berechnet') {
+    liste.push(risiko.luecke
+      ? { art: 'luecke', thema: 'absicherung', text: `Bei Invalidität oder Tod fehlen deinem Haushalt bis zu ${chf(risiko.betrag)} pro Jahr.` }
+      : { art: 'gut', thema: 'absicherung', text: 'Bei Invalidität und Tod zeigt die Berechnung heute keine Lücke.' });
+  }
+  if (pension?.status === 'berechnet') {
+    liste.push(pension.luecke
+      ? { art: 'luecke', thema: 'pensionierung', text: `Im Ruhestand fehlen dir rund ${chf(pension.betrag)} pro Jahr.` }
+      : { art: 'gut', thema: 'pensionierung', text: 'Für den Ruhestand zeigt die Berechnung heute keine Lücke.' });
   }
   const budget = gleicheBudgetAb(profil, stand.sparen);
   if (budget.status === 'unterdeckung' && budget.fehlbetragMonat !== null) {
-    liste.push({ art: 'luecke', text: `Für die nötige Sparrate fehlen ${chf(budget.fehlbetragMonat)} pro Monat in deinem Budget.` });
+    liste.push({ art: 'luecke', thema: 'sparen', text: `Um die Lücke bis zur Pension zu schliessen, fehlen in deinem Budget ${chf(budget.fehlbetragMonat)} pro Monat.` });
   }
   const gerechnet = themenListe.some(t => t.status === 'berechnet');
   if (gerechnet && profil.plaene.length) {
-    liste.push({ art: 'hinweis', text: `Die Berechnungen zeigen die heutige Situation; deine Pläne (${profil.plaene.map(p => p.beschreibung).join(', ')}) sind darin noch nicht enthalten.` });
+    liste.push({ art: 'hinweis', text: `Deine Pläne (${profil.plaene.map(p => p.beschreibung).join(', ')}) sind in diesen Zahlen noch nicht eingerechnet.` });
   }
   return liste;
 }
@@ -180,7 +190,7 @@ export function lagebild(stand: AblaufStand): Lagebild {
 const PHASEN_TEXT: Record<Lagebild['phase'], string> = {
   verstehen: 'Frage nach dem wichtigsten Punkt unter „Als Nächstes“, eine Frage pro Antwort. Verknüpfe neue Angaben in einem Satz mit dem Lagebild, statt Regeln zu erklären.',
   rechnen: 'Die drei Säulen sind verstanden. Erfrage, was die Berechnungen zum Anliegen noch brauchen, und ordne vorliegende Ergebnisse kurz ein.',
-  empfehlen: 'Du kennst alle drei Säulen und das Anliegen und kannst Empfehlungen machen. Sage das einmal klar und selbstbewusst, fasse das Lagebild in wenigen Stichpunkten zusammen und lade ein, die Seite „Deine Empfehlungen“ über den Knopf zu öffnen. Ein Produkt nennst du erst danach und nur aus dem Produktfall des Backends.',
+  empfehlen: 'Du kennst alle drei Säulen und das Anliegen und kannst Empfehlungen machen. Sage das einmal klar und selbstbewusst, fasse das Lagebild in wenigen Stichpunkten zusammen und lade ein, die Seite „Deine Empfehlungen“ über den Knopf zu öffnen. Nenne im Gespräch keine Produkte, Pakete oder Prämien: Die Paket-Empfehlungen zeigt die Seite.',
 };
 
 /** The understanding for the model: compact, with one instruction for how to lead the conversation now. */

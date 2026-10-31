@@ -22,23 +22,6 @@
     <p class="leer">Noch nichts erfasst. Erzähl im Chat von deiner Situation.</p>
   } @else {
     @let s = stand()!;
-    @if (fehlend().length) {
-      <section class="noch-offen">
-        <h3>Was noch fehlt</h3>
-        @for (g of fehlend(); track g.titel) {
-          <h4>{{ g.titel }}</h4>
-          <ul class="fehlend">
-            @for (f of g.angaben; track f.label) {
-              <li>
-                <button class="fehlt" type="button" (click)="frage.emit(f.label)" [attr.aria-label]="f.label + ' im Chat beantworten'">{{ f.label }}</button>
-                @if (f.warum) {<small>{{ f.warum }}</small>}
-              </li>
-            }
-          </ul>
-        }
-      </section>
-    }
-
     @if (s.profil.anliegen.length) {
       <section>
         <h3>Anliegen</h3>

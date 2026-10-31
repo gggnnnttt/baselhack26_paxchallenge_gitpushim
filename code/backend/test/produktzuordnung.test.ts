@@ -217,7 +217,7 @@ test("failed or unknown API scenario codes and missing personal need cannot prod
   );
 });
 
-test("frontend and model receive exactly the same reasoned candidate and no catalog-based invented prices", async () => {
+test("the frontend receives the reasoned candidate, the chat model never sees a product", async () => {
   const { ablauf } = fixture();
   const stand = await ablauf.aktualisiere(ablauf.start(2026), profil());
   const result = ermittleProduktvorschlaege(stand);
@@ -226,8 +226,6 @@ test("frontend and model receive exactly the same reasoned candidate and no cata
     result,
   );
   const context = beratungsKontext(stand, { uebernommen: [], abgelehnt: [] });
-  assert.match(context, /eu-pruefkandidat-v1/);
-  assert.match(context, /Status pruefkandidat/);
-  assert.match(context, /Pax Erwerbsunfähigkeitsversicherung/);
-  assert.match(context, /keine Prämie erfinden/);
+  // An advisor, not a salesman: products only appear on the recommendations page.
+  assert.doesNotMatch(context, /eu-pruefkandidat-v1|pruefkandidat|Pax Erwerbsunfähigkeitsversicherung/);
 });

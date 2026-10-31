@@ -9,6 +9,16 @@
 
 .optionen { display: flex; flex-wrap: wrap; gap: 8px; }
 
+/* Choices of different length get one common width, so the list reads as a set of equal options. */
+.optionen.liste {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+  align-self: stretch;
+
+  .option { text-align: left; }
+  .weiter { justify-self: start; }
+}
+
 .option, .weiter {
   min-height: 40px;
   padding: 8px 16px;

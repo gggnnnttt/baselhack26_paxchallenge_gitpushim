@@ -25,6 +25,12 @@
     </div>
   } @else {<div class="message user">{{ m.content }}</div>}
 }
+@if (empfehlungBereit() && !loading()) {
+  <div class="weiter-karte" role="note">
+    <p><strong>Pax kennt jetzt deine Situation.</strong> Deine Empfehlungen sind bereit.</p>
+    <button class="los" type="button" (click)="empfehlungen.emit()">Deine Empfehlungen ansehen</button>
+  </div>
+}
 @if (loading()) {
   <div class="bot-turn">
     <app-pax-avatar class="message-avatar" state="thinking" />

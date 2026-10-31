@@ -155,6 +155,20 @@ export interface Beratungsstand {
     fehlbetragMonat: number | null; restbudgetMonat: number | null; hinweise: string[];
   };
   handlungsplan: { hinweis: string; karten: Handlungskarte[] };
+  lagebild: Lagebild;
   produktzuordnung: { statusText: string; hinweise: string[]; faelle: ProduktFall[] };
   letzteNachricht: { uebernommen: Protokolleintrag[]; abgelehnt: Protokolleintrag[] };
+}
+
+// Mirrors Lagebild in backend/src/beratung/verstaendnis.ts.
+export interface Saeule { nummer: 1 | 2 | 3; titel: string; untertitel: string; status: 'offen' | 'teilweise' | 'klar'; bekannt: string[]; offen: string[] }
+export interface Erkenntnis { art: 'hinweis' | 'luecke' | 'gut'; text: string; thema?: 'absicherung' | 'pensionierung' | 'sparen' }
+export interface Lagebild {
+  phase: 'verstehen' | 'rechnen' | 'empfehlen';
+  fokus: 'absicherung' | 'pensionierung' | 'beides';
+  saeulen: Saeule[];
+  themen: { id: 'absicherung' | 'pensionierung'; titel: string; status: 'offen' | 'bereit' | 'berechnet' | 'fehlgeschlagen'; text: string; luecke: boolean; betrag: number }[];
+  erkenntnisse: Erkenntnis[];
+  naechstes: { label: string; warum: string }[];
+  verstanden: number;
 }

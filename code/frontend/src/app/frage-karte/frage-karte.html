@@ -8,14 +8,14 @@
       </div>
     }
     @case ('auswahl') {
-      <div class="optionen">
+      <div class="optionen liste">
         @for (o of f.optionen; track o) {
           <button class="option" type="button" [disabled]="gesperrt()" (click)="senden(o)">{{ o }}</button>
         }
       </div>
     }
     @case ('mehrfach') {
-      <div class="optionen">
+      <div class="optionen liste">
         @for (o of f.optionen; track o) {
           <button class="option" type="button" [class.an]="gewaehlt().includes(o)" [attr.aria-pressed]="gewaehlt().includes(o)"
             [disabled]="gesperrt()" (click)="umschalten(o)">{{ o }}</button>
