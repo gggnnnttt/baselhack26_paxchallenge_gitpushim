@@ -13,7 +13,7 @@ const Auswahl = z.object({
     produktId: z.enum(['pax-erwerbsunfaehigkeit', 'pax-todesfall', 'pax-terza-lifestar', 'pax-terza-fondsstar', 'pax-auszahlungsplan', 'pax-beratung']),
     thema: z.enum(['absicherung', 'pensionierung', 'beratung']),
     titel: z.string().min(1).max(100), begruendung: z.string().min(1).max(1000),
-    grundlageIds: z.array(z.string()).min(1).max(12),
+    grundlageIds: z.array(z.enum(['profil', 'lagebild', 'risiko', 'privateEu', 'pensionierung'])).min(1).max(5),
   }).strict()).max(4),
 }).strict();
 export interface EmpfehlungenAntwort {

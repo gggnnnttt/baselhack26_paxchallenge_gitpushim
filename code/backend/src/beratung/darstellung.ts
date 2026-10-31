@@ -1,4 +1,4 @@
-import { ermittleProduktvorschlaege, type Produktzuordnung } from '../produkte/zuordnung.js';
+import type { Produktzuordnung } from '../produkte/zuordnung.js';
 import { erstelleHandlungsplan, type Handlungsplan } from './handlungsplan.js';
 import { lagebild, lagebildKontext, type Lagebild } from './verstaendnis.js';
 import { gleicheBudgetAb, type BudgetAbgleich } from '../berechnung/budget.js';
@@ -259,7 +259,8 @@ export function ansicht(stand: AblaufStand, bericht: Aenderungsbericht): Beratun
     sparen: (({ grundlageJson: _, ...sichtbar }) => sichtbar)(stand.sparen),
     budget: gleicheBudgetAb(profil, stand.sparen),
     handlungsplan: erstelleHandlungsplan(stand),
-    produktzuordnung: ermittleProduktvorschlaege(stand),
+    // Retain the response shape for older clients, but never send rule-selected products.
+    produktzuordnung: { statusText: 'Produkte werden auf der Empfehlungsseite durch die KI ausgewählt.', hinweise: [], faelle: [] },
     lagebild: lagebild(stand),
     letzteNachricht: bericht,
   };

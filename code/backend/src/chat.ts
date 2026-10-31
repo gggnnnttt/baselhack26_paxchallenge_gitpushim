@@ -11,6 +11,7 @@ import { GuardrailError, Guardrails } from './guardrails.js';
 import { wendeAenderungenAn } from './profil/aenderungen.js';
 import { extrahiereAenderungen } from './profil/extraktion.js';
 import { checkScope } from './scope.js';
+import { muellerProfil } from './profil/demo.js';
 
 export interface ChatMessage { role: 'user' | 'assistant'; content: string }
 // Model payloads are built only from accepted chat turns of the same session.
@@ -86,6 +87,23 @@ export class ChatService {
     } finally {
       session.busy = false;
     }
+  }
+
+  async demo(): Promise<ChatAntwort> {
+    const { sessionId, session } = this.oeffneSitzung(undefined);
+    session.busy = true;
+    this.sessions.set(sessionId, session);
+    try {
+      session.ablauf = await this.ablauf.aktualisiere(session.ablauf, muellerProfil(this.heute()));
+      const reply = 'Demo Familie Müller: Frau Müller (Jahrgang 1986, aktuell zu Hause), Herr Müller (1984, 100 % angestellt, CHF 100’000 Jahreslohn) und ihr fünf Monate altes Kind. Geplant ist ein noch unsicherer Wiedereinstieg mit 40 % in fünf Monaten. Für die Demo wurden zusätzliche erfundene Vorsorgeangaben ergänzt, darunter CHF 600 Sparbudget im Monat.';
+      session.messages = [{ role: 'assistant', content: reply }];
+      session.revision = 1;
+      session.updated = Date.now();
+      return { sessionId, revision: 1, reply, frage: null, beratungsstand: ansicht(session.ablauf, { uebernommen: [], abgelehnt: [] }) };
+    } catch (error) {
+      this.sessions.delete(sessionId);
+      throw error;
+    } finally { session.busy = false; }
   }
 
   /**

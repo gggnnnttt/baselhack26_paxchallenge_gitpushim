@@ -217,13 +217,12 @@ test("failed or unknown API scenario codes and missing personal need cannot prod
   );
 });
 
-test("the frontend receives the reasoned candidate, the chat model never sees a product", async () => {
+test("the frontend receives no legacy rule-selected products, the chat model never sees a product", async () => {
   const { ablauf } = fixture();
   const stand = await ablauf.aktualisiere(ablauf.start(2026), profil());
-  const result = ermittleProduktvorschlaege(stand);
   assert.deepEqual(
-    ansicht(stand, { uebernommen: [], abgelehnt: [] }).produktzuordnung,
-    result,
+    ansicht(stand, { uebernommen: [], abgelehnt: [] }).produktzuordnung.faelle,
+    [],
   );
   const context = beratungsKontext(stand, { uebernommen: [], abgelehnt: [] });
   // An advisor, not a salesman: products only appear on the recommendations page.

@@ -71,6 +71,11 @@ app.post('/api/empfehlungen', async (req, res) => {
   catch (error) { res.status(error instanceof GuardrailError ? error.status : 500).json({ error: error instanceof GuardrailError ? error.message : 'Empfehlungen sind momentan nicht verfügbar.' }); }
 });
 
+app.post('/api/demo', async (_req, res) => {
+  try { res.json(await chat.demo()); }
+  catch (error) { res.status(error instanceof GuardrailError ? error.status : 500).json({ error: error instanceof GuardrailError ? error.message : 'Die Demo konnte nicht geladen werden. Bitte erneut versuchen.' }); }
+});
+
 app.delete('/api/chat', (req, res) => {
   try {
     chat.deleteSession(req.body);
