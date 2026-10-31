@@ -40,3 +40,29 @@ form {
     font-size: 1rem;
   }
 }
+
+.notice {
+  margin-bottom: 1rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid #d0d0d0;
+  border-radius: 8px;
+  background: #fafafa;
+
+  h2 {
+    margin-top: 0;
+    font-size: 1.1rem;
+  }
+
+  label {
+    display: block;
+    margin: 0.8rem 0;
+  }
+
+  summary {
+    cursor: pointer;
+  }
+}
+
+.info {
+  color: #555;
+}

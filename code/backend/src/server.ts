@@ -1,28 +1,53 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import express from 'express';
 import OpenAI from 'openai';
+import { ChatService } from './chat.js';
+import { GuardrailError, Guardrails } from './guardrails.js';
+import { createOpenAIAdapter } from './providers/openai.js';
 
-if (existsSync('.env')) process.loadEnvFile('.env');
+const envFile = new URL('../.env', import.meta.url);
+if (existsSync(envFile)) process.loadEnvFile(envFile);
 
+const apiKey = process.env['OPENAI_API_KEY'];
+if (!apiKey) throw new Error('OPENAI_API_KEY fehlt in der Backend-Umgebung.');
 const model = process.env['OPENAI_MODEL'] || 'gpt-6-luna';
-const client = new OpenAI({ apiKey: process.env['OPENAI_API_KEY'] || 'missing' });
+const rails = new Guardrails(JSON.parse(readFileSync(new URL('../guardrails.config.json', import.meta.url), 'utf8')));
+const instructions = readFileSync(new URL('../advisor.instructions.md', import.meta.url), 'utf8');
+// logLevel 'off' also ignores OPENAI_LOG=debug, which would print full request bodies including chat text.
+const client = new OpenAI({ apiKey, maxRetries: 0, timeout: 30000, logLevel: 'off' });
+const chat = new ChatService(createOpenAIAdapter(client, model), rails, instructions);
+// Expire idle sessions even when no further requests arrive.
+setInterval(() => chat.removeExpired(), 60000).unref();
 
 const app = express();
-app.use(express.json());
+app.disable('x-powered-by');
+app.use(express.json({ limit: '32kb' }));
+app.use((_req, res, next) => { res.setHeader('Cache-Control', 'no-store'); next(); });
 
 app.post('/api/chat', async (req, res) => {
-  const messages = req.body?.messages;
-  if (!Array.isArray(messages)) {
-    res.status(400).json({ error: 'messages fehlt' });
-    return;
-  }
   try {
-    const response = await client.responses.create({ model, input: messages });
-    res.json({ reply: response.output_text });
-  } catch (err) {
-    const message = err instanceof OpenAI.APIError ? `OpenAI-Fehler ${err.status}: ${err.message}` : 'Unbekannter Fehler';
-    res.status(500).json({ error: message });
+    res.json(await chat.reply(req.body));
+  } catch (error) {
+    if (error instanceof GuardrailError) {
+      res.status(error.status).json({ error: error.message });
+      return;
+    }
+    res.status(500).json({ error: 'Die Anfrage konnte nicht sicher verarbeitet werden.' });
   }
 });
 
-app.listen(3000, '127.0.0.1', () => console.log('Backend läuft auf http://127.0.0.1:3000'));
+app.delete('/api/chat', (req, res) => {
+  try {
+    chat.deleteSession(req.body);
+    res.status(204).end();
+  } catch (error) {
+    res.status(error instanceof GuardrailError ? error.status : 500).json({ error: error instanceof GuardrailError ? error.message : 'Ungültige Anfrage.' });
+  }
+});
+
+app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  const tooLarge = typeof error === 'object' && error !== null && 'type' in error && error.type === 'entity.too.large';
+  res.status(tooLarge ? 413 : 400).json({ error: tooLarge ? 'Die Nachricht ist zu gross.' : 'Ungültige Anfrage.' });
+});
+
+app.listen(3000, '127.0.0.1', () => console.log('Backend mit lokalen Guardrails läuft auf http://127.0.0.1:3000'));

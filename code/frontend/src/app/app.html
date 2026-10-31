@@ -1,20 +1,65 @@
+<ng-template #privacyNotice>
+  <ul>
+    <li>Dies ist eine Hackathon-Demo. Verwende ausschliesslich <strong>erfundene Angaben</strong>.</li>
+    <li>
+      Deine Nachrichten werden über unser Backend an den KI-Anbieter <strong>OpenAI</strong> übertragen und dort
+      verarbeitet, möglicherweise auch ausserhalb der Schweiz.
+    </li>
+    <li>Auch die automatische Themenprüfung jeder Nachricht läuft über dieses Modell.</li>
+    <li>
+      Gib <strong>keine echten Identifikations-, Zahlungs- oder Gesundheitsdaten</strong> ein, zum Beispiel AHV-Nummer,
+      IBAN, Kartennummer, Diagnosen oder Medikamente.
+    </li>
+    <li>
+      Lokale Filter erkennen nur einige Muster wie AHV-Nummern, IBANs, E-Mail-Adressen und Telefonnummern. Sie
+      anonymisieren deine Nachrichten nicht.
+    </li>
+    <li>
+      Der Verlauf liegt nur im Arbeitsspeicher des Backends. Er wird mit „Chat löschen“, nach 60 Minuten Inaktivität
+      oder beim Neustart entfernt. Eine Löschung beim Modellanbieter ist damit nicht garantiert.
+    </li>
+  </ul>
+</ng-template>
+
 <main>
   <h1>Chat</h1>
 
-  <div class="messages">
-    @for (m of messages(); track $index) {
-      <div class="message" [class.user]="m.role === 'user'">{{ m.content }}</div>
-    }
-    @if (loading()) {
-      <div class="message">…</div>
-    }
-    @if (error()) {
-      <div class="error">{{ error() }}</div>
-    }
-  </div>
+  @if (!accepted()) {
+    <section class="notice">
+      <h2>Bevor du startest</h2>
+      <ng-container [ngTemplateOutlet]="privacyNotice" />
+      <label>
+        <input type="checkbox" name="acknowledged" [(ngModel)]="acknowledged" />
+        Ich habe den Hinweis gelesen und verwende nur erfundene Angaben.
+      </label>
+      <button type="button" (click)="start()" [disabled]="!acknowledged">Chat starten</button>
+    </section>
+  } @else {
+    <details class="notice">
+      <summary>Demo · nur erfundene Angaben · Nachrichten gehen an OpenAI</summary>
+      <ng-container [ngTemplateOutlet]="privacyNotice" />
+    </details>
 
-  <form (ngSubmit)="send()">
-    <input name="input" [(ngModel)]="input" placeholder="Nachricht eingeben…" autocomplete="off" />
-    <button type="submit" [disabled]="loading()">Senden</button>
-  </form>
+    <button type="button" (click)="deleteChat()" [disabled]="loading()">Chat löschen</button>
+
+    <div class="messages">
+      @for (m of messages(); track $index) {
+        <div class="message" [class.user]="m.role === 'user'">{{ m.content }}</div>
+      }
+      @if (loading()) {
+        <div class="message">…</div>
+      }
+      @if (error()) {
+        <div class="error">{{ error() }}</div>
+      }
+      @if (info()) {
+        <div class="info">{{ info() }}</div>
+      }
+    </div>
+
+    <form (ngSubmit)="send()">
+      <input name="input" [(ngModel)]="input" placeholder="Nachricht eingeben (nur erfundene Angaben)…" autocomplete="off" />
+      <button type="submit" [disabled]="loading()">Senden</button>
+    </form>
+  }
 </main>
