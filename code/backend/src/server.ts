@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import express from 'express';
 import OpenAI from 'openai';
+import { createApiCalcClient } from './berechnung/apicalc.js';
 import { ChatService } from './chat.js';
 import { GuardrailError, Guardrails } from './guardrails.js';
 import { createOpenAIAdapter } from './providers/openai.js';
@@ -15,7 +16,14 @@ const rails = new Guardrails(JSON.parse(readFileSync(new URL('../guardrails.conf
 const instructions = readFileSync(new URL('../advisor.instructions.md', import.meta.url), 'utf8');
 // logLevel 'off' also ignores OPENAI_LOG=debug, which would print full request bodies including chat text.
 const client = new OpenAI({ apiKey, maxRetries: 0, timeout: 30000, logLevel: 'off' });
-const chat = new ChatService(createOpenAIAdapter(client, model), rails, instructions);
+// Without APICALC_TOKEN the profile still works; the flow then stops at "bereit" and shows the prepared request.
+const apiCalcToken = process.env['APICALC_TOKEN'];
+const rechner = apiCalcToken ? createApiCalcClient({
+  baseUrl: process.env['APICALC_BASE_URL'] || 'https://baselhackathon2026.azurewebsites.net/viper',
+  token: apiCalcToken,
+  tenant: process.env['APICALC_TENANT'] || undefined,
+}) : null;
+const chat = new ChatService(createOpenAIAdapter(client, model), rails, instructions, { rechner });
 // Expire idle sessions even when no further requests arrive.
 setInterval(() => chat.removeExpired(), 60000).unref();
 
@@ -50,4 +58,4 @@ app.use((error: unknown, _req: express.Request, res: express.Response, _next: ex
   res.status(tooLarge ? 413 : 400).json({ error: tooLarge ? 'Die Nachricht ist zu gross.' : 'Ungültige Anfrage.' });
 });
 
-app.listen(3000, '127.0.0.1', () => console.log('Backend mit lokalen Guardrails läuft auf http://127.0.0.1:3000'));
+app.listen(3000, '127.0.0.1', () => console.log(`Backend mit lokalen Guardrails läuft auf http://127.0.0.1:3000 (APICalc-Risikoberechnung: ${rechner ? 'aktiv' : 'nicht konfiguriert'})`));

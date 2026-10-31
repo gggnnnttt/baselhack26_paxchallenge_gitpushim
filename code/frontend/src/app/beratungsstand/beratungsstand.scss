@@ -1,0 +1,126 @@
+aside {
+  font-size: 0.9rem;
+  border: 1px solid #d0d0d0;
+  border-radius: 8px;
+  padding: 0.8rem 1rem;
+  background: #fcfcfc;
+}
+
+h2 {
+  margin: 0 0 0.6rem;
+  font-size: 1.05rem;
+}
+
+h3 {
+  margin: 1rem 0 0.4rem;
+  font-size: 0.95rem;
+}
+
+h4 {
+  margin: 0.5rem 0 0.2rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+small {
+  color: #666;
+  font-weight: normal;
+}
+
+dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.2rem 0.8rem;
+  margin: 0;
+}
+
+dt {
+  color: #555;
+}
+
+dd {
+  margin: 0;
+  cursor: help;
+}
+
+ul {
+  margin: 0.2rem 0;
+  padding-left: 1.2rem;
+}
+
+.leer {
+  color: #666;
+}
+
+.phase {
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  background: #eef2f7;
+
+  &.berechnet {
+    background: #e3f4e6;
+  }
+
+  &.fehlgeschlagen {
+    background: #fbe4e4;
+  }
+}
+
+.badge {
+  margin-left: 0.3rem;
+  padding: 0 0.35rem;
+  border-radius: 4px;
+  background: #ececec;
+  color: #444;
+  font-size: 0.75rem;
+
+  &.warnung {
+    background: #fff0c2;
+  }
+}
+
+.fehlend li {
+  margin-bottom: 0.3rem;
+}
+
+.fehler,
+.abgelehnt {
+  color: #b00020;
+}
+
+.hinweise {
+  color: #555;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+
+  &.veraltet {
+    opacity: 0.5;
+  }
+
+  th,
+  td {
+    padding: 0.2rem 0.3rem;
+    border-bottom: 1px solid #e3e3e3;
+    text-align: right;
+  }
+
+  th:first-child,
+  td:first-child {
+    text-align: left;
+  }
+}
+
+details {
+  margin-top: 0.6rem;
+}
+
+pre {
+  overflow-x: auto;
+  font-size: 0.75rem;
+  background: #f4f4f4;
+  padding: 0.5rem;
+}

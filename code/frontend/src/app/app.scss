@@ -1,5 +1,5 @@
 main {
-  max-width: 720px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 1rem;
   font-family: system-ui, sans-serif;
@@ -65,4 +65,16 @@ form {
 
 .info {
   color: #555;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 1.5rem;
+  align-items: start;
+  margin-top: 0.8rem;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
 }

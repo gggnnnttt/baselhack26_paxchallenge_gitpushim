@@ -10,18 +10,8 @@ export function createOpenAIAdapter(client: OpenAI, model: string): ModelAdapter
         input: messages,
         max_output_tokens: maxOutputTokens,
         store: false,
-        ...(responseFormat === 'scope' ? {
-          text: { format: {
-            type: 'json_schema' as const,
-            name: 'advisory_scope',
-            strict: true,
-            schema: {
-              type: 'object',
-              properties: { allowed: { type: 'boolean' } },
-              required: ['allowed'],
-              additionalProperties: false,
-            },
-          } },
+        ...(responseFormat ? {
+          text: { format: { type: 'json_schema' as const, name: responseFormat.name, strict: true, schema: responseFormat.schema } },
         } : {}),
       });
       if (response.status !== 'completed') throw new Error('Unvollständige Modellantwort.');

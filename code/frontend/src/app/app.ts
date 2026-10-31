@@ -3,6 +3,8 @@ import { HttpClient } from '@angular/common/http';
 import { NgTemplateOutlet } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
+import { BeratungsstandPanel } from './beratungsstand/beratungsstand';
+import type { Beratungsstand } from './beratungsstand/beratungsstand.model';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -10,7 +12,7 @@ interface Message {
 }
 
 @Component({
-  imports: [FormsModule, NgTemplateOutlet],
+  imports: [FormsModule, NgTemplateOutlet, BeratungsstandPanel],
   selector: 'app-root',
   styleUrl: './app.scss',
   templateUrl: './app.html',
@@ -22,6 +24,7 @@ export class App {
   protected readonly accepted = signal(false);
   protected acknowledged = false;
   protected readonly messages = signal<Message[]>([]);
+  protected readonly stand = signal<Beratungsstand | null>(null);
   protected readonly loading = signal(false);
   protected readonly error = signal('');
   protected readonly info = signal('');
@@ -46,6 +49,7 @@ export class App {
     }
     this.sessionId = undefined;
     this.messages.set([]);
+    this.stand.set(null);
     this.input = '';
     this.info.set('Chat im Browser und im Backend gelöscht. Eine Löschung beim Modellanbieter ist damit nicht garantiert.');
   }
@@ -62,13 +66,14 @@ export class App {
 
     try {
       const res = await firstValueFrom(
-        this.http.post<{ reply: string; sessionId: string }>('/api/chat', {
+        this.http.post<{ reply: string; sessionId: string; beratungsstand: Beratungsstand }>('/api/chat', {
           message: text,
           ...(this.sessionId ? { sessionId: this.sessionId } : {}),
         }),
       );
       this.sessionId = res.sessionId;
       this.messages.update((m) => [...m, { role: 'assistant', content: res.reply }]);
+      this.stand.set(res.beratungsstand);
     } catch (err: any) {
       this.error.set(err?.error?.error ?? 'Backend nicht erreichbar');
     } finally {

@@ -9,12 +9,16 @@ Browser (Angular, Verlauf nur im Arbeitsspeicher)
   → Angular-Dev-Proxy → Backend auf 127.0.0.1:3000
       → lokale Eingabeprüfung: Muster blockieren oder maskieren (siehe unten)
       → OpenAI-Aufruf 1: Themenprüfung mit den letzten höchstens 7 akzeptierten Nachrichten
-      → OpenAI-Aufruf 2: Antwort mit dem akzeptierten Verlauf der Sitzung (höchstens 40 Nachrichten)
+      → OpenAI-Aufruf 2: Profilerfassung mit dem bisherigen Profil und den letzten höchstens 6 Nachrichten
+      → lokale Prüfung der Profilvorschläge (Beleg in der Nachricht, Wertebereiche)
+      → nur wenn alle Angaben vollständig sind und APICALC_TOKEN gesetzt ist: APICalc calculateRisk
+      → OpenAI-Aufruf 3: Antwort mit dem akzeptierten Verlauf (höchstens 40 Nachrichten) und dem Beratungsstand
       → lokale Ausgabeprüfung
   ← Antwort an den Browser
 ```
 
-- An OpenAI gehen: der Systemprompt (ohne Kundendaten) und die Chatnachrichten nach der lokalen Prüfung. Sitzungskennung, IP-Adresse oder Benutzerkennungen werden nicht mitgeschickt.
+- An OpenAI gehen: der Systemprompt, die Chatnachrichten nach der lokalen Prüfung und der daraus abgeleitete Beratungsstand (Profil, fehlende Angaben, Berechnungsergebnis). Sitzungskennung, IP-Adresse oder Benutzerkennungen werden nicht mitgeschickt.
+- An APICalc (`baselhackathon2026.azurewebsites.net`, vom Hackathon bereitgestellt) gehen nur die Felder des `calculateRisk`-Requests: Beziehungsstatus und -jahr, Geschlecht, Geburtsjahr, Bruttoeinkommen, Pensionskasse ja/nein, Bedarf und Anzahl Kinder. Keine Namen, keine vollständigen Geburtsdaten, keine Chattexte. Ohne `APICALC_TOKEN` findet kein Aufruf statt.
 - Eine Nachricht, die erst die Themenprüfung oder die Ausgabeprüfung ablehnt, **wurde bereits an OpenAI übertragen**. Nur lokal blockierte Eingaben erreichen den Anbieter nie.
 - OpenAI wird mit `store: false` aufgerufen. Das schliesst eine Aufbewahrung beim Anbieter nach dessen Bedingungen (z. B. zur Missbrauchsüberwachung) nicht aus. Wir können sie nicht steuern.
 - Backend → OpenAI läuft über HTTPS, Browser → Backend in der Demo über unverschlüsseltes HTTP auf localhost. Transportverschlüsselung schützt die Übertragung, sie anonymisiert nichts.
@@ -24,10 +28,11 @@ Browser (Angular, Verlauf nur im Arbeitsspeicher)
 | Ort | Was | Dauer |
 |---|---|---|
 | Browser | Chatverlauf und Bestätigung des Hinweises im Arbeitsspeicher der Komponente; kein `localStorage`, keine Cookies | bis „Chat löschen“ oder Neuladen/Schliessen des Tabs |
-| Backend | Sitzungen in einer `Map` im Arbeitsspeicher; keine Datenbank, keine Dateien | bis Löschung, 60 Minuten Inaktivität oder Neustart |
+| Backend | Sitzungen in einer `Map` im Arbeitsspeicher: Verlauf, Profil mit Belegzitaten, letzte Berechnung; keine Datenbank, keine Dateien | bis Löschung, 60 Minuten Inaktivität oder Neustart |
 | Backend-Logs | nur die Startmeldung; keine Chattexte, keine Fehlerdetails des Anbieters | – |
 | OpenAI-SDK-Logs | ausgeschaltet (`logLevel: 'off'`), auch wenn `OPENAI_LOG=debug` gesetzt ist; sonst würden Request-Inhalte ausgegeben | – |
-| OpenAI | übermittelte Nachrichten und Antworten | nach Bedingungen des Anbieters, von uns nicht steuerbar |
+| OpenAI | übermittelte Nachrichten, Beratungsstand und Antworten | nach Bedingungen des Anbieters, von uns nicht steuerbar |
+| APICalc | Berechnungsrequests | nach Bedingungen des Betreibers, nicht geprüft |
 | `backend/.env` | API-Schlüssel; per Root-`.gitignore` ausgeschlossen, nie an den Browser gesendet, nie geloggt | lokal |
 
 ## Löschung
@@ -37,12 +42,14 @@ Browser (Angular, Verlauf nur im Arbeitsspeicher)
 - Wird während eines laufenden Modellaufrufs gelöscht, verwirft das Backend die Antwort und speichert nichts.
 - Solange eine Antwort aussteht, ist der Button gesperrt. Bei der ersten Nachricht kennt der Browser die Sitzungskennung noch nicht.
 - Wird der Tab ohne Löschen geschlossen, bleibt die Sitzung im Backend, bis sie nach 60 Minuten Inaktivität entfernt wird (Prüfung jede Minute) oder das Backend neu startet.
-- **Nicht** abgedeckt: Kopien beim Modellanbieter.
+- Profil und Berechnung gehören zur Sitzung und werden mit ihr gelöscht. Profiländerungen und Berechnungen einer Nachricht werden nur zusammen mit einer akzeptierten Antwort gespeichert, also nicht bei blockierter Antwort, Fehler oder zwischenzeitlicher Löschung.
+- **Nicht** abgedeckt: Kopien bei OpenAI und APICalc.
 
 ## Getrennte Datenwege für Formulare
 
 - `POST /api/chat` akzeptiert nur `message` und `sessionId`. Zusätzliche Felder wie `profile` oder `formData` werden vor jedem Modellaufruf mit `400` abgelehnt.
-- Themenprüfung und Antwort erhalten ausschliesslich akzeptierte Chatnachrichten derselben Sitzung (`ModelRequest` in `backend/src/chat.ts`).
+- Themenprüfung, Profilerfassung und Antwort erhalten ausschliesslich akzeptierte Chatnachrichten derselben Sitzung (`ModelRequest` in `backend/src/chat.ts`). Das Profil entsteht nur aus diesen Nachrichten und geht denselben Weg wie der Chat.
+- Das Profilschema hat keine Felder für Namen, Adressen, Identifikations-, Zahlungs- oder Gesundheitsdaten. Vom Geburtsdatum wird nur das Jahr gespeichert.
 - Profil- oder Antragsformulare gibt es noch nicht. Regel für später: eigener Endpunkt und eigener Speicher, keine Nutzung von `ChatService` oder `ModelAdapter`. Formularwerte werden nie automatisch in Chatnachrichten, Zusammenfassungen oder die Themenprüfung übernommen. Wer Formularwerte an ein Modell geben will, muss das als eigene Entscheidung prüfen.
 - Gesundheitsformulare sind bewusst nicht gebaut: Die APICalc-Schnittstelle (`APICalc-swagger.yaml`) enthält keine Felder für Diagnosen, Medikamente oder Rauchverhalten. Der Systemprompt weist das Modell an, solche Angaben im Chat nicht zu erfragen und ungefragt genannte nicht zu verwerten.
 
@@ -57,7 +64,7 @@ Browser (Angular, Verlauf nur im Arbeitsspeicher)
 
 Nichts davon ist umgesetzt oder geprüft.
 
-- **Rollen und Verträge:** Pax als Verantwortliche. Auftragsbearbeitung mit dem Modellanbieter (Art. 9 DSG): Unterauftragsbearbeiter, Aufbewahrungsfristen, Ausschluss von Training, Löschung beim Anbieter.
+- **Rollen und Verträge:** Pax als Verantwortliche. Auftragsbearbeitung mit dem Modellanbieter und dem APICalc-Betreiber (Art. 9 DSG): Unterauftragsbearbeiter, Aufbewahrungsfristen, Ausschluss von Training, Löschung beim Anbieter.
 - **Auslandübermittlung (Art. 16 f. DSG):** Empfängerstaaten, Garantien, Information der Betroffenen über die Staaten (Art. 19 Abs. 4 DSG).
 - **Information der Betroffenen:** Der Demo-Hinweis ersetzt keine von Pax geprüfte Datenschutzerklärung.
 - **Besonders schützenswerte Daten:** Ob und über welchen getrennten Weg Gesundheitsdaten überhaupt nötig sind, einschliesslich Einwilligung.
@@ -69,6 +76,7 @@ Nichts davon ist umgesetzt oder geprüft.
 
 ## Verifiziert
 
-- `npm test` im Backend: 19 Tests ohne echte Kundendaten und ohne externe Modellaufrufe, darunter Löschung, Löschung während eines laufenden Aufrufs, Ablauf ohne Folgeanfrage und Abweisung von Profil-/Formularfeldern vor Themenprüfung und Antwort.
+- `npm test` im Backend: 28 Tests ohne echte Kundendaten und ohne externe Modell- oder APICalc-Aufrufe, darunter Löschung, Löschung während eines laufenden Aufrufs, Ablauf ohne Folgeanfrage und Abweisung von Profil-/Formularfeldern vor Themenprüfung und Antwort.
 - Gegen das laufende Backend: `DELETE /api/chat` liefert `204` bzw. `400`; ein Chat-Request mit `profile`-Feld liefert `400`.
+- Zwei kurze Live-Gespräche mit erfundenen Müller-Angaben gegen OpenAI (ohne APICalc-Token); die Sitzungen wurden danach gelöscht.
 - Angular-Produktionsbuild erfolgreich. Die Oberfläche wurde nicht automatisiert im Browser durchgeklickt, und es gab keinen Live-Modellaufruf und keine juristische Prüfung.

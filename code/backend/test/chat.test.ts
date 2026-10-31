@@ -3,12 +3,13 @@ import { test } from 'node:test';
 import { readFileSync } from 'node:fs';
 import { ChatService, type ModelAdapter } from '../src/chat.js';
 import { GuardrailError, Guardrails } from '../src/guardrails.js';
+import { SCOPE_FORMAT } from '../src/scope.js';
 
 const config = JSON.parse(readFileSync(new URL('../guardrails.config.json', import.meta.url), 'utf8'));
 const makeRails = () => new Guardrails(config);
-// Only the external scope decision is simulated; ChatService still runs its real gate.
+// Only the external scope decision and an empty profile extraction are simulated; ChatService still runs its real gates.
 const allowScope = (provider: ModelAdapter): ModelAdapter => ({ generate: request =>
-  request.responseFormat === 'scope' ? Promise.resolve('{"allowed":true}') : provider.generate(request),
+  request.responseFormat ? Promise.resolve(request.responseFormat.name === 'advisory_scope' ? '{"allowed":true}' : '{"aenderungen":[]}') : provider.generate(request),
 });
 
 test('normal family concerns and financial figures remain usable', () => {
@@ -29,7 +30,7 @@ test('contact information is redacted in all retained model context', async () =
   const seen: string[] = [];
   const service = new ChatService(allowScope({ generate: async (request) => {
     seen.push(JSON.stringify(request.messages));
-    assert.equal(request.instructions, 'Berater');
+    assert.ok(request.instructions.startsWith('Berater\n\n## Beratungsstand'));
     return 'Wie ist eure Arbeit aufgeteilt?';
   } }), makeRails(), 'Berater');
   const first = await service.reply({ message: 'Kontakt demo@example.org, wir haben ein Baby.' });
@@ -118,15 +119,15 @@ test('uncompleted provider output is never accepted as a checked reply', async (
 test('out-of-scope decisions stop the answer call instead of returning arbitrary chatbot output', async () => {
   const requests: string[] = [];
   const service = new ChatService({ generate: async (request) => {
-    requests.push(request.responseFormat ?? 'reply');
-    return request.responseFormat === 'scope' ? '{"allowed":false}' : 'print("Hello World")';
+    requests.push(request.responseFormat?.name ?? 'reply');
+    return request.responseFormat?.name === 'advisory_scope' ? '{"allowed":false}' : 'print("Hello World")';
   } }, makeRails(), 'Berater');
   await assert.rejects(service.reply({ message: 'Implementiere mir Hello World in Python' }), (error: unknown) => {
     assert.ok(error instanceof GuardrailError);
     assert.match(error.message, /Vorsorge/);
     return true;
   });
-  assert.deepEqual(requests, ['scope']);
+  assert.deepEqual(requests, ['advisory_scope']);
 });
 
 test('invalid or failed scope decisions fail closed without generating a reply', async () => {
@@ -141,10 +142,11 @@ test('invalid or failed scope decisions fail closed without generating a reply',
 test('scope classification receives sanitised conversation context for short follow-up answers', async () => {
   const scopes: string[] = [];
   const service = new ChatService({ generate: async request => {
-    if (request.responseFormat === 'scope') {
+    if (request.responseFormat?.name === 'advisory_scope') {
       scopes.push(JSON.stringify(request.messages));
       return '{"allowed":true}';
     }
+    if (request.responseFormat) return '{"aenderungen":[]}';
     return 'Wie hoch ist euer jährliches Einkommen?';
   } }, makeRails(), 'Berater');
   const first = await service.reply({ message: 'Kontakt demo@example.org. Wir möchten für die Familie vorsorgen.' });
@@ -164,7 +166,8 @@ test('OpenAI scope request uses a boolean JSON schema rather than free text', as
     captured = JSON.parse(String(init?.body));
     return new Response(JSON.stringify({ id: 'resp_scope', object: 'response', status: 'completed', output: [{ id: 'msg_scope', type: 'message', role: 'assistant', status: 'completed', content: [{ type: 'output_text', text: '{"allowed":false}', annotations: [] }] }] }), { status: 200, headers: { 'content-type': 'application/json' } });
   } });
-  await createOpenAIAdapter(client, 'test-model').generate({ instructions: 'Prüfen', messages: [{ role: 'user', content: 'Hello World in Python' }], maxOutputTokens: 512, responseFormat: 'scope' });
+  await createOpenAIAdapter(client, 'test-model').generate({ instructions: 'Prüfen', messages: [{ role: 'user', content: 'Hello World in Python' }], maxOutputTokens: 512, responseFormat: SCOPE_FORMAT });
+  assert.equal(captured.text.format.name, 'advisory_scope');
   assert.equal(captured.text.format.type, 'json_schema');
   assert.equal(captured.text.format.strict, true);
   assert.deepEqual(captured.text.format.schema.required, ['allowed']);
@@ -220,7 +223,8 @@ test('form or profile data cannot enter chat, scope check or reply context', asy
   const requests: Record<string, unknown>[] = [];
   const service = new ChatService({ generate: async request => {
     requests.push({ ...request });
-    return request.responseFormat === 'scope' ? '{"allowed":true}' : 'Wie sieht eure Wohnsituation aus?';
+    if (request.responseFormat) return request.responseFormat.name === 'advisory_scope' ? '{"allowed":true}' : '{"aenderungen":[]}';
+    return 'Wie sieht eure Wohnsituation aus?';
   } }, makeRails(), 'Berater');
   for (const extra of [{ profile: { name: 'Erika Muster' } }, { formData: { smoker: true } }, { context: 'Diagnose X' }]) {
     await assert.rejects(service.reply({ message: 'Hallo', ...extra }), (error: unknown) => error instanceof GuardrailError && error.status === 400);
@@ -228,7 +232,8 @@ test('form or profile data cannot enter chat, scope check or reply context', asy
   assert.equal(requests.length, 0);
   const first = await service.reply({ message: 'Wir möchten fürs Alter vorsorgen.' });
   await service.reply({ message: 'Wir wohnen zur Miete.', sessionId: first.sessionId });
-  assert.deepEqual(requests.map(request => request['responseFormat'] ?? 'reply'), ['scope', 'reply', 'scope', 'reply']);
+  assert.deepEqual(requests.map(request => (request['responseFormat'] as { name: string } | undefined)?.name ?? 'reply'),
+    ['advisory_scope', 'profil_aenderungen', 'reply', 'advisory_scope', 'profil_aenderungen', 'reply']);
   const allowedKeys = new Set(['instructions', 'messages', 'maxOutputTokens', 'responseFormat']);
   const chatTexts = ['Wir möchten fürs Alter vorsorgen.', 'Wie sieht eure Wohnsituation aus?', 'Wir wohnen zur Miete.'];
   for (const request of requests) {
