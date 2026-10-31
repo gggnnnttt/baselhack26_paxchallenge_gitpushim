@@ -1,7 +1,8 @@
 // Mirrors BeratungsstandAnsicht in backend/src/beratung/darstellung.ts.
 export interface Fakt<T> {
   wert: T;
-  quelle: 'aussage' | 'ableitung';
+  // 'zeitstrahl' only occurs on plans.
+  quelle: 'aussage' | 'ableitung' | 'zeitstrahl';
   beleg: string;
   begruendung: string | null;
   nachricht: number;
@@ -21,7 +22,7 @@ export interface Person {
   bedarfTodesfall?: Fakt<Bedarf>;
 }
 
-export interface Herkunft { quelle: 'aussage' | 'ableitung'; beleg: string; begruendung: string | null; nachricht: number }
+export interface Herkunft { quelle: 'aussage' | 'ableitung' | 'zeitstrahl'; beleg: string; begruendung: string | null; nachricht: number }
 
 export interface Profil {
   anliegen: { id: string; text: string; herkunft: Herkunft }[];
@@ -50,6 +51,7 @@ export interface Profil {
     pensumProzent?: Fakt<number>;
     einkommen?: Fakt<Einkommen>;
     sicherheit?: Fakt<'fest' | 'geplant' | 'unsicher'>;
+    notiz?: string;
   }[];
 }
 

@@ -44,6 +44,18 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
+app.post('/api/zeitstrahl', async (req, res) => {
+  try {
+    res.json(await chat.zeitstrahl(req.body));
+  } catch (error) {
+    if (error instanceof GuardrailError) {
+      res.status(error.status).json({ error: error.message });
+      return;
+    }
+    res.status(500).json({ error: 'Die Änderung im Zeitstrahl konnte nicht sicher verarbeitet werden.' });
+  }
+});
+
 app.delete('/api/chat', (req, res) => {
   try {
     chat.deleteSession(req.body);

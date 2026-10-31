@@ -3,31 +3,61 @@
   min-width: 0;
 }
 
+/* A flat surface: only the chat is raised, because it is the conversation. */
 aside {
   box-sizing: border-box;
-  min-height: 200px;
-  padding: 48px 32px;
-  border: 0;
-  border-radius: 20px;
-  background: #fff;
-  box-shadow: 0 0 16px rgba(0, 0, 0, 0.25);
-  color: #6a6a6a;
+  padding: 20px 24px;
+  border: 1px solid var(--color-neutral-gray-2);
+  border-radius: var(--radius-xl);
+  background: var(--color-neutral-white);
+  color: var(--color-neutral-black);
   font-size: 16px;
   line-height: 1.5;
   overflow-wrap: anywhere;
 }
 
-h2 {
-  margin: 0 0 24px;
-  color: #8ccd0f;
-  font-size: 26px;
-  font-weight: 700;
-  line-height: 32px;
+h2 { margin: 0; }
+
+/* Purple marks what Pax understood; the header doubles as the collapse toggle. */
+.kopf {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 2px 12px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  .titel { color: var(--color-brand-pax-purple); font-size: var(--size-heading-s); font-weight: 700; line-height: 1.3; }
+  .zusammenfassung { grid-row: 2; color: var(--color-neutral-gray-6); font-size: 14px; font-weight: 400; }
+  .chevron { grid-row: 1 / 3; grid-column: 2; color: var(--color-brand-pax-purple); transition: transform 250ms ease; }
+  &[aria-expanded='true'] .chevron { transform: rotate(180deg); }
+  &:focus-visible { outline: 2px solid var(--color-brand-pax-purple); outline-offset: 4px; border-radius: 4px; }
 }
 
+.inhalt {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition: grid-template-rows 250ms ease;
+
+  &.zu { grid-template-rows: 0fr; }
+}
+/* clip, not hidden: hidden content could still be scrolled sideways by focus. The extra 8px
+   leave room for the highlighted values, which reach a little beyond the text. */
+.inhalt-innen { min-height: 0; margin: 0 -8px; padding: 0 8px; overflow: clip; }
+
+.hinweis { margin: 12px 0 0; color: var(--color-neutral-gray-6); font-size: 14px; }
+
 h3 {
-  margin: 1rem 0 0.4rem;
-  font-size: 0.95rem;
+  margin: 20px 0 6px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-neutral-gray-2);
+  font-size: 16px;
 }
 
 h4 {
@@ -43,18 +73,22 @@ small {
 
 dl {
   display: grid;
-  grid-template-columns: max-content 1fr;
-  gap: 0.2rem 0.8rem;
+  grid-template-columns: minmax(96px, max-content) 1fr;
+  gap: 2px 16px;
   margin: 0;
 }
 
-dt {
-  color: #555;
-}
+dt { padding: 4px 0; color: var(--color-neutral-gray-6); }
 
 dd {
-  margin: 0;
-  cursor: help;
+  margin: 0 -8px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  transition: background-color 600ms ease;
+
+  /* Just changed by the chat or a correction. */
+  &.geaendert { background: var(--color-system-success-light); box-shadow: inset 3px 0 0 var(--color-brand-pax-green); }
+  &.wartet { opacity: 0.55; }
 }
 
 ul {
@@ -95,6 +129,22 @@ ul {
 
 .fehlend li {
   margin-bottom: 0.3rem;
+}
+
+/* A missing value is an invitation: clicking it starts the answer in the chat. */
+.fehlt {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--color-brand-pax-purple);
+  font: inherit;
+  text-align: left;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+
+  &:hover { color: var(--color-brand-deep-purple); }
+  &:focus-visible { outline: 2px solid var(--color-brand-pax-purple); outline-offset: 2px; }
 }
 
 .fehler,
@@ -145,6 +195,10 @@ pre {
 
 @media (max-width: 600px) {
   aside {
-    padding: 32px 24px;
+    padding: 16px;
   }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .inhalt, .kopf .chevron, dd { transition: none; }
 }

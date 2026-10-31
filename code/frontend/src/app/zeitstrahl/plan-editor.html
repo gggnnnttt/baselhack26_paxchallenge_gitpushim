@@ -1,0 +1,73 @@
+<dialog #dialog class="pax-warning-dialog plan-editor" aria-labelledby="plan-editor-titel">
+  @if (entwurf(); as entwurf) {
+    <button class="dialog-close" type="button" aria-label="Dialog schliessen" (click)="schliessen()">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+    </button>
+    <h2 id="plan-editor-titel">{{ entwurf.plan ? 'Plan bearbeiten' : 'Neuer Plan' }}</h2>
+
+    <form (ngSubmit)="speichern(entwurf)">
+      <fieldset class="arten">
+        <legend>Was ist geplant?</legend>
+        @for (art of arten; track art) {
+          <label class="art" [class.gewaehlt]="entwurf.art === art">
+            <input type="radio" name="art" [value]="art" [ngModel]="entwurf.art" (ngModelChange)="artWaehlen(entwurf, $event)" />
+            <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path [attr.d]="PLANARTEN[art].icon" /></svg>
+            <span>{{ PLANARTEN[art].label }}</span>
+          </label>
+        }
+      </fieldset>
+
+      <label class="feld">
+        <span>Beschreibung</span>
+        <input class="pax-input" name="beschreibung" [(ngModel)]="entwurf.beschreibung" maxlength="200" required />
+      </label>
+
+      <div class="zeile">
+        <label class="feld">
+          <span>Für wen</span>
+          <select class="pax-input" name="person" [(ngModel)]="entwurf.person">
+            @for (p of personen(); track p) {
+              <option [ngValue]="p">{{ PERSONEN[p] }}</option>
+            }
+          </select>
+        </label>
+        <label class="feld">
+          <span>Jahr</span>
+          <input class="pax-input" type="number" name="jahr" [(ngModel)]="entwurf.jahr" [min]="jahrVon()" [max]="jahrVon() + 70" [disabled]="!mitDatum" />
+        </label>
+        <label class="feld">
+          <span>Monat</span>
+          <select class="pax-input" name="monat" [(ngModel)]="entwurf.monat" [disabled]="!mitDatum">
+            <option [ngValue]="null">offen</option>
+            @for (m of monate; track m.nr) {
+              <option [ngValue]="m.nr">{{ m.name }}</option>
+            }
+          </select>
+        </label>
+      </div>
+      <label class="check">
+        <input type="checkbox" name="ohneDatum" [ngModel]="!mitDatum" (ngModelChange)="mitDatum = !$event" />
+        Noch kein Datum
+      </label>
+
+      <label class="feld">
+        <span>Notiz <small>(optional)</small></span>
+        <textarea class="pax-input" name="notiz" [(ngModel)]="entwurf.notiz" maxlength="500" rows="3"
+          placeholder="z. B. Wir wollen dafür nach Baselland ziehen."></textarea>
+        <small>Pax bezieht die Notiz in die Beratung ein. Bitte nur erfundene Angaben.</small>
+      </label>
+
+      @if (fehler) {
+        <p class="fehler" role="alert">{{ fehler }}</p>
+      }
+
+      <div class="dialog-actions">
+        @if (entwurf.plan) {
+          <button class="pax-button dialog-delete" type="button" (click)="entfernen(entwurf)">Entfernen</button>
+        }
+        <button class="pax-button dialog-cancel" type="button" (click)="schliessen()">Abbrechen</button>
+        <button class="pax-button" type="submit">Speichern</button>
+      </div>
+    </form>
+  }
+</dialog>

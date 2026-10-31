@@ -1,0 +1,17 @@
+@if (!bearbeiten()) {
+  <span class="wert">{{ wert() }}<ng-content /></span>
+  <button class="stift" type="button" (click)="start()" [disabled]="gesperrt()" [attr.aria-label]="label() + ' korrigieren'" title="Korrigieren">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4" />
+    </svg>
+  </button>
+} @else {
+  <form class="korrektur" (ngSubmit)="korrigieren()" (keydown.escape)="abbrechen()">
+    <input #feld name="entwurf" [(ngModel)]="entwurf" autocomplete="off" [attr.aria-label]="'Richtiger Wert für ' + label()" />
+    <div class="knoepfe">
+      <button class="ok" type="submit" [disabled]="gesperrt() || !entwurf.trim() || entwurf.trim() === wert()">Korrigieren</button>
+      <button class="leise" type="button" (click)="abbrechen()">Abbrechen</button>
+      <button class="leise entfernen" type="button" [disabled]="gesperrt()" (click)="entfernen()">Angabe entfernen</button>
+    </div>
+  </form>
+}

@@ -1,15 +1,26 @@
-<ng-template #wert let-z>
+<ng-template #wert let-z let-bereich="bereich">
   <dt>{{ z.label }}</dt>
-  <dd [title]="z.herkunft ? herkunftText(z.herkunft) : ''">
-    {{ z.wert }}
-    @if (z.herkunft?.quelle === 'ableitung') {
-      <span class="badge">abgeleitet</span>
-    }
+  <dd [title]="z.herkunft ? herkunftText(z.herkunft) : ''"
+    [class.geaendert]="geaendert().has(bereich + '|' + z.label)" [class.wartet]="wartend() === bereich + '|' + z.label">
+    <app-wert-korrektur [label]="z.label" [wert]="z.wert" [bereich]="bereich" [gesperrt]="gesperrt()"
+      (korrektur)="korrigieren(bereich + '|' + z.label, $event)">
+      @if (z.herkunft?.quelle === 'ableitung') {
+        <span class="badge">abgeleitet</span>
+      }
+    </app-wert-korrektur>
   </dd>
 </ng-template>
 
 <aside>
-  <h2>Was ich bisher verstanden habe</h2>
+  <h2>
+    <button class="kopf" type="button" (click)="offen.set(!offen())" [attr.aria-expanded]="offen()" aria-controls="beratungsstand-inhalt">
+      <span class="titel">Was ich bisher verstanden habe</span>
+      <span class="zusammenfassung">{{ zusammenfassung() }}</span>
+      <svg class="chevron" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 10l5 5 5-5" /></svg>
+    </button>
+  </h2>
+  <div class="inhalt" id="beratungsstand-inhalt" [class.zu]="!offen()" [attr.inert]="offen() ? null : ''"><div class="inhalt-innen">
+  <p class="hinweis">Stimmt etwas nicht? Mit dem Stift korrigierst du einen Wert, Pax bestätigt die Korrektur im Chat.</p>
 
   @if (!stand()) {
     <p class="leer">Noch nichts erfasst. Erzähl im Chat von deiner Situation.</p>
@@ -33,7 +44,7 @@
         <h3>Haushalt</h3>
         <dl>
           @for (z of haushalt(); track z.label) {
-            <ng-container [ngTemplateOutlet]="wert" [ngTemplateOutletContext]="{ $implicit: z }" />
+            <ng-container [ngTemplateOutlet]="wert" [ngTemplateOutletContext]="{ $implicit: z, bereich: 'Haushalt' }" />
           }
         </dl>
       </section>
@@ -44,7 +55,7 @@
         <h3>{{ p.titel }}</h3>
         <dl>
           @for (z of p.zeilen; track z.label) {
-            <ng-container [ngTemplateOutlet]="wert" [ngTemplateOutletContext]="{ $implicit: z }" />
+            <ng-container [ngTemplateOutlet]="wert" [ngTemplateOutletContext]="{ $implicit: z, bereich: p.titel }" />
           }
         </dl>
       </section>
@@ -57,7 +68,7 @@
           <h4 [title]="herkunftText(k.herkunft)">{{ k.titel }}</h4>
           <dl>
             @for (z of k.zeilen; track z.label) {
-              <ng-container [ngTemplateOutlet]="wert" [ngTemplateOutletContext]="{ $implicit: z }" />
+              <ng-container [ngTemplateOutlet]="wert" [ngTemplateOutletContext]="{ $implicit: z, bereich: k.titel }" />
             }
           </dl>
         }
@@ -71,7 +82,7 @@
           <h4 [title]="herkunftText(p.herkunft)">{{ p.titel }} <small>{{ p.untertitel }}</small></h4>
           <dl>
             @for (z of p.zeilen; track z.label) {
-              <ng-container [ngTemplateOutlet]="wert" [ngTemplateOutletContext]="{ $implicit: z }" />
+              <ng-container [ngTemplateOutlet]="wert" [ngTemplateOutletContext]="{ $implicit: z, bereich: 'Plan „' + p.titel + '“' }" />
             }
           </dl>
         }
@@ -84,7 +95,10 @@
         <p>Für diese Berechnung fehlt noch:</p>
         <ul class="fehlend">
           @for (f of s.risiko.fehlend; track f.label) {
-            <li>{{ f.label }}@if (f.warum) {<br /><small>{{ f.warum }}</small>}</li>
+            <li>
+              <button class="fehlt" type="button" (click)="frage.emit(f.label)" [attr.aria-label]="f.label + ' im Chat beantworten'">{{ f.label }}</button>
+              @if (f.warum) {<br /><small>{{ f.warum }}</small>}
+            </li>
           }
         </ul>
       }
@@ -154,4 +168,5 @@
       </details>
     }
   }
+  </div></div>
 </aside>

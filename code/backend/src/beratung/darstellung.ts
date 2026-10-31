@@ -47,10 +47,11 @@ export function profilText(profil: Profil): string {
     `Kinder: ${profil.kinder.length ? profil.kinder.map(k => `${k.id} ${kindLabel(profil, k)} (Jahrgang ${k.geburtsjahr?.wert ?? 'unbekannt'}, Elternteil ${k.elternteil?.wert ?? 'unbekannt'}${k.alleinigesSorgerecht ? `, alleiniges Sorgerecht ${janein(k.alleinigesSorgerecht.wert)}` : ''})`).join('; ') : 'keine erfasst'}`,
     `Pläne (Zukunft, nicht heutige Situation): ${profil.plaene.length ? profil.plaene.map(p => {
       const details = [
-        p.zeitpunkt && `Zeitpunkt ${p.zeitpunkt.wert.jahr}${p.zeitpunkt.wert.monat ? `-${String(p.zeitpunkt.wert.monat).padStart(2, '0')}` : ''}${p.zeitpunkt.wert.text ? ` (${zitat(p.zeitpunkt.wert.text)})` : ''}`,
+        p.zeitpunkt && `Zeitpunkt ${p.zeitpunkt.wert.jahr}${p.zeitpunkt.wert.monat ? `-${String(p.zeitpunkt.wert.monat).padStart(2, '0')}` : ''}${p.zeitpunkt.wert.text ? ` (${zitat(p.zeitpunkt.wert.text)})` : ''}${p.zeitpunkt.quelle === 'zeitstrahl' ? ' (im Zeitstrahl gesetzt)' : ''}`,
         p.pensumProzent && `Pensum ${p.pensumProzent.wert} %`,
         p.einkommen && `Einkommen ${einkommenText(p.einkommen.wert)}`,
         p.sicherheit && `Sicherheit ${p.sicherheit.wert}`,
+        p.notiz && `Notiz des Kunden ${zitat(p.notiz)}`,
       ].filter(Boolean).join(', ');
       return `${p.id} [${p.art}, ${p.person === 'haushalt' ? 'Haushalt' : `Person ${p.person}`}] ${zitat(p.beschreibung)}${details ? `: ${details}` : ''}`;
     }).join('; ') : 'keine'}`,

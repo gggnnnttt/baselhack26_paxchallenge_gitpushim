@@ -1,0 +1,66 @@
+/* Frame, title, close button and action buttons come from .pax-warning-dialog in styles.scss. */
+.plan-editor {
+  width: min(720px, calc(100% - 32px));
+  padding: 40px;
+
+  h2 { margin-bottom: 20px; }
+  form { display: flex; flex-direction: column; gap: 16px; }
+  .dialog-actions { margin-top: 8px; }
+  .dialog-actions .pax-button { flex: 1 1 0; }
+}
+
+.arten {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+
+  legend { margin-bottom: 8px; font-weight: 500; }
+}
+
+.art {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-neutral-gray-3);
+  border-radius: var(--radius-m);
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color 150ms, background-color 150ms;
+
+  input { position: absolute; opacity: 0; pointer-events: none; }
+  svg { flex: none; fill: none; stroke: var(--color-brand-pax-purple); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  &:hover { border-color: var(--color-brand-pax-green); }
+  &.gewaehlt { border-color: var(--color-brand-pax-green); background: var(--color-system-success-light); }
+  &:has(input:focus-visible) { outline: 2px solid var(--color-brand-pax-purple); outline-offset: 2px; }
+}
+
+.feld {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  font-weight: 500;
+
+  small { color: var(--color-neutral-gray-6); font-weight: 400; }
+}
+
+.pax-input { font-weight: 400; }
+.pax-input:disabled { background: var(--color-neutral-gray-1); color: var(--color-neutral-gray-5); }
+textarea.pax-input { max-height: none; resize: vertical; }
+
+.zeile { display: flex; gap: 12px; }
+
+.check { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
+
+.fehler { margin: 0; color: var(--color-system-error); }
+
+@media (max-width: 600px) {
+  .plan-editor { padding: 56px 20px 20px; }
+  .zeile { flex-direction: column; }
+}

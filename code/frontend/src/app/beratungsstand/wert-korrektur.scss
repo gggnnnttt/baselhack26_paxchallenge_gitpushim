@@ -1,0 +1,70 @@
+:host {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.wert { flex: 1; min-width: 0; }
+
+/* The pencil shows on hover and focus; on touch screens it is always visible. */
+.stift {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  margin: -3px 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-neutral-gray-5);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 150ms, background-color 150ms, color 150ms;
+
+  &:hover:not(:disabled) { background: var(--color-system-success-light); color: var(--color-brand-contrast-green); }
+  &:focus-visible { opacity: 1; outline: 2px solid var(--color-brand-pax-purple); outline-offset: 1px; }
+  &:disabled { cursor: not-allowed; }
+}
+:host(:hover) .stift { opacity: 1; }
+@media (hover: none) { .stift { opacity: 1; } }
+
+.korrektur {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+
+  input {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 8px 10px;
+    border: 1.5px solid var(--color-brand-pax-green);
+    border-radius: var(--radius-sm);
+    font: inherit;
+    color: var(--color-neutral-black);
+
+    &:focus { outline: 2px solid var(--color-system-success-light); }
+  }
+}
+
+.knoepfe { display: flex; flex-wrap: wrap; gap: 4px 12px; align-items: center; }
+
+.ok, .leise {
+  padding: 6px 14px;
+  border: 0;
+  border-radius: var(--radius-full);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+
+  &:focus-visible { outline: 2px solid var(--color-brand-pax-purple); outline-offset: 2px; }
+  &:disabled { cursor: not-allowed; opacity: 0.5; }
+}
+.ok { background: var(--color-brand-pax-green); color: var(--color-neutral-black); }
+.ok:hover:not(:disabled) { background: var(--color-brand-contrast-green); }
+.leise { padding: 6px 4px; background: none; color: var(--color-neutral-gray-6); text-decoration: underline; }
+.entfernen { margin-left: auto; color: var(--color-system-error-dark); }

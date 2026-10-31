@@ -9,6 +9,10 @@ const herkunft = {
 };
 export const Herkunft = z.object(herkunft).strict();
 const fakt = <T extends z.ZodType>(wert: T) => z.object({ wert, ...herkunft }).strict();
+// Plans can also be placed by the customer in the timeline, outside the chat; then there is no quote from a message.
+const planHerkunft = { ...herkunft, quelle: z.enum(['aussage', 'ableitung', 'zeitstrahl']) };
+export const PlanHerkunft = z.object(planHerkunft).strict();
+const planFakt = <T extends z.ZodType>(wert: T) => z.object({ wert, ...planHerkunft }).strict();
 
 export const Einkommen = z.object({
   betrag: z.number().positive(),
@@ -60,11 +64,13 @@ export const Plan = z.object({
   art: z.enum(PLANARTEN),
   person: z.enum(['A', 'B', 'haushalt']),
   beschreibung: z.string().min(1).max(200),
-  herkunft: Herkunft,
-  zeitpunkt: fakt(Zeitpunkt).optional(),
-  pensumProzent: fakt(z.number().int().min(0).max(100)).optional(),
-  einkommen: fakt(Einkommen).optional(),
-  sicherheit: fakt(z.enum(['fest', 'geplant', 'unsicher'])).optional(),
+  herkunft: PlanHerkunft,
+  zeitpunkt: planFakt(Zeitpunkt).optional(),
+  pensumProzent: planFakt(z.number().int().min(0).max(100)).optional(),
+  einkommen: planFakt(Einkommen).optional(),
+  sicherheit: planFakt(z.enum(['fest', 'geplant', 'unsicher'])).optional(),
+  // Free text from the timeline, e.g. "wir wollen dafür nach Baselland ziehen". Customer wording, given to the model as data.
+  notiz: z.string().min(1).max(500).optional(),
 }).strict();
 
 export const Anliegen = z.object({
@@ -88,6 +94,7 @@ export const Profil = z.object({
 }).strict();
 
 export type Herkunft = z.infer<typeof Herkunft>;
+export type PlanHerkunft = z.infer<typeof PlanHerkunft>;
 export type Einkommen = z.infer<typeof Einkommen>;
 export type Bedarf = z.infer<typeof Bedarf>;
 export type Zeitpunkt = z.infer<typeof Zeitpunkt>;

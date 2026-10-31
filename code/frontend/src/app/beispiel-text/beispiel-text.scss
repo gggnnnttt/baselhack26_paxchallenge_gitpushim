@@ -1,0 +1,25 @@
+/* Position, font and padding come from the input it lies on (app.scss). */
+:host {
+  overflow: hidden;
+  color: var(--color-neutral-gray-5);
+  pointer-events: none;
+  white-space: pre-wrap;
+}
+
+.cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.15em;
+  margin-left: 1px;
+  vertical-align: text-bottom;
+  background: var(--color-brand-pax-purple);
+  animation: blinken 1s step-end infinite;
+}
+
+@keyframes blinken {
+  50% { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cursor { display: none; }
+}

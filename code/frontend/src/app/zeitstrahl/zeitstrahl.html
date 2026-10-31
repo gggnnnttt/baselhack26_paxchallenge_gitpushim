@@ -1,0 +1,94 @@
+<ng-template #chipInhalt let-e>
+  <span class="icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path [attr.d]="icon(e)" /></svg></span>
+  <span class="text">{{ e.plan.beschreibung }}</span>
+  @if (e.plan.notiz) {
+    <svg class="notiz" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v12H8l-4 4z" /></svg>
+  }
+</ng-template>
+
+<section class="zeitstrahl" aria-labelledby="zeitstrahl-titel">
+  <header>
+    <div>
+      <h2 id="zeitstrahl-titel">Dein Zeitstrahl</h2>
+      <p>Ziehe Pläne auf einen anderen Zeitpunkt oder klicke in eine Spur, um etwas hinzuzufügen. Pax bezieht jede Änderung in die Beratung ein.</p>
+    </div>
+    <button class="pax-button" type="button" (click)="neuerPlan()">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+      Plan
+    </button>
+  </header>
+  <p class="status" role="status">{{ ausstehend() ? 'Pax schaut sich deine Änderung an …' : '' }}</p>
+
+  <div class="scroller" #scroller>
+    <div class="inhalt" [style.width]="'calc(var(--label-breite) + ' + jahre().length * PX_PRO_JAHR + 'px)'">
+      <div class="zeile achse-zeile">
+        <div class="label"></div>
+        <div class="achse" #achse>
+          @for (j of jahre(); track j) {
+            <span class="jahr" [class.heute]="j === heute" [style.width.px]="PX_PRO_JAHR">{{ j === heute ? 'Heute' : j }}</span>
+          }
+        </div>
+      </div>
+
+      @for (z of zeilen(); track z.spur.id) {
+        <div class="zeile">
+          <div class="label">
+            <span>{{ z.spur.label }}</span>
+            <button class="plus" type="button" (click)="neuerPlan(z.spur.id)" [attr.aria-label]="'Plan hinzufügen für ' + z.spur.label">+</button>
+          </div>
+          <div class="spur" [attr.data-spur]="z.spur.id" [style.height.px]="z.reihen * 48 + 16"
+            [class.ziel]="ziehen()?.ziel?.person === z.spur.id && ziehen()?.ziel?.jahr !== null" (click)="spurKlick($event, z.spur.id)">
+            @if (z.pension; as p) {
+              <div class="pension" [style.left.px]="p.x"><span>Pension ~{{ p.jahr }}</span></div>
+            }
+            @if (ziehen()?.ziel; as ziel) {
+              @if (ziel.person === z.spur.id && ziel.jahr !== null) {
+                <div class="drop-ziel" [style.left.px]="(ziel.jahr - heute) * PX_PRO_JAHR" [style.width.px]="PX_PRO_JAHR"></div>
+              }
+            }
+            @for (c of z.chips; track c.plan.id) {
+              <button type="button" class="chip" [attr.data-plan]="c.plan.id"
+                [class.neu]="neu().has(c.plan.id)" [class.wartet]="c.wartet" [class.unsicher]="c.plan.sicherheit?.wert === 'unsicher'"
+                [class.gezogen]="ziehen()?.bewegt && ziehen()?.eintrag?.plan?.id === c.plan.id"
+                [style.left.px]="c.x - ICON_MITTE" [style.top.px]="8 + c.reihe * 48" [style.width.px]="CHIP_BREITE"
+                [title]="chipTitel(c)" [attr.aria-label]="chipTitel(c) + '. Pfeiltasten verschieben um ein Jahr, Enter bearbeitet.'"
+                (pointerdown)="druecken($event, c)" (pointermove)="bewegen($event)" (pointerup)="loslassen()" (pointercancel)="abbrechen()"
+                (click)="bearbeiten(c)" (keydown)="taste($event, c)">
+                <ng-container *ngTemplateOutlet="chipInhalt; context: { $implicit: c }" />
+              </button>
+            }
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+
+  <div class="ohne-datum" data-spur="ohne" [class.ziel]="ziehen()?.ziel && ziehen()?.ziel?.jahr === null">
+    <span class="titel">Noch ohne Datum</span>
+    @for (e of ohneDatum(); track e.plan.id) {
+      <button type="button" class="chip im-fach" [attr.data-plan]="e.plan.id"
+        [class.neu]="neu().has(e.plan.id)" [class.wartet]="e.wartet"
+        [class.gezogen]="ziehen()?.bewegt && ziehen()?.eintrag?.plan?.id === e.plan.id"
+        [style.width.px]="CHIP_BREITE" [title]="chipTitel(e)" [attr.aria-label]="chipTitel(e) + '. Enter bearbeitet.'"
+        (pointerdown)="druecken($event, e)" (pointermove)="bewegen($event)" (pointerup)="loslassen()" (pointercancel)="abbrechen()"
+        (click)="bearbeiten(e)">
+        <ng-container *ngTemplateOutlet="chipInhalt; context: { $implicit: e }" />
+      </button>
+    } @empty {
+      <span class="hinweis">Hierher ziehen, um das Datum eines Plans zu entfernen.</span>
+    }
+  </div>
+
+  @if (ziehen(); as z) {
+    @if (z.bewegt) {
+      <div class="chip geist" aria-hidden="true" [style.left.px]="z.x - z.offsetX" [style.top.px]="z.y - z.offsetY" [style.width.px]="CHIP_BREITE">
+        <ng-container *ngTemplateOutlet="chipInhalt; context: { $implicit: z.eintrag }" />
+        @if (z.ziel; as ziel) {
+          <span class="ziel-etikett">{{ ziel.jahr === null ? 'ohne Datum' : ziel.jahr + (alter(ziel.person, ziel.jahr) ? ', ' + alter(ziel.person, ziel.jahr) : '') }}</span>
+        }
+      </div>
+    }
+  }
+
+  <app-plan-editor [personen]="personen()" [jahrVon]="heute" (aktion)="aktion.emit($event)" />
+</section>

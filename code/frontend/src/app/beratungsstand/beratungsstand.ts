@@ -1,6 +1,7 @@
-import { Component, computed, input } from '@angular/core';
+import { Component, computed, effect, input, output, signal } from '@angular/core';
 import { JsonPipe, NgTemplateOutlet } from '@angular/common';
 import type { Bedarf, Beratungsstand, Einkommen, Fakt, Herkunft, Person } from './beratungsstand.model';
+import { WertKorrektur } from './wert-korrektur';
 
 interface Zeile { label: string; wert: string; herkunft?: Herkunft }
 
@@ -29,12 +30,24 @@ function personZeilen(person: Person): Zeile[] {
 
 @Component({
   selector: 'app-beratungsstand',
-  imports: [JsonPipe, NgTemplateOutlet],
+  imports: [JsonPipe, NgTemplateOutlet, WertKorrektur],
   templateUrl: './beratungsstand.html',
   styleUrl: './beratungsstand.scss',
 })
 export class BeratungsstandPanel {
   readonly stand = input<Beratungsstand | null>(null);
+  // While a reply is pending no correction can be sent.
+  readonly gesperrt = input(false);
+  // A correction phrased as a chat message, and a missing value the customer wants to answer.
+  readonly korrektur = output<string>();
+  readonly frage = output<string>();
+
+  protected readonly offen = signal(true);
+  // "Bereich|Label" of the value being corrected, and of the values that just changed.
+  protected readonly wartend = signal<string | null>(null);
+  protected readonly geaendert = signal(new Set<string>());
+  private vorher = new Map<string, string>();
+  private leuchten: ReturnType<typeof setTimeout> | undefined;
 
   protected readonly chf = chf;
 
@@ -79,6 +92,42 @@ export class BeratungsstandPanel {
       ...zeile('Sicherheit', plan.sicherheit, String),
     ],
   })));
+
+  private readonly werte = computed(() => new Map([
+    ...this.haushalt().map(z => [`Haushalt|${z.label}`, z.wert] as const),
+    ...this.personen().flatMap(p => p.zeilen.map(z => [`${p.titel}|${z.label}`, z.wert] as const)),
+    ...this.kinder().flatMap(k => k.zeilen.map(z => [`${k.titel}|${z.label}`, z.wert] as const)),
+    ...this.plaene().flatMap(p => p.zeilen.map(z => [`Plan „${p.titel}“|${z.label}`, z.wert] as const)),
+  ]));
+
+  // Shown in the header, so the panel stays informative when it is collapsed.
+  protected readonly zusammenfassung = computed(() => {
+    const anzahl = this.werte().size;
+    const fehlend = this.stand()?.risiko.fehlend.length ?? 0;
+    if (!anzahl) return 'Noch nichts erfasst';
+    return `${anzahl} ${anzahl === 1 ? 'Angabe' : 'Angaben'}${fehlend ? `, ${fehlend} fehlen noch für die Berechnung` : ''}`;
+  });
+
+  constructor() {
+    // Values that are new or different light up briefly, whether they came from the chat or a correction.
+    effect(() => {
+      const werte = this.werte();
+      const neu = [...werte].filter(([key, wert]) => this.vorher.get(key) !== wert).map(([key]) => key);
+      this.vorher = werte;
+      if (!neu.length) return;
+      this.geaendert.set(new Set(neu));
+      clearTimeout(this.leuchten);
+      this.leuchten = setTimeout(() => this.geaendert.set(new Set()), 2500);
+    });
+    effect(() => {
+      if (!this.gesperrt()) this.wartend.set(null);
+    });
+  }
+
+  protected korrigieren(key: string, text: string) {
+    this.wartend.set(key);
+    this.korrektur.emit(text);
+  }
 
   protected herkunftText(herkunft: Herkunft): string {
     return `„${herkunft.beleg}“ (Nachricht ${Math.floor(herkunft.nachricht / 2) + 1})${herkunft.begruendung ? ` – abgeleitet: ${herkunft.begruendung}` : ''}`;

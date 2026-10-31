@@ -182,3 +182,76 @@ body {
   table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; }
   th, td { padding: 0.4rem 0.6rem; border: 1px solid #ccc; }
 }
+
+/* Shared by the app and its dialogs (plan editor, privacy notice). */
+.pax-input {
+  flex: 1;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 52px;
+  max-height: 160px;
+  padding: 12px;
+  resize: none;
+  border: 1px solid #adadad;
+  border-radius: 10px;
+  background: #fff;
+  color: #121212;
+  font-family: inherit;
+  font-size: 16px;
+  line-height: 1.55;
+
+  transition: border-color 200ms ease-in-out;
+
+  &::placeholder {
+    color: #6b7280;
+    opacity: 1;
+  }
+
+  &:focus {
+    border-color: var(--color-brand-pax-green);
+    outline: none;
+  }
+
+  &:focus-visible {
+    box-shadow: 0 0 0 1px #8ccd0f;
+  }
+
+  @media (min-width: 1024px) {
+    font-size: 18px;
+  }
+}
+
+.pax-feature-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: #121212;
+  font-size: 16px;
+  line-height: 1.55;
+
+  li {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+
+    &::before {
+      content: '';
+      flex: 0 0 28px;
+      height: 28px;
+      background: radial-gradient(circle at center, #5ca700 5px, transparent 5px);
+    }
+  }
+
+  .feature-text {
+    flex: 1;
+    min-width: 0;
+  }
+
+  @media (min-width: 1024px) {
+    font-size: 18px;
+  }
+}

@@ -42,7 +42,7 @@
           <span>Ich habe den Hinweis gelesen und verwende nur erfundene Angaben. <span class="required-marker" aria-hidden="true">*</span></span>
         </label>
         @if (acceptance.invalid && (acceptance.touched || acceptance.dirty)) {
-          <p class="acceptance-error" id="acceptance-error" role="alert">This field is required</p>
+          <p class="acceptance-error" id="acceptance-error" role="alert">Bitte bestätige den Hinweis, um zu starten.</p>
         }
       </div>
       <button class="pax-start-button" type="button" (click)="start()" [disabled]="!acknowledged">
@@ -53,50 +53,67 @@
       </button>
     </section>
   } @else {
-    <details class="pax-accordion">
-      <summary>
-        <span class="accordion-title">Demo · nur erfundene Angaben · Nachrichten gehen an OpenAI, Berechnungsdaten an APICalc</span>
-        <svg class="accordion-chevron" width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true" focusable="false">
-          <path d="M7 10L12 15L17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
-      </summary>
-      <div class="accordion-body">
-        <ng-container [ngTemplateOutlet]="privacyNotice" />
+    <section class="gespraech" [class.gestartet]="gestartet()" aria-label="Gespräch mit Pax">
+      <div class="buehne">
+        <app-pax-avatar class="gesicht" [state]="avatarState()" />
+        @if (!gestartet()) {
+          <div class="sprechblase">
+            <h1>Hallo, ich bin Pax!</h1>
+            <p>{{ begruessung }}</p>
+          </div>
+        } @else {
+          <div class="kopfzeile">
+            <strong>Pax</strong>
+            <span role="status">{{ status() }}</span>
+          </div>
+          <button class="chat-loeschen" type="button" (click)="deleteDialog.showModal()" [disabled]="loading()">Chat löschen</button>
+        }
       </div>
-    </details>
 
-    <div class="layout">
-      <div class="chat">
-        <button class="pax-button pax-delete-chat" type="button" (click)="deleteDialog.showModal()" [disabled]="loading()">Chat löschen</button>
-        <div class="chat-history" tabindex="0" role="region" aria-label="Chatverlauf">
-
-        <div class="messages">
-          @for (m of messages(); track $index) {
-            @if (m.role === 'assistant') {
+      <div class="chat-karte">
+        @if (gestartet()) {
+          <div class="chat-history" #verlauf tabindex="0" role="log" aria-label="Chatverlauf">
+            <div class="messages">
               <div class="bot-turn">
-                <app-pax-avatar class="message-avatar" [state]="$last && talking() ? 'talking' : 'still'" />
-                <div class="message message-markdown" [innerHTML]="m.content | markdown"></div>
+                <app-pax-avatar class="message-avatar" state="still" />
+                <div class="message"><strong>Hallo, ich bin Pax!</strong> {{ begruessung }}</div>
               </div>
-            } @else {<div class="message user">{{ m.content }}</div>}
-          }
-          @if (loading()) {
-            <div class="bot-turn">
-              <app-pax-avatar class="message-avatar" state="thinking" />
-              <div class="message">…</div>
+              @for (m of messages(); track $index) {
+                @if (m.role === 'assistant') {
+                  <div class="bot-turn">
+                    <app-pax-avatar class="message-avatar" [state]="$last && talking() ? 'talking' : 'still'" />
+                    <div class="message message-markdown" [innerHTML]="m.content | markdown"></div>
+                  </div>
+                } @else if (m.role === 'ereignis') {
+                  <div class="ereignis" role="note">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16v14H4zM4 10h16M8 3v4M16 3v4" /></svg>
+                    <span>{{ m.content }}</span>
+                  </div>
+                } @else {<div class="message user">{{ m.content }}</div>}
+              }
+              @if (loading()) {
+                <div class="bot-turn">
+                  <app-pax-avatar class="message-avatar" state="thinking" />
+                  <div class="message tippt" aria-label="Pax schreibt"><span></span><span></span><span></span></div>
+                </div>
+              }
+              @if (error()) {
+                <div class="error" role="alert">{{ error() }}</div>
+              }
             </div>
-          }
-          @if (error()) {
-            <div class="error">{{ error() }}</div>
-          }
-          @if (info()) {
-            <div class="pax-dialog-result" role="status">{{ info() }}</div>
-          }
-        </div>
-
-        </div>
+          </div>
+        }
 
         <form class="chat-composer" (ngSubmit)="send()">
-          <input class="pax-input" type="text" name="input" [(ngModel)]="input" aria-label="Nachricht" placeholder="Nachricht eingeben (nur erfundene Angaben)…" autocomplete="off" />
+          <div class="eingabe-feld">
+            <textarea #eingabe class="pax-input" name="input" rows="1" [(ngModel)]="input" (keydown)="taste($event)" (input)="hoeheAnpassen()"
+              (focus)="fokussiert.set(true)" (blur)="fokussiert.set(false)" aria-label="Nachricht an Pax" autocomplete="off"
+              [placeholder]="gestartet() ? 'Antworte Pax oder stell eine Frage …' : fokussiert() ? 'Erzähl mir von deiner Situation …' : ''"></textarea>
+            <!-- On the start screen, example sentences type themselves while the input is empty. -->
+            @if (!gestartet()) {
+              <app-beispiel-text [aktiv]="!input && !fokussiert()" [class.aus]="!!input || fokussiert()" />
+            }
+          </div>
           <button class="pax-button pax-icon-button" type="submit" [disabled]="loading() || !input.trim()" aria-label="Nachricht senden" title="Nachricht senden">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
               <path d="M5 12h14" />
@@ -105,15 +122,32 @@
           </button>
         </form>
       </div>
-      <div class="consultation-sidebar">
-        <div class="pax-face">
-          <app-pax-avatar [state]="avatarState()" />
-        </div>
-        <app-beratungsstand [stand]="stand()" />
+      <p class="datenschutz-zeile">
+        Bitte nur erfundene Angaben verwenden.
+        <button class="link" type="button" (click)="privacyDialog.showModal()">Was mit deinen Daten passiert</button>
+      </p>
+      @if (info()) {
+        <p class="pax-dialog-result" role="status">{{ info() }}</p>
+      }
+    </section>
+
+    <!-- Appears once Pax has processed the first message. -->
+    @if (stand()) {
+      <div class="arbeitsbereich">
+        <app-zeitstrahl [stand]="stand()" [ausstehend]="ausstehend()" (aktion)="zeitstrahlAktion($event)" />
+        <app-beratungsstand [stand]="stand()" [gesperrt]="loading()" (korrektur)="korrigieren($event)" (frage)="nachfragen($event)" />
       </div>
-    </div>
+    }
   }
 </main>
+
+<dialog #privacyDialog class="pax-warning-dialog datenschutz-dialog" aria-labelledby="privacy-dialog-title">
+  <button class="dialog-close" type="button" aria-label="Dialog schliessen" (click)="privacyDialog.close()">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+  </button>
+  <h2 id="privacy-dialog-title">Was mit deinen Daten passiert</h2>
+  <ng-container [ngTemplateOutlet]="privacyNotice" />
+</dialog>
 
 <dialog #deleteDialog class="pax-warning-dialog" aria-labelledby="delete-dialog-title" aria-describedby="delete-dialog-description">
   <button class="dialog-close" type="button" aria-label="Dialog schliessen" (click)="deleteDialog.close()">
