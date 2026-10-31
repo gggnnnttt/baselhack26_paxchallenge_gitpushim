@@ -74,7 +74,7 @@
     </section>
   } @else {
     @if (seite() === 'empfehlungen') {
-      <app-empfehlungen-seite [stand]="stand()" (zurueck)="seiteWechseln('beratung')" />
+      <app-empfehlungen-seite [stand]="stand()" [sessionId]="sessionId" [revision]="revision()" (zurueck)="seiteWechseln('beratung')" />
     }
     <!-- Hidden, not removed, while the recommendations are shown: the conversation stays as it was. -->
     <div [hidden]="seite() === 'empfehlungen'">

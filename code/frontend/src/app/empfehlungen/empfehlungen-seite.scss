@@ -1,187 +1,46 @@
 :host { display: block; }
-
-.seite {
-  max-width: 1440px;
-  margin: 0 auto;
-  padding: 20px 40px 64px;
-}
-
-.zurueck, .link {
-  padding: 6px 0;
-  border: 0;
-  background: none;
-  color: var(--color-brand-pax-purple);
-  font: inherit;
-  cursor: pointer;
-
-  &:hover { text-decoration: underline; text-underline-offset: 3px; }
-  &:focus-visible { outline: 2px solid var(--color-brand-pax-purple); outline-offset: 2px; }
-}
-.zurueck { display: inline-flex; align-items: center; gap: 6px; font-size: 15px; }
-.link { padding: 0; text-decoration: underline; text-underline-offset: 3px; }
-
-/* Pax left, the recommendations in the middle, the summary on the right. */
-.raster {
-  display: grid;
-  grid-template-columns: minmax(200px, 260px) minmax(0, 1fr) minmax(260px, 340px);
-  gap: 48px;
-  align-items: start;
-  margin-top: 24px;
-}
-
-/* Pax as large as on the start screen, staying in view while the page scrolls. */
-.pax {
-  position: sticky;
-  top: calc(var(--brand-hoehe) + 24px);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
-
-  .gesicht { width: 200px; }
-}
-
-.sprechblase {
-  position: relative;
-  margin: 0;
-  padding: 18px 22px;
-  border-radius: 22px;
-  background: var(--chat-raum);
-  color: var(--color-neutral-gray-7);
-  font-size: 16px;
-  line-height: 1.5;
-  text-align: center;
-  animation: blase 450ms 300ms cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
-
-  &::before {
-    content: '';
-    position: absolute;
-    top: -12px;
-    left: 50%;
-    margin-left: -12px;
-    border: 12px solid transparent;
-    border-top: 0;
-    border-bottom-color: var(--chat-raum);
-  }
-}
-@keyframes blase { from { opacity: 0; transform: scale(0.85); } }
-
-.empfehlungen {
-  h1 { margin: 8px 0 8px; color: var(--color-brand-pax-purple); font-size: clamp(30px, 3vw, 42px); line-height: 1.15; }
-  .einleitung { margin: 0 0 28px; color: var(--color-neutral-gray-7); font-size: 17px; }
-}
-
-.liste { margin: 0; padding: 0; list-style: none; }
-
-.empfehlung {
-  display: grid;
-  grid-template-columns: 44px minmax(0, 1fr);
-  gap: 18px;
-  padding: 24px 28px;
-  border: 1px solid var(--color-neutral-gray-2);
-  border-radius: var(--radius-xl);
-  background: var(--color-neutral-white);
-
-  & + & { margin-top: 16px; }
-
-  h2 { margin: 6px 0 14px; color: var(--color-brand-pax-purple); font-size: var(--size-heading-s); line-height: 1.25; }
-}
-
-/* The order is the priority: the number sits on Pax green, like the pillars. */
-.rang {
-  display: grid;
-  place-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: var(--color-brand-pax-green);
-  color: var(--color-brand-pax-purple);
-  font-size: 20px;
-  font-weight: 700;
-}
-
-.warum-titel { margin: 0 0 4px; color: var(--color-neutral-gray-6); font-size: 13px; font-weight: 500; }
-
-.gruende, .erkenntnisse {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-
-  li { position: relative; margin-top: 6px; padding-left: 20px; line-height: 1.5; }
-  li::before {
-    content: '';
-    position: absolute;
-    top: 7px;
-    left: 3px;
-    width: 9px;
-    height: 9px;
-    border-radius: 50%;
-    background: #e34948;
-  }
-}
-.erkenntnisse li { font-size: 15px; }
-.erkenntnisse li::before { background: var(--color-brand-pax-purple); }
-
-/* Placeholder until the package logic exists. */
-.paket {
-  margin-top: 18px;
-  padding: 16px 18px;
-  border: 2px dashed var(--color-neutral-gray-3);
-  border-radius: var(--radius-m);
-  color: var(--color-neutral-gray-6);
-  font-size: 15px;
-}
-
-.verstanden {
-  padding-left: 32px;
-  border-left: 1px solid var(--color-neutral-gray-2);
-
-  h2 { margin: 8px 0 12px; color: var(--color-brand-pax-purple); font-size: var(--size-heading-s); }
-  h2 + .erkenntnisse { margin-bottom: 24px; }
-  .saeulen + h2 { margin-top: 28px; }
-}
-
-.saeulen {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-
-  li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; margin-top: 14px; }
-  strong { display: block; font-size: 15px; }
-  span:not(.nummer) { color: var(--color-neutral-gray-7); font-size: 14px; line-height: 1.45; }
-}
-
-.nummer {
-  display: grid;
-  place-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px 6px 2px 2px;
-  background: var(--color-brand-pax-green);
-  color: var(--color-brand-pax-purple);
-  font-size: 15px;
-  font-weight: 700;
-}
-
-.korrektur { margin: 28px 0 0; color: var(--color-neutral-gray-6); font-size: 14px; }
-
+.seite { max-width: 1440px; margin: auto; padding: 20px 40px 64px; }
+.zurueck, .link, .aktion { color: var(--color-brand-pax-purple); font: inherit; cursor: pointer; background: none; border: 0; }
+.zurueck { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; }
+.link { text-decoration: underline; }
+button:hover { text-decoration: underline; }
+button:focus-visible, summary:focus-visible { outline: 2px solid var(--color-brand-pax-purple); outline-offset: 3px; }
+.raster { display: grid; grid-template-columns: minmax(180px,240px) minmax(0,1fr) minmax(240px,320px); gap: 40px; align-items: start; margin-top: 24px; }
+.pax { position: sticky; top: calc(var(--brand-hoehe) + 24px); display: flex; flex-direction: column; align-items: center; gap: 20px; }
+.gesicht { width: 200px; }
+.sprechblase { margin: 0; padding: 18px 22px; border-radius: 22px; background: var(--chat-raum); color: var(--color-neutral-gray-7); line-height: 1.5; text-align: center; }
+h1, h2 { color: var(--color-brand-pax-purple); }
+h1 { margin: 8px 0; font-size: clamp(30px,3vw,42px); line-height: 1.15; }
+h2 { margin: 6px 0 14px; font-size: var(--size-heading-s); line-height: 1.25; }
+.einleitung { margin-bottom: 28px; color: var(--color-neutral-gray-7); }
+.liste, .saeulen, .erkenntnisse { list-style: none; padding: 0; margin: 0; }
+.empfehlung { display: grid; grid-template-columns: 44px minmax(0,1fr); gap: 18px; padding: 24px; border: 1px solid var(--color-neutral-gray-2); border-radius: var(--radius-xl); background: var(--color-neutral-white); }
+.empfehlung + .empfehlung { margin-top: 16px; }
+.empfehlung p, details { overflow-wrap: anywhere; line-height: 1.5; }
+.rang, .nummer { display: grid; place-content: center; background: var(--color-brand-pax-green); color: var(--color-brand-pax-purple); font-weight: 700; }
+.rang { width: 44px; height: 44px; border-radius: 50%; font-size: 20px; }
+.warum-titel, .korrektur { color: var(--color-neutral-gray-6); font-size: 14px; }
+.paket { margin-top: 18px; padding: 16px; border: 1px solid var(--color-neutral-gray-3); border-radius: var(--radius-m); font-size: 15px; }
+summary { cursor: pointer; padding: 14px 0; min-height: 44px; }
+.aktion { min-height: 44px; margin-top: 20px; padding: 10px 16px; border: 1px solid var(--color-brand-pax-purple); border-radius: var(--radius-m); }
+.aktion:hover { background: var(--chat-raum); }
+.verstanden { padding-left: 24px; border-left: 1px solid var(--color-neutral-gray-2); }
+.saeulen li { display: grid; grid-template-columns: 28px minmax(0,1fr); gap: 12px; margin-top: 14px; }
+.saeulen strong { display: block; }
+.saeulen span:not(.nummer), .erkenntnisse li { font-size: 14px; line-height: 1.5; }
+.nummer { width: 28px; height: 28px; border-radius: 6px; }
+.korrektur, .verstanden h2:not(:first-child) { margin-top: 28px; }
 @media (max-width: 1200px) {
-  .raster { grid-template-columns: minmax(180px, 220px) minmax(0, 1fr); }
-  .verstanden { grid-column: 2; padding-left: 0; border-left: 0; }
-  .pax .gesicht { width: 160px; }
+ .raster { grid-template-columns: 180px minmax(0,1fr); }
+ .verstanden { grid-column: 2; padding-left: 0; border: 0; }
+ .gesicht { width: 160px; }
 }
-
 @media (max-width: 800px) {
-  .seite { padding: 16px; }
-  .raster { grid-template-columns: minmax(0, 1fr); gap: 32px; margin-top: 12px; }
-  .verstanden { grid-column: auto; }
-  .pax { position: static; flex-direction: row; gap: 16px; }
-  .pax .gesicht { flex: none; width: 88px; }
-  .sprechblase { text-align: left; }
-  .sprechblase::before { top: 50%; left: -12px; margin: -12px 0 0; border: 12px solid transparent; border-left: 0; border-right-color: var(--chat-raum); }
-  .empfehlung { grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 20px; }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .sprechblase { animation: none; }
+ .seite { padding: 16px; }
+ .raster { grid-template-columns: minmax(0,1fr); gap: 28px; }
+ .verstanden { grid-column: auto; }
+ .pax { position: static; flex-direction: row; gap: 16px; }
+ .gesicht { flex: none; width: 88px; }
+ .sprechblase { text-align: left; }
+ .empfehlung { grid-template-columns: minmax(0,1fr); padding: 20px; }
 }

@@ -1,20 +1,12 @@
-import { Component, DestroyRef, computed, inject, input, output, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
+import type { EmpfehlungenAntwort } from './empfehlungen.model';
+import { Component, DestroyRef, computed, effect, inject, input, output, signal } from '@angular/core';
 import type { Beratungsstand, Erkenntnis } from '../beratungsstand/beratungsstand.model';
 import { PaxAvatar, type PaxAvatarState } from '../pax-avatar/pax-avatar';
 
-const BEDARF = {
-  absicherung: { titel: 'Einkommen bei Invalidität und Tod absichern', paket: 'Das passende Paket zur Absicherung stellt Pax hier zusammen.' },
-  pensionierung: { titel: 'Die Lücke im Ruhestand schliessen', paket: 'Das passende Paket für deinen Ruhestand stellt Pax hier zusammen.' },
-} as const;
-type Bedarf = keyof typeof BEDARF;
-
 const PARTNER = 'Partner/in: ';
 
-/**
- * The page Pax leads to once it understands enough to recommend: Pax itself, the recommendations with the
- * reasons from the customer's situation, and a short summary of what Pax understood. The packages are
- * placeholders until the package logic exists.
- */
 @Component({
   selector: 'app-empfehlungen-seite',
   imports: [PaxAvatar],
@@ -23,6 +15,14 @@ const PARTNER = 'Partner/in: ';
 })
 export class EmpfehlungenSeite {
   readonly stand = input<Beratungsstand | null>(null);
+  readonly sessionId = input<string>();
+  readonly revision = input<number>(0);
+  protected readonly ergebnis = signal<EmpfehlungenAntwort | null>(null);
+  protected readonly laden = signal(false);
+  protected readonly fehler = signal('');
+  protected readonly bestaetigt = signal(false);
+  private readonly http = inject(HttpClient);
+  private anfrage = 0;
   readonly zurueck = output<void>();
 
   // Pax "says" its line when the page opens.
@@ -31,15 +31,6 @@ export class EmpfehlungenSeite {
 
   private readonly lagebild = computed(() => this.stand()?.lagebild ?? null);
 
-  // One recommendation per need with a gap, in the order of what matters most to the customer.
-  // A savings gap belongs to the retirement, so it is a second reason there.
-  protected readonly empfehlungen = computed(() => {
-    const l = this.lagebild();
-    if (!l) return [];
-    const reihenfolge: Bedarf[] = l.fokus === 'pensionierung' ? ['pensionierung', 'absicherung'] : ['absicherung', 'pensionierung'];
-    const gruende = (b: Bedarf) => l.erkenntnisse.filter((e) => e.art === 'luecke' && (e.thema === b || (b === 'pensionierung' && e.thema === 'sparen')));
-    return reihenfolge.map((b) => ({ id: b, ...BEDARF[b], gruende: gruende(b) })).filter((e) => e.gruende.length);
-  });
   protected readonly gutes = computed(() => this.lagebild()?.erkenntnisse.filter((e) => e.art === 'gut') ?? []);
   protected readonly hinweise = computed(() => this.lagebild()?.erkenntnisse.filter((e) => e.art === 'hinweis') ?? []);
 
@@ -53,7 +44,24 @@ export class EmpfehlungenSeite {
   );
 
   constructor() {
-    inject(DestroyRef).onDestroy(() => clearTimeout(this.timer));
+    effect(() => { this.sessionId(); this.revision(); void this.ladeEmpfehlungen(); });
+    inject(DestroyRef).onDestroy(() => { clearTimeout(this.timer); this.anfrage++; });
+  }
+
+  protected async ladeEmpfehlungen() {
+    const id = ++this.anfrage;
+    this.ergebnis.set(null); this.fehler.set(''); this.bestaetigt.set(false);
+    if (!this.sessionId()) { this.fehler.set('Beginne zuerst eine Beratung, damit Pax deine Situation kennt.'); return; }
+    this.laden.set(true);
+    try {
+      const result = await firstValueFrom(this.http.post<EmpfehlungenAntwort>('/api/empfehlungen', { sessionId: this.sessionId() }));
+      if (id === this.anfrage) {
+        if (result.revision !== this.revision()) throw new Error('Veraltete Empfehlungen');
+        this.ergebnis.set(result);
+      }
+    } catch {
+      if (id === this.anfrage) this.fehler.set('Die Empfehlungen konnten nicht geladen werden. Bitte versuche es erneut.');
+    } finally { if (id === this.anfrage) this.laden.set(false); }
   }
 
   protected track(e: Erkenntnis) {

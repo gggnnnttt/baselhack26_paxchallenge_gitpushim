@@ -77,7 +77,8 @@ export class App {
   protected readonly profilNeu = signal(false);
   private readonly verlauf = viewChild<ElementRef<HTMLElement>>('verlauf');
   private readonly eingabe = viewChild(ChatEingabe);
-  private sessionId: string | undefined;
+  protected readonly revision = signal(0);
+  protected sessionId: string | undefined;
 
   private talkingTimer: ReturnType<typeof setTimeout> | undefined;
   // Timeline changes are collected briefly and sent together, so dragging several plans gives one reply.
@@ -174,6 +175,7 @@ export class App {
       }
     }
     this.sessionId = undefined;
+    this.revision.set(0);
     this.stopTalking();
     clearTimeout(this.zeitstrahlTimer);
     this.wartend = [];
@@ -206,6 +208,7 @@ export class App {
         }),
       );
       this.sessionId = res.sessionId;
+      this.revision.set(res.revision);
       this.messages.update((m) => [...m, { role: 'assistant', content: res.reply, frage: res.frage }]);
       this.stand.set(res.beratungsstand);
       this.startTalking(res.reply);
@@ -241,6 +244,7 @@ export class App {
         }),
       );
       this.sessionId = res.sessionId;
+      this.revision.set(res.revision);
       const { uebernommen, abgelehnt } = res.beratungsstand.letzteNachricht;
       this.messages.update((m) => [
         ...m,

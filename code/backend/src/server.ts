@@ -66,6 +66,11 @@ app.post('/api/szenario/uebernehmen', (req, res) => {
   catch (error) { res.status(error instanceof GuardrailError ? error.status : 500).json({ error: error instanceof GuardrailError ? error.message : 'Szenario konnte nicht übernommen werden.' }); }
 });
 
+app.post('/api/empfehlungen', async (req, res) => {
+  try { res.json(await chat.empfehlungen(req.body)); }
+  catch (error) { res.status(error instanceof GuardrailError ? error.status : 500).json({ error: error instanceof GuardrailError ? error.message : 'Empfehlungen sind momentan nicht verfügbar.' }); }
+});
+
 app.delete('/api/chat', (req, res) => {
   try {
     chat.deleteSession(req.body);

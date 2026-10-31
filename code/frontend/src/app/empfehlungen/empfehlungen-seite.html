@@ -15,33 +15,46 @@
       <h1 id="empfehlungen-titel">Unsere Empfehlungen für dich</h1>
       <p class="einleitung">Abgeleitet aus deinen drei Säulen und dem, was dir wichtig ist.</p>
 
-      <ol class="liste">
-        @for (e of empfehlungen(); track e.id; let i = $index) {
-          <li class="empfehlung">
-            <span class="rang" aria-hidden="true">{{ i + 1 }}</span>
-            <div>
-              <h2>{{ e.titel }}</h2>
-              <p class="warum-titel">Warum Pax das empfiehlt</p>
-              <ul class="gruende">
-                @for (g of e.gruende; track track(g)) { <li>{{ g.text }}</li> }
-              </ul>
-              <!-- Placeholder: the package logic is designed separately with Pax's product data. -->
-              <div class="paket">{{ e.paket }}</div>
-            </div>
-          </li>
-        } @empty {
-          <li class="empfehlung">
-            <span class="rang" aria-hidden="true">✓</span>
-            <div>
-              <h2>Deine Vorsorge ist auf Kurs</h2>
-              <ul class="gruende">
-                @for (g of gutes(); track track(g)) { <li>{{ g.text }}</li> }
-              </ul>
-              <div class="paket">Wie du deine Vorsorge weiter stärken kannst, zeigt Pax hier.</div>
-            </div>
-          </li>
-        }
-      </ol>
+      @if (laden()) {
+        <p role="status">Pax stellt deine Empfehlungen zusammen …</p>
+      } @else if (fehler()) {
+        <p role="alert">{{ fehler() }}</p>
+        <button class="aktion" type="button" (click)="ladeEmpfehlungen()">Erneut versuchen</button>
+      } @else if (ergebnis(); as result) {
+        <p>{{ result.regelHinweis }}</p>
+        <ol class="liste">
+          @for (e of result.empfehlungen; track e.id; let i = $index) {
+            <li class="empfehlung">
+              <span class="rang" aria-hidden="true">{{ i + 1 }}</span>
+              <div>
+                <h2>{{ e.titel }}</h2>
+                <p class="warum-titel">Warum Pax das empfiehlt</p>
+                <p>{{ e.begruendung }}</p>
+                <div class="paket">
+                  <strong>{{ e.produkt.name }}</strong>
+                  @if (e.produkt.saeule) { <span> · Säule {{ e.produkt.saeule }}</span> }
+                  <p>{{ e.produkt.beschreibung }}</p>
+                  <ul>@for (merkmal of e.produkt.merkmale.slice(0, 3); track merkmal) { <li>{{ merkmal }}</li> }</ul>
+                  @if (e.hinweis) { <p><strong>{{ e.hinweis }}</strong></p> }
+                </div>
+                <details>
+                  <summary>Worauf basiert das?</summary>
+                  <p><strong>KI-Entscheidung</strong> · {{ result.regelHinweis }}</p>
+                  <p>{{ e.grundlage }}</p>
+                  <a [href]="e.produkt.quelle" target="_blank" rel="noopener noreferrer">Allgemeine Produktinformationen auf pax.ch</a>
+                </details>
+              </div>
+            </li>
+          } @empty {
+            <li class="empfehlung"><div><h2>{{ result.statusText }}</h2>
+              @if (result.status === 'kein_bedarf') { <p>Die KI empfiehlt auf Basis deiner Angaben keinen zusätzlichen Abschluss.</p> }
+            </div></li>
+          }
+        </ol>
+        <button class="aktion" type="button" (click)="bestaetigt.set(true)">Mit einer Pax-Fachperson besprechen</button>
+        @if (bestaetigt()) { <p role="status">Demo: Dein Wunsch wurde hier vorgemerkt. Es wurden keine Daten gesendet und kein Termin gebucht.</p> }
+      }
+      <p class="korrektur">Vorschlag auf Basis deiner Angaben, keine Offerte. Prämien und Eignung prüft eine Pax-Fachperson.</p>
     </section>
 
     <aside class="verstanden" aria-labelledby="verstanden-titel">

@@ -1,3 +1,5 @@
+import { z } from 'zod';
+import { begruendeEmpfehlungen, type EmpfehlungenAntwort } from './produkte/begruendung.js';
 import { SzenarioAnfrage, SzenarioUebernahme, szenarioProfil, vergleichswerte, type SzenarioVergleich } from './beratung/szenario.js';
 import { randomUUID } from 'node:crypto';
 import type { RisikoRechner } from './berechnung/apicalc.js';
@@ -25,6 +27,7 @@ export interface ChatOptionen { rechner?: RisikoRechner | null; heute?: () => Da
 export interface ChatAntwort { reply: string; frage: Frage | null; sessionId: string; beratungsstand: BeratungsstandAnsicht; revision: number }
 // `entfernt`: older turns dropped from `messages`, so message numbers in the profile stay stable.
 interface Session {
+  empfehlungen?: { revision: number; ergebnis: EmpfehlungenAntwort };
   messages: ChatMessage[]; entfernt: number; updated: number; busy: boolean; ablauf: AblaufStand; revision: number;
   szenario?: { vergleich: SzenarioVergleich; ablauf: AblaufStand; beleg: string };
 }
@@ -226,6 +229,24 @@ export class ChatService {
     delete session.szenario;
     return { sessionId, revision: session.revision, reply, frage: null, userMessage: s.beleg,
       beratungsstand: ansicht(session.ablauf, { uebernommen: [{ feld: 'bedarf_pensionierung', text: s.beleg }], abgelehnt: [] }) };
+  }
+
+  async empfehlungen(body: unknown): Promise<EmpfehlungenAntwort & { revision: number }> {
+    const input = z.object({ sessionId: z.string().min(1).max(100) }).strict().safeParse(body);
+    if (!input.success) throw new GuardrailError('Ungültige Sitzung.', 400);
+    const { sessionId, session } = this.oeffneSitzung(input.data.sessionId);
+    if (session.empfehlungen?.revision === session.revision) {
+      session.updated = Date.now();
+      return { ...session.empfehlungen.ergebnis, revision: session.revision };
+    }
+    session.busy = true;
+    try {
+      const ergebnis = await begruendeEmpfehlungen(session.ablauf, this.provider);
+      if (this.sessions.get(sessionId) !== session) throw new GuardrailError('Dieser Chat wurde gelöscht.', 410);
+      session.empfehlungen = { revision: session.revision, ergebnis };
+      session.updated = Date.now();
+      return { ...ergebnis, revision: session.revision };
+    } finally { session.busy = false; }
   }
 
   // Removes the server-side history only. Copies already sent to the model provider are not affected.
