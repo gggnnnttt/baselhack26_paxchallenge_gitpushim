@@ -4,6 +4,18 @@ import type { Bedarf, Beratungsstand, Einkommen, Fakt, Herkunft, Person } from '
 import { WertKorrektur } from './wert-korrektur';
 
 interface Zeile { label: string; wert: string; herkunft?: Herkunft }
+interface Balken {
+  titel: string;
+  fehler: string | null;
+  bedarf?: number;
+  einnahmen?: number;
+  luecke: number;
+  einnahmenAnteil: number;
+  lueckeAnteil: number;
+  // How much of the capitalised gap the household's assets could carry; own comparison, not APICalc.
+  vermoegen: string | null;
+  tooltip: string;
+}
 
 const chf = (betrag: number) => `CHF ${Math.round(betrag).toLocaleString('de-CH')}`;
 const einkommen = (e: Einkommen) =>
@@ -42,7 +54,6 @@ export class BeratungsstandPanel {
   readonly korrektur = output<string>();
   readonly frage = output<string>();
 
-  protected readonly offen = signal(true);
   // "Bereich|Label" of the value being corrected, and of the values that just changed.
   protected readonly wartend = signal<string | null>(null);
   protected readonly geaendert = signal(new Set<string>());
@@ -59,6 +70,7 @@ export class BeratungsstandPanel {
       ...zeile('Seit', h.beziehungSeitJahr, String),
       ...zeile('Kinder', h.hatKinder, w => (w ? 'ja' : 'keine')),
       ...zeile('Gemeinsamer Haushalt', h.gemeinsamerHaushalt, w => (w ? 'ja' : 'nein')),
+      ...zeile('Vermögen', h.vermoegen, chf),
     ];
   });
 
@@ -103,9 +115,37 @@ export class BeratungsstandPanel {
   // Shown in the header, so the panel stays informative when it is collapsed.
   protected readonly zusammenfassung = computed(() => {
     const anzahl = this.werte().size;
-    const fehlend = this.stand()?.risiko.fehlend.length ?? 0;
+    const s = this.stand();
+    const fehlend = (s?.risiko.fehlend.length ?? 0) + (s?.offen?.length ?? 0);
     if (!anzahl) return 'Noch nichts erfasst';
-    return `${anzahl} ${anzahl === 1 ? 'Angabe' : 'Angaben'}${fehlend ? `, ${fehlend} fehlen noch für die Berechnung` : ''}`;
+    return `${anzahl} ${anzahl === 1 ? 'Angabe' : 'Angaben'}${fehlend ? `, ${fehlend} noch offen` : ''}`;
+  });
+
+  // The result grouped by person; all bars share one scale so they can be compared.
+  protected readonly ergebnis = computed(() => {
+    const szenarien = this.stand()?.risiko.ergebnis?.szenarien ?? [];
+    const vermoegen = this.stand()?.profil.haushalt.vermoegen?.wert;
+    const skala = Math.max(1, ...szenarien.map(z => Math.max(z.bedarf ?? 0, z.einnahmen ?? 0)));
+    const gruppen = new Map<string, Balken[]>();
+    for (const z of szenarien) {
+      const [titel, person = ''] = z.szenario.split(' – ');
+      const luecke = z.fehler ? 0 : z.luecke ?? 0;
+      const zeile: Balken = {
+        titel,
+        fehler: z.fehler,
+        bedarf: z.bedarf,
+        einnahmen: z.einnahmen,
+        luecke,
+        einnahmenAnteil: ((z.einnahmen ?? 0) / skala) * 100,
+        lueckeAnteil: (luecke / skala) * 100,
+        vermoegen: this.vermoegenText(vermoegen, z.fehler ? undefined : z.kapitalisierteLuecke),
+        tooltip: z.fehler
+          ? z.fehler
+          : `Bedarf ${this.betrag(z.bedarf)}\nEinnahmen ${this.betrag(z.einnahmen)} (1. Säule ${this.betrag(z.ersteSaeule)}, 2. Säule ${this.betrag(z.zweiteSaeule)}, Partner/in ${this.betrag(z.partner)})\nLücke ${this.betrag(luecke)}, kapitalisiert ${this.betrag(z.kapitalisierteLuecke)}`,
+      };
+      gruppen.set(person, [...(gruppen.get(person) ?? []), zeile]);
+    }
+    return [...gruppen].map(([person, zeilen]) => ({ person: person === 'Person A' ? 'Du' : person === 'Person B' ? 'Partner/in' : person, zeilen }));
   });
 
   constructor() {
@@ -131,6 +171,17 @@ export class BeratungsstandPanel {
 
   protected herkunftText(herkunft: Herkunft): string {
     return `„${herkunft.beleg}“ (Nachricht ${Math.floor(herkunft.nachricht / 2) + 1})${herkunft.begruendung ? ` – abgeleitet: ${herkunft.begruendung}` : ''}`;
+  }
+
+  private vermoegenText(vermoegen: number | undefined, kapital: number | undefined): string | null {
+    if (vermoegen === undefined || !kapital) return null;
+    const anteil = Math.min(100, Math.round((vermoegen / kapital) * 100));
+    return `Als Kapital fehlen ${chf(kapital)}. Euer Vermögen deckt davon rechnerisch ${anteil} %.`;
+  }
+
+  protected datum(zeitpunkt: string): string {
+    const d = new Date(zeitpunkt);
+    return Number.isNaN(d.getTime()) ? zeitpunkt : d.toLocaleString('de-CH', { dateStyle: 'medium', timeStyle: 'short' });
   }
 
   protected betrag(wert: number | undefined): string {

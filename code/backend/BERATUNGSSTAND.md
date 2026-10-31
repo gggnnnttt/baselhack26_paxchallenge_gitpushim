@@ -41,6 +41,10 @@ Zustände: `erfassung` (Schleife, solange Angaben fehlen) → `berechnung` → `
 | `WithChildren` | abgeleitet: mindestens ein gezähltes Kind | undokumentiert → Hinweis |
 | `Pillar2Pensions` | – | nicht gesetzt; Vorsorgeausweis-Werte werden noch nicht erfasst |
 
+### Vermögen
+
+`haushalt.vermoegen` (CHF; Ersparnisse, Wertschriften, Säule 3a/3b, ohne Pensionskasse und Eigenheim) ist kein Feld von APICalc und blockiert die Berechnung nicht. Solange es fehlt, steht es unter „Für die Beratung ausserdem offen“ (`offen` in der Ansicht); der Advisor sagt erst „alles vorhanden“, wenn auch diese Liste leer ist. Liegt ein Ergebnis vor, stellt das Backend das Vermögen jeder kapitalisierten Lücke gegenüber, als eigene grobe Rechnung ohne Steuern, Rendite und Bezugsbeschränkungen der Säule 3a.
+
 Die Liste „noch fehlend“ ist eine interne Rechenhilfe für den Advisor, keine vorgeschriebene Fragenreihenfolge. Jede Lücke enthält ein „warum“, damit das Modell den Zweck einer Frage erklären kann.
 
 ## Heute und Zukunft
@@ -52,7 +56,7 @@ Personenfelder beschreiben nur die heutige Situation. Pläne (`plaene`) haben ei
 - Bedeutung von `WithChildren`, von `RelationshipSinceYear` bei Alleinstehenden und ob volljährige Kinder zu zählen sind.
 - Welche Annahmen APICalc ohne `Pillar2Pensions` trifft.
 - Ob `NeedDeath` einer Person den Bedarf der Hinterbliebenen beim Tod dieser Person meint. Davon gehen wir aus; der Pax-Vorsorgecheck zeigt Bedarf pro Person in % des Einkommens.
-- Bestehende private Vorsorge (3. Säule) und weitere Versicherungen sind nicht berücksichtigt. Ein aktuelles Ergebnis bedeutet nicht, dass die gesamte bestehende Absicherung geprüft wurde.
+- Bestehende private Vorsorge (3. Säule) und weitere Versicherungen fliessen nicht in APICalc ein; das Vermögen wird nur nachträglich der kapitalisierten Lücke gegenübergestellt. Ein aktuelles Ergebnis bedeutet nicht, dass die gesamte bestehende Absicherung geprüft wurde.
 - Eine gespeicherte Berechnungsgrundlage unterstützt Nachvollziehbarkeit, erfüllt aber nicht automatisch das ganze Legal Framework.
 
 ## Nächste Schritte

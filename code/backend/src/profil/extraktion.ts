@@ -6,7 +6,7 @@ import { Extraktion, type Aenderung } from './aenderungen.js';
 import type { Profil } from './profil.js';
 
 // Strict structured outputs do not accept every JSON-Schema keyword; lengths are enforced by Zod afterwards.
-function fuerStrictModus(schema: unknown): unknown {
+export function fuerStrictModus(schema: unknown): unknown {
   if (Array.isArray(schema)) return schema.map(fuerStrictModus);
   if (!schema || typeof schema !== 'object') return schema;
   return Object.fromEntries(Object.entries(schema)
@@ -49,6 +49,7 @@ Nicht benötigte Werte einer Änderung sind null.
 - beziehung_seit_jahr: \`zahl\` = Jahr der Heirat, Eintragung oder seit wann zusammenlebend
 - hat_kinder: \`ja_nein\`
 - gemeinsamer_haushalt: \`ja_nein\` (leben alle zusammen und werden finanziell gemeinsam betrachtet)
+- vermoegen: \`zahl\` = Vermögen des Haushalts in CHF: Ersparnisse, Wertschriften und private Vorsorge (Säule 3a/3b) zusammen, ohne Pensionskasse und ohne selbst bewohntes Wohneigentum. „kein Erspartes“ = 0. Nennt der Kunde mehrere Posten in derselben Nachricht, zähle sie zusammen und kennzeichne die Summe als Ableitung. Ungefähre Angaben („rund 50k“) übernehmen.
 - geschlecht (person): \`text\` ∈ weiblich, maennlich
 - geburtsjahr (person): \`zahl\`; bei einem Geburtsdatum nur das Jahr
 - erwerb (person): \`text\` ∈ angestellt, selbststaendig, nicht_erwerbstaetig

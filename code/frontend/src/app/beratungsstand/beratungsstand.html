@@ -12,14 +12,10 @@
 </ng-template>
 
 <aside>
-  <h2>
-    <button class="kopf" type="button" (click)="offen.set(!offen())" [attr.aria-expanded]="offen()" aria-controls="beratungsstand-inhalt">
-      <span class="titel">Was ich bisher verstanden habe</span>
-      <span class="zusammenfassung">{{ zusammenfassung() }}</span>
-      <svg class="chevron" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 10l5 5 5-5" /></svg>
-    </button>
+  <h2 class="kopf">
+    <span class="titel">Was ich bisher verstanden habe</span>
+    <span class="zusammenfassung">{{ zusammenfassung() }}</span>
   </h2>
-  <div class="inhalt" id="beratungsstand-inhalt" [class.zu]="!offen()" [attr.inert]="offen() ? null : ''"><div class="inhalt-innen">
   <p class="hinweis">Stimmt etwas nicht? Mit dem Stift korrigierst du einen Wert, Pax bestätigt die Korrektur im Chat.</p>
 
   @if (!stand()) {
@@ -90,7 +86,7 @@
     }
 
     <section>
-      <h3>Risikoberechnung (Erwerbsunfähigkeit, Todesfall)</h3>
+      <h3>Absicherung bei Erwerbsunfähigkeit und Todesfall</h3>
       @if (s.risiko.fehlend.length) {
         <p>Für diese Berechnung fehlt noch:</p>
         <ul class="fehlend">
@@ -102,36 +98,84 @@
           }
         </ul>
       }
+      @if (s.offen?.length) {
+        <p>Für die Beratung ausserdem wichtig, aber nicht Teil der Berechnung:</p>
+        <ul class="fehlend">
+          @for (f of s.offen; track f.label) {
+            <li>
+              <button class="fehlt" type="button" (click)="frage.emit(f.label)" [attr.aria-label]="f.label + ' im Chat beantworten'">{{ f.label }}</button>
+              @if (f.warum) {<br /><small>{{ f.warum }}</small>}
+            </li>
+          }
+        </ul>
+      }
       @if (s.risiko.fehler) {
         <p class="fehler">{{ s.risiko.fehler }}</p>
       }
       @if (s.risiko.ergebnis; as e) {
-        <p>
-          Ergebnis vom {{ e.zeitpunkt.slice(0, 16).replace('T', ' ') }} (Beträge pro Jahr)
+        <p class="ergebnis-meta">
+          Berechnet am {{ datum(e.zeitpunkt) }}, Beträge pro Jahr
           @if (e.veraltet) {
             <span class="badge warnung">veraltet</span>
           }
         </p>
-        <table [class.veraltet]="e.veraltet">
-          <thead>
-            <tr><th>Szenario</th><th>Bedarf</th><th>Einnahmen</th><th>Lücke</th><th>Kapitalisiert</th></tr>
-          </thead>
-          <tbody>
-            @for (z of e.szenarien; track z.szenario) {
-              <tr>
-                <td>{{ z.szenario }}</td>
-                @if (z.fehler) {
-                  <td colspan="4">{{ z.fehler }}</td>
-                } @else {
-                  <td>{{ betrag(z.bedarf) }}</td>
-                  <td [title]="'1. Säule ' + betrag(z.ersteSaeule) + ', 2. Säule ' + betrag(z.zweiteSaeule) + ', Partner/in ' + betrag(z.partner)">{{ betrag(z.einnahmen) }}</td>
-                  <td>{{ betrag(z.luecke) }}</td>
-                  <td>{{ betrag(z.kapitalisierteLuecke) }}</td>
-                }
-              </tr>
-            }
-          </tbody>
-        </table>
+        <!-- Per scenario: what would come in (green) against what is needed; the rest is the gap. One scale for all bars. -->
+        <div class="ergebnis" [class.veraltet]="e.veraltet">
+          <p class="legende" aria-hidden="true">
+            <span><i class="farbe einnahmen"></i>Einnahmen</span>
+            <span><i class="farbe luecke"></i>Lücke zum Bedarf</span>
+          </p>
+          @for (g of ergebnis(); track g.person) {
+            <h4>{{ g.person }}</h4>
+            <ul class="balken-liste">
+              @for (z of g.zeilen; track z.titel) {
+                <li [title]="z.tooltip">
+                  <span class="balken-titel">
+                    <span>{{ z.titel }}</span>
+                    <strong [class.gedeckt]="!z.fehler && !z.luecke" [class.offen]="!!z.fehler">{{ z.fehler ? 'nicht berechnet' : z.luecke ? 'Lücke ' + betrag(z.luecke) : 'gedeckt' }}</strong>
+                  </span>
+                  @if (!z.fehler) {
+                    <span class="balken" aria-hidden="true">
+                      <span class="einnahmen" [style.width.%]="z.einnahmenAnteil"></span>
+                      @if (z.luecke) {
+                        <span class="luecke" [style.width.%]="z.lueckeAnteil"></span>
+                      }
+                    </span>
+                    <span class="visually-hidden">Bedarf {{ betrag(z.bedarf) }}, Einnahmen {{ betrag(z.einnahmen) }}</span>
+                    @if (z.vermoegen) {
+                      <small class="vermoegen">{{ z.vermoegen }}</small>
+                    }
+                  } @else {
+                    <small>{{ z.fehler }}</small>
+                  }
+                </li>
+              }
+            </ul>
+          }
+        </div>
+        <details>
+          <summary>Zahlen als Tabelle</summary>
+          <table [class.veraltet]="e.veraltet">
+            <thead>
+              <tr><th>Szenario</th><th>Bedarf</th><th>Einnahmen</th><th>Lücke</th><th>Kapitalisiert</th></tr>
+            </thead>
+            <tbody>
+              @for (z of e.szenarien; track z.szenario) {
+                <tr>
+                  <td>{{ z.szenario }}</td>
+                  @if (z.fehler) {
+                    <td colspan="4">{{ z.fehler }}</td>
+                  } @else {
+                    <td>{{ betrag(z.bedarf) }}</td>
+                    <td [title]="'1. Säule ' + betrag(z.ersteSaeule) + ', 2. Säule ' + betrag(z.zweiteSaeule) + ', Partner/in ' + betrag(z.partner)">{{ betrag(z.einnahmen) }}</td>
+                    <td>{{ betrag(z.luecke) }}</td>
+                    <td>{{ betrag(z.kapitalisierteLuecke) }}</td>
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+        </details>
       }
       <details>
         <summary>Vorhanden ({{ s.risiko.vorhanden.length }}) und Grenzen</summary>
@@ -168,5 +212,4 @@
       </details>
     }
   }
-  </div></div>
 </aside>

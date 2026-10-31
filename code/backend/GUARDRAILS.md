@@ -38,7 +38,7 @@ Das ist eine semantische Modellprüfung und keine unfehlbare Erkennung. Die Gren
 ## Was tatsächlich durchgesetzt wird
 
 - Nur `message` und optional `sessionId` als Request-Felder. Browser dürfen keine Rollen, fremden Instruktionen oder behaupteten Assistant-Verläufe einschleusen.
-- Eingabegrössen, Antwortgrössen, Gesprächslänge und Zahl der Sitzungen sind begrenzt.
+- Eingabegrössen, Antwortgrössen, Modellkontext und Zahl der Sitzungen sind begrenzt. Ein Gespräch hat kein festes Ende: `maxHistoryMessages` legt fest, wie viele der neuesten akzeptierten Nachrichten gespeichert und an das Modell gesendet werden. Ältere fallen paarweise heraus; ihre Angaben bleiben im Beratungsstand, den jede Antwort erhält.
 - Bekannte Muster etwa für AHV-Nummern, IBANs, Kartenwerte und technische Geheimnisse werden vor dem Provider blockiert. Kontaktmuster werden lokal ersetzt. Normalisierung erfasst einige Unicode-Abwandlungen.
 - Auch späterer Modellkontext verwendet nur bereits bereinigte und akzeptierte Nachrichten.
 - Bekannte sensible Begriffe werden in Modellantworten konservativ blockiert, unabhängig davon, ob das Modell sie als Frage, Liste oder Upload-Bitte formuliert. Dadurch können auch harmlose Erklärungen zu solchen Begriffen zurückgehalten werden. Feste Backend-Fehlermeldungen erklären den zulässigen Erfassungsweg.

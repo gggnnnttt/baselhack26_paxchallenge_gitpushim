@@ -14,10 +14,10 @@ export const bedarfText = (b: Bedarf) => (b.einheit === 'prozent' ? `${b.hoehe} 
 
 const PHASEN: Record<Phase, string> = {
   erfassung: 'Erfassung – für die Risikoberechnung fehlen noch Angaben.',
-  bereit: 'Angaben vollständig – die Risikoberechnung ist in dieser Umgebung nicht konfiguriert (kein APICalc-Zugang).',
+  bereit: 'Angaben für die Risikoberechnung vollständig – sie ist in dieser Umgebung nicht konfiguriert (kein APICalc-Zugang).',
   berechnung: 'Die Risikoberechnung läuft.',
   berechnet: 'Die Risikoberechnung liegt vor und passt zu den aktuellen Angaben.',
-  fehlgeschlagen: 'Angaben vollständig, aber die Risikoberechnung ist fehlgeschlagen.',
+  fehlgeschlagen: 'Angaben für die Risikoberechnung vollständig, aber die Berechnung ist fehlgeschlagen.',
 };
 
 function personText(person: Person | undefined, id: PersonId): string {
@@ -41,7 +41,8 @@ export function profilText(profil: Profil): string {
   const zeilen = [
     `Anliegen: ${profil.anliegen.length ? profil.anliegen.map(a => `${a.id} ${zitat(a.text)}`).join('; ') : 'noch keine'}`,
     `Haushalt: Beziehung ${h.beziehung ? h.beziehung.wert.replace('_', ' ') + abgeleitet(h.beziehung) : 'unbekannt'}`
-      + `${h.beziehungSeitJahr ? ` seit ${h.beziehungSeitJahr.wert}` : ''}; Kinder ${profil.kinder.length ? 'ja' : janein(h.hatKinder?.wert)}; gemeinsamer Haushalt ${janein(h.gemeinsamerHaushalt?.wert)}`,
+      + `${h.beziehungSeitJahr ? ` seit ${h.beziehungSeitJahr.wert}` : ''}; Kinder ${profil.kinder.length ? 'ja' : janein(h.hatKinder?.wert)}; gemeinsamer Haushalt ${janein(h.gemeinsamerHaushalt?.wert)}`
+      + `; Vermögen (Ersparnisse, Wertschriften, Säule 3a/3b) ${h.vermoegen ? chf(h.vermoegen.wert) + abgeleitet(h.vermoegen) : 'unbekannt'}`,
     personText(profil.personen.A, 'A'),
     personText(profil.personen.B, 'B'),
     `Kinder: ${profil.kinder.length ? profil.kinder.map(k => `${k.id} ${kindLabel(profil, k)} (Jahrgang ${k.geburtsjahr?.wert ?? 'unbekannt'}, Elternteil ${k.elternteil?.wert ?? 'unbekannt'}${k.alleinigesSorgerecht ? `, alleiniges Sorgerecht ${janein(k.alleinigesSorgerecht.wert)}` : ''})`).join('; ') : 'keine erfasst'}`,
@@ -67,14 +68,46 @@ function szenarioText(s: Szenario): string {
   return `- ${s.szenario}: Bedarf ${betrag(s.bedarf)}, Einnahmen ${betrag(s.einnahmen)} (1. Säule ${betrag(s.ersteSaeule)}, 2. Säule ${betrag(s.zweiteSaeule)}, Einkommen Partner/in ${betrag(s.partner)}), Lücke ${betrag(s.luecke)} pro Jahr, kapitalisierte Lücke ${betrag(s.kapitalisierteLuecke)}`;
 }
 
+/**
+ * Values the advice needs beyond the APICalc request. They do not block the calculation,
+ * but the conversation is not complete without them.
+ */
+export function offeneAngaben(profil: Profil): Angabe[] {
+  return profil.haushalt.vermoegen ? [] : [{
+    label: 'Vermögen des Haushalts (Ersparnisse, Wertschriften, Säule 3a/3b; ohne Pensionskasse und Eigenheim)',
+    warum: 'Erspartes kann einen Teil einer Lücke tragen. APICalc kennt es nicht; es wird nach der Berechnung der kapitalisierten Lücke gegenübergestellt.',
+  }];
+}
+
+/** Own comparison after APICalc: how much of each capitalised gap the household's assets could carry. */
+export function vermoegenVergleich(profil: Profil, liste: Szenario[]): string[] {
+  const vermoegen = profil.haushalt.vermoegen?.wert;
+  if (vermoegen === undefined) return [];
+  const mitLuecke = liste.filter(s => !s.fehler && (s.kapitalisierteLuecke ?? 0) > 0);
+  if (!mitLuecke.length) return [`Vermögen ${chf(vermoegen)}: Die Berechnung zeigt keine kapitalisierte Lücke, die es decken müsste.`];
+  return [
+    `Gegenüberstellung mit dem Vermögen von ${chf(vermoegen)} (eigene Rechnung des Backends, nicht Teil von APICalc; ohne Steuern, Rendite und Zugriffsbeschränkungen der Säule 3a):`,
+    ...mitLuecke.map(s => {
+      const luecke = s.kapitalisierteLuecke!;
+      const anteil = Math.min(100, Math.round((vermoegen / luecke) * 100));
+      return `- ${s.szenario}: kapitalisierte Lücke ${chf(luecke)}, davon rechnerisch ${anteil} % durch das Vermögen gedeckt${vermoegen < luecke ? `, verbleibend ${chf(luecke - vermoegen)}` : ''}`;
+    }),
+  ];
+}
+
 export interface Aenderungsbericht { uebernommen: Protokolleintrag[]; abgelehnt: Protokolleintrag[] }
 
 /** Dynamic part of the advisor instructions for one reply. */
 export function beratungsKontext(stand: AblaufStand, bericht: Aenderungsbericht): string {
   const { pruefung, berechnung, fehler } = stand.kontext;
+  const offen = offeneAngaben(stand.kontext.profil);
   const veraltet = berechnung !== null && berechnung.requestJson !== pruefung.requestJson;
   const ergebnis = stand.phase === 'berechnet' && berechnung
-    ? [`Ergebnis der APICalc-Risikoberechnung vom ${berechnung.zeitpunkt} (Beträge pro Jahr):`, ...szenarien(berechnung.antwort).map(szenarioText)]
+    ? [
+      `Ergebnis der APICalc-Risikoberechnung vom ${berechnung.zeitpunkt} (Beträge pro Jahr):`,
+      ...szenarien(berechnung.antwort).map(szenarioText),
+      ...vermoegenVergleich(stand.kontext.profil, szenarien(berechnung.antwort)),
+    ]
     : stand.phase === 'fehlgeschlagen' ? [`Die Berechnung ist fehlgeschlagen: ${fehler ?? 'unbekannter Fehler'}. Nenne keine Ergebnisse.`]
       : veraltet ? ['Das letzte Ergebnis passt nicht mehr zu den aktuellen Angaben und darf nicht mehr verwendet werden.']
         : ['Noch kein Berechnungsergebnis. Nenne keine persönlichen Leistungen, Lücken oder Beträge als Ergebnis.'];
@@ -95,6 +128,10 @@ export function beratungsKontext(stand: AblaufStand, bericht: Aenderungsbericht)
     ...pruefung.hinweise.map(h => `- ${h}`),
     ...ergebnis,
     '',
+    '### Für die Beratung ausserdem offen (nicht Teil der APICalc-Berechnung)',
+    'Auch wenn für die Berechnung nichts mehr fehlt, ist die Erfassung erst mit diesen Angaben vollständig. Frage danach, sobald es passt, spätestens wenn du ein Ergebnis erklärst. Sage nicht, es seien alle Angaben vorhanden, solange hier etwas steht.',
+    ...(offen.length ? offen.map(a => `- ${a.label} – ${a.warum}`) : ['- nichts']),
+    '',
     '### Aus der letzten Nachricht',
     `Übernommen: ${bericht.uebernommen.length ? bericht.uebernommen.map(e => e.text).join('; ') : 'nichts'}`,
     `Nicht übernommen: ${bericht.abgelehnt.length ? bericht.abgelehnt.map(e => `${e.text} (${e.grund})`).join('; ') : 'nichts'}`,
@@ -105,6 +142,8 @@ export interface BeratungsstandAnsicht {
   phase: Phase;
   phaseText: string;
   profil: Profil;
+  // Needed for the advice, not for APICalc (e.g. assets).
+  offen: Angabe[];
   risiko: {
     vorhanden: Angabe[];
     fehlend: Angabe[];
@@ -123,6 +162,7 @@ export function ansicht(stand: AblaufStand, bericht: Aenderungsbericht): Beratun
     phase: stand.phase,
     phaseText: PHASEN[stand.phase],
     profil,
+    offen: offeneAngaben(profil),
     risiko: {
       vorhanden: pruefung.vorhanden,
       fehlend: pruefung.fehlend,

@@ -1,0 +1,50 @@
+@let f = frage();
+<div class="karte" role="group" [attr.aria-label]="'Antwort auf: ' + f.text">
+  @switch (f.eingabe) {
+    @case ('ja_nein') {
+      <div class="optionen">
+        <button class="option" type="button" [disabled]="gesperrt()" (click)="senden('Ja')">Ja</button>
+        <button class="option" type="button" [disabled]="gesperrt()" (click)="senden('Nein')">Nein</button>
+      </div>
+    }
+    @case ('auswahl') {
+      <div class="optionen">
+        @for (o of f.optionen; track o) {
+          <button class="option" type="button" [disabled]="gesperrt()" (click)="senden(o)">{{ o }}</button>
+        }
+      </div>
+    }
+    @case ('mehrfach') {
+      <div class="optionen">
+        @for (o of f.optionen; track o) {
+          <button class="option" type="button" [class.an]="gewaehlt().includes(o)" [attr.aria-pressed]="gewaehlt().includes(o)"
+            [disabled]="gesperrt()" (click)="umschalten(o)">{{ o }}</button>
+        }
+        <button class="weiter" type="button" [disabled]="gesperrt() || !gewaehlt().length" (click)="mehrfachSenden()">Übernehmen</button>
+      </div>
+    }
+    @case ('text') {
+      <p class="hinweis">Antworte unten in deinen eigenen Worten.</p>
+    }
+    @default {
+      <form class="zahl" (ngSubmit)="zahlSenden()">
+        @if (regler()) {
+          <input type="range" name="wert" [min]="f.min" [max]="f.max" [ngModel]="wert()" (ngModelChange)="wert.set(+$event)"
+            [attr.aria-label]="f.text" />
+          <output>{{ wert() }}{{ f.einheit ? ' ' + f.einheit : '' }}</output>
+        } @else {
+          <label>
+            <input type="number" name="wert" inputmode="numeric" [ngModel]="wert()" (ngModelChange)="wert.set($event)"
+              [min]="f.min" [max]="f.max" [step]="f.eingabe === 'betrag' ? 1000 : 1"
+              [placeholder]="f.eingabe === 'jahr' ? 'z. B. 2030' : f.eingabe === 'betrag' ? 'z. B. 85000' : ''" [attr.aria-label]="f.text" />
+            @if (f.einheit || f.eingabe === 'betrag') {
+              <span class="einheit">{{ f.einheit ?? 'CHF' }}</span>
+            }
+          </label>
+        }
+        <button class="weiter" type="submit" [disabled]="gesperrt() || wert() === null">Übernehmen</button>
+      </form>
+    }
+  }
+  <button class="weiss-nicht" type="button" [disabled]="gesperrt()" (click)="senden('Weiss ich nicht.')">Weiss ich nicht</button>
+</div>

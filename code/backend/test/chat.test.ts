@@ -9,7 +9,7 @@ const config = JSON.parse(readFileSync(new URL('../guardrails.config.json', impo
 const makeRails = () => new Guardrails(config);
 // Only the external scope decision and an empty profile extraction are simulated; ChatService still runs its real gates.
 const allowScope = (provider: ModelAdapter): ModelAdapter => ({ generate: request =>
-  request.responseFormat ? Promise.resolve(request.responseFormat.name === 'advisory_scope' ? '{"allowed":true}' : '{"aenderungen":[]}') : provider.generate(request),
+  request.responseFormat && request.responseFormat.name !== 'advisor_antwort' ? Promise.resolve(request.responseFormat.name === 'advisory_scope' ? '{"allowed":true}' : '{"aenderungen":[]}') : provider.generate(request),
 });
 
 test('normal family concerns and financial figures remain usable', () => {
@@ -146,7 +146,7 @@ test('scope classification receives sanitised conversation context for short fol
       scopes.push(JSON.stringify(request.messages));
       return '{"allowed":true}';
     }
-    if (request.responseFormat) return '{"aenderungen":[]}';
+    if (request.responseFormat?.name === 'profil_aenderungen') return '{"aenderungen":[]}';
     return 'Wie hoch ist euer jährliches Einkommen?';
   } }, makeRails(), 'Berater');
   const first = await service.reply({ message: 'Kontakt demo@example.org. Wir möchten für die Familie vorsorgen.' });
@@ -223,7 +223,8 @@ test('form or profile data cannot enter chat, scope check or reply context', asy
   const requests: Record<string, unknown>[] = [];
   const service = new ChatService({ generate: async request => {
     requests.push({ ...request });
-    if (request.responseFormat) return request.responseFormat.name === 'advisory_scope' ? '{"allowed":true}' : '{"aenderungen":[]}';
+    if (request.responseFormat?.name === 'advisory_scope') return '{"allowed":true}';
+    if (request.responseFormat?.name === 'profil_aenderungen') return '{"aenderungen":[]}';
     return 'Wie sieht eure Wohnsituation aus?';
   } }, makeRails(), 'Berater');
   for (const extra of [{ profile: { name: 'Erika Muster' } }, { formData: { smoker: true } }, { context: 'Diagnose X' }]) {
@@ -233,7 +234,7 @@ test('form or profile data cannot enter chat, scope check or reply context', asy
   const first = await service.reply({ message: 'Wir möchten fürs Alter vorsorgen.' });
   await service.reply({ message: 'Wir wohnen zur Miete.', sessionId: first.sessionId });
   assert.deepEqual(requests.map(request => (request['responseFormat'] as { name: string } | undefined)?.name ?? 'reply'),
-    ['advisory_scope', 'profil_aenderungen', 'reply', 'advisory_scope', 'profil_aenderungen', 'reply']);
+    ['advisory_scope', 'profil_aenderungen', 'advisor_antwort', 'advisory_scope', 'profil_aenderungen', 'advisor_antwort']);
   const allowedKeys = new Set(['instructions', 'messages', 'maxOutputTokens', 'responseFormat']);
   const chatTexts = ['Wir möchten fürs Alter vorsorgen.', 'Wie sieht eure Wohnsituation aus?', 'Wir wohnen zur Miete.'];
   for (const request of requests) {
@@ -243,4 +244,21 @@ test('form or profile data cannot enter chat, scope check or reply context', asy
       assert.ok(chatTexts.includes(message.content));
     }
   }
+});
+
+test('long conversations continue: only the newest turns are sent, message numbers keep counting', async () => {
+  const gesehen: number[] = [];
+  const service = new ChatService(allowScope({ generate: async (request) => {
+    gesehen.push(request.messages.length);
+    return 'Erzähl mir mehr.';
+  } }), makeRails(), 'Berater');
+  const turns = config.maxHistoryMessages; // twice as many messages as the window holds
+  let sessionId: string | undefined;
+  for (let i = 0; i < turns; i++) {
+    const antwort = await service.reply({ message: `Nachricht ${i}`, ...(sessionId ? { sessionId } : {}) });
+    sessionId = antwort.sessionId;
+  }
+  assert.equal(gesehen.length, turns);
+  assert.ok(gesehen.every(anzahl => anzahl <= config.maxHistoryMessages + 1));
+  assert.equal(gesehen.at(-1), config.maxHistoryMessages + 1);
 });

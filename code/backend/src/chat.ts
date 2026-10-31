@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { RisikoRechner } from './berechnung/apicalc.js';
 import { Beratungsablauf, type AblaufStand } from './beratung/ablauf.js';
+import { ANTWORT_FORMAT, ANTWORT_REGELN, leseAntwort, type AdvisorAntwort, type Frage } from './beratung/antwort.js';
 import { ansicht, beratungsKontext, type BeratungsstandAnsicht } from './beratung/darstellung.js';
 import { neueTexte, wendeZeitstrahlAn, ZEITSTRAHL_NACHRICHT, ZeitstrahlAnfrage, zeitstrahlKontext } from './beratung/zeitstrahl.js';
 import { GuardrailError, Guardrails } from './guardrails.js';
@@ -18,8 +19,10 @@ export interface ModelRequest { instructions: string; messages: ChatMessage[]; m
 export interface StrukturFormat { name: string; schema: Record<string, unknown> }
 export interface ModelAdapter { generate(request: ModelRequest): Promise<string> }
 export interface ChatOptionen { rechner?: RisikoRechner | null; heute?: () => Date }
-export interface ChatAntwort { reply: string; sessionId: string; beratungsstand: BeratungsstandAnsicht }
-interface Session { messages: ChatMessage[]; updated: number; busy: boolean; ablauf: AblaufStand }
+// `frage`: at most one question, shown with a fitting control in the browser.
+export interface ChatAntwort { reply: string; frage: Frage | null; sessionId: string; beratungsstand: BeratungsstandAnsicht }
+// `entfernt`: older turns dropped from `messages`, so message numbers in the profile stay stable.
+interface Session { messages: ChatMessage[]; entfernt: number; updated: number; busy: boolean; ablauf: AblaufStand }
 
 // No model SDK or provider-specific checks in this pipeline.
 export class ChatService {
@@ -46,9 +49,8 @@ export class ChatService {
     if (existing?.busy) throw new GuardrailError('Bitte warte auf die laufende Antwort.', 409);
     if (!existing && this.sessions.size >= this.rails.config.maxSessions) throw new GuardrailError('Der Chat ist gerade ausgelastet. Bitte später erneut versuchen.', 503);
     const sessionId = existingId ?? randomUUID();
-    const session = existing ?? { messages: [], updated: now, busy: false, ablauf: this.ablauf.start(this.heute().getFullYear()) };
+    const session = existing ?? this.neueSitzung(now);
     const userMessage: ChatMessage = { role: 'user', content };
-    if (session.messages.length + 2 > this.rails.config.maxHistoryMessages) throw new GuardrailError('Die maximale Gesprächslänge ist erreicht. Bitte starte einen neuen Chat.', 409);
     session.busy = true;
     // Reserve capacity while awaiting the provider. Never persist raw/rejected content.
     this.sessions.set(sessionId, session);
@@ -58,20 +60,15 @@ export class ChatService {
       // Profile changes and calculations are worked out on copies and only committed with an accepted reply.
       const vorher = session.ablauf.kontext.profil;
       const aenderungen = await extrahiereAenderungen(this.provider, vorher, context, this.heute());
-      const angewendet = wendeAenderungenAn(vorher, aenderungen, { text: content, index: session.messages.length, jahr: session.ablauf.kontext.jahr });
+      const angewendet = wendeAenderungenAn(vorher, aenderungen, { text: content, index: session.entfernt + session.messages.length, jahr: session.ablauf.kontext.jahr });
       const ablauf = await this.ablauf.aktualisiere(session.ablauf, angewendet.profil);
-      const candidate = await this.provider.generate({
-        instructions: `${this.instructions}\n\n${beratungsKontext(ablauf, angewendet)}`,
-        messages: context,
-        maxOutputTokens: this.rails.config.maxOutputTokens,
-      });
-      const reply = this.rails.checkOutput(candidate);
+      const antwort = await this.antworten(`${this.instructions}\n\n${beratungsKontext(ablauf, angewendet)}`, context);
       // Deleted while the provider call was running: keep nothing and return nothing.
       if (this.sessions.get(sessionId) !== session) throw new GuardrailError('Dieser Chat wurde gelöscht.', 410);
-      session.messages.push(userMessage, { role: 'assistant', content: reply });
+      this.anhaengen(session, userMessage, antwort.verlauf);
       session.ablauf = ablauf;
       session.updated = Date.now();
-      return { reply, sessionId, beratungsstand: ansicht(ablauf, angewendet) };
+      return { reply: antwort.text, frage: antwort.frage, sessionId, beratungsstand: ansicht(ablauf, angewendet) };
     } catch (error) {
       if (!existing && this.sessions.get(sessionId) === session) this.sessions.delete(sessionId);
       if (error instanceof GuardrailError) throw error;
@@ -99,21 +96,19 @@ export class ChatService {
       const vorher = session.ablauf.kontext.profil;
       const texte = neueTexte(vorher, aktionen);
       if (texte.length) await checkScope(this.provider, [...session.messages, { role: 'user', content: texte.join('\n') }]);
-      const angewendet = wendeZeitstrahlAn(vorher, aktionen, { index: session.messages.length, jahr: session.ablauf.kontext.jahr });
+      const angewendet = wendeZeitstrahlAn(vorher, aktionen, { index: session.entfernt + session.messages.length, jahr: session.ablauf.kontext.jahr });
       if (!angewendet.uebernommen.length) throw new GuardrailError(angewendet.abgelehnt[0]?.grund ?? 'Im Zeitstrahl hat sich nichts geändert.', 422);
       const ablauf = await this.ablauf.aktualisiere(session.ablauf, angewendet.profil);
       const userMessage: ChatMessage = { role: 'user', content: ZEITSTRAHL_NACHRICHT };
-      const candidate = await this.provider.generate({
-        instructions: `${this.instructions}\n\n${beratungsKontext(ablauf, angewendet)}\n\n${zeitstrahlKontext(angewendet)}`,
-        messages: [...session.messages.map(message => ({ ...message })), userMessage],
-        maxOutputTokens: this.rails.config.maxOutputTokens,
-      });
-      const reply = this.rails.checkOutput(candidate);
+      const antwort = await this.antworten(
+        `${this.instructions}\n\n${beratungsKontext(ablauf, angewendet)}\n\n${zeitstrahlKontext(angewendet)}`,
+        [...session.messages.map(message => ({ ...message })), userMessage],
+      );
       if (this.sessions.get(sessionId) !== session) throw new GuardrailError('Dieser Chat wurde gelöscht.', 410);
-      session.messages.push(userMessage, { role: 'assistant', content: reply });
+      this.anhaengen(session, userMessage, antwort.verlauf);
       session.ablauf = ablauf;
       session.updated = Date.now();
-      return { reply, sessionId, beratungsstand: ansicht(ablauf, angewendet) };
+      return { reply: antwort.text, frage: antwort.frage, sessionId, beratungsstand: ansicht(ablauf, angewendet) };
     } catch (error) {
       if (!existing && this.sessions.get(sessionId) === session) this.sessions.delete(sessionId);
       if (error instanceof GuardrailError) throw error;
@@ -121,6 +116,17 @@ export class ChatService {
     } finally {
       session.busy = false;
     }
+  }
+
+  // The advisor's reply: short text and at most one question, checked by the output guardrails.
+  private async antworten(instructions: string, messages: ChatMessage[]): Promise<AdvisorAntwort> {
+    const roh = await this.provider.generate({
+      instructions: `${instructions}\n\n${ANTWORT_REGELN}`,
+      messages,
+      maxOutputTokens: this.rails.config.maxOutputTokens,
+      responseFormat: ANTWORT_FORMAT,
+    });
+    return leseAntwort(roh, text => this.rails.checkOutput(text));
   }
 
   // Same session rules as in reply(); the timeline may also start a conversation.
@@ -131,9 +137,27 @@ export class ChatService {
     if (existingId !== undefined && !existing) throw new GuardrailError('Die Sitzung ist abgelaufen. Bitte starte einen neuen Chat.', 410);
     if (existing?.busy) throw new GuardrailError('Bitte warte auf die laufende Antwort.', 409);
     if (!existing && this.sessions.size >= this.rails.config.maxSessions) throw new GuardrailError('Der Chat ist gerade ausgelastet. Bitte später erneut versuchen.', 503);
-    const session = existing ?? { messages: [], updated: now, busy: false, ablauf: this.ablauf.start(this.heute().getFullYear()) };
-    if (session.messages.length + 2 > this.rails.config.maxHistoryMessages) throw new GuardrailError('Die maximale Gesprächslänge ist erreicht. Bitte starte einen neuen Chat.', 409);
+    const session = existing ?? this.neueSitzung(now);
     return { sessionId: existingId ?? randomUUID(), session, existing };
+  }
+
+  private neueSitzung(now: number): Session {
+    return { messages: [], entfernt: 0, updated: now, busy: false, ablauf: this.ablauf.start(this.heute().getFullYear()) };
+  }
+
+  /**
+   * Stores an accepted turn. The conversation has no fixed end: only the newest turns are kept as model context,
+   * older ones are dropped in pairs. What they said stays in the advisory state (profile, plans, calculation),
+   * which every reply receives in its instructions.
+   */
+  private anhaengen(session: Session, userMessage: ChatMessage, antwort: string): void {
+    session.messages.push(userMessage, { role: 'assistant', content: antwort });
+    const grenze = Math.max(2, this.rails.config.maxHistoryMessages - (this.rails.config.maxHistoryMessages % 2));
+    const zuViel = session.messages.length - grenze;
+    if (zuViel > 0) {
+      session.messages.splice(0, zuViel);
+      session.entfernt += zuViel;
+    }
   }
 
   // Removes the server-side history only. Copies already sent to the model provider are not affected.

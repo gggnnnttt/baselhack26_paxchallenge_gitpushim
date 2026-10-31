@@ -3,7 +3,7 @@ import { BEZIEHUNGEN, ERWERB, PLANARTEN, Profil, type Bedarf, type Einkommen, ty
 
 // Change proposals produced by the model. All keys are required (nullable) so the schema works with strict structured outputs.
 export const FELDER = [
-  'anliegen', 'beziehung', 'beziehung_seit_jahr', 'hat_kinder', 'gemeinsamer_haushalt',
+  'anliegen', 'beziehung', 'beziehung_seit_jahr', 'hat_kinder', 'gemeinsamer_haushalt', 'vermoegen',
   'geschlecht', 'geburtsjahr', 'erwerb', 'pensum', 'einkommen', 'bvg_versichert', 'bedarf_invaliditaet', 'bedarf_todesfall',
   'kind', 'kind_geburtsjahr', 'kind_elternteil', 'kind_alleiniges_sorgerecht',
   'plan', 'plan_zeitpunkt', 'plan_pensum', 'plan_einkommen', 'plan_sicherheit',
@@ -165,6 +165,12 @@ function wende(profil: Profil, a: Aenderung, herkunft: Herkunft, neueIds: Map<st
     case 'gemeinsamer_haushalt':
       if (setzen) profil.haushalt.gemeinsamerHaushalt = fakt(janein(a, 'Gemeinsamer Haushalt'));
       else delete profil.haushalt.gemeinsamerHaushalt;
+      return;
+    case 'vermoegen':
+      if (setzen) {
+        if (a.zahl === null || a.zahl < 0 || a.zahl > 1_000_000_000) ablehnen('Vermögen braucht einen Betrag in CHF (0 oder mehr).');
+        profil.haushalt.vermoegen = fakt(a.zahl!);
+      } else delete profil.haushalt.vermoegen;
       return;
     case 'geschlecht':
       personFeld(profil, a, 'geschlecht', () => fakt(auswahl(a, ['weiblich', 'maennlich'] as const, 'Geschlecht')));

@@ -3,61 +3,36 @@
   min-width: 0;
 }
 
-/* A flat surface: only the chat is raised, because it is the conversation. */
+/* Lies directly on the page background in the left sidebar, which collapses it. */
 aside {
   box-sizing: border-box;
-  padding: 20px 24px;
-  border: 1px solid var(--color-neutral-gray-2);
-  border-radius: var(--radius-xl);
-  background: var(--color-neutral-white);
   color: var(--color-neutral-black);
   font-size: 16px;
   line-height: 1.5;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 h2 { margin: 0; }
 
-/* Purple marks what Pax understood; the header doubles as the collapse toggle. */
+/* Purple marks what Pax understood. */
 .kopf {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: 2px 12px;
-  width: 100%;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 
   .titel { color: var(--color-brand-pax-purple); font-size: var(--size-heading-s); font-weight: 700; line-height: 1.3; }
-  .zusammenfassung { grid-row: 2; color: var(--color-neutral-gray-6); font-size: 14px; font-weight: 400; }
-  .chevron { grid-row: 1 / 3; grid-column: 2; color: var(--color-brand-pax-purple); transition: transform 250ms ease; }
-  &[aria-expanded='true'] .chevron { transform: rotate(180deg); }
-  &:focus-visible { outline: 2px solid var(--color-brand-pax-purple); outline-offset: 4px; border-radius: 4px; }
+  .zusammenfassung { color: var(--color-neutral-gray-6); font-size: 14px; font-weight: 400; }
 }
-
-.inhalt {
-  display: grid;
-  grid-template-rows: 1fr;
-  transition: grid-template-rows 250ms ease;
-
-  &.zu { grid-template-rows: 0fr; }
-}
-/* clip, not hidden: hidden content could still be scrolled sideways by focus. The extra 8px
-   leave room for the highlighted values, which reach a little beyond the text. */
-.inhalt-innen { min-height: 0; margin: 0 -8px; padding: 0 8px; overflow: clip; }
 
 .hinweis { margin: 12px 0 0; color: var(--color-neutral-gray-6); font-size: 14px; }
 
 h3 {
-  margin: 20px 0 6px;
-  padding-top: 16px;
+  margin: 24px 0 8px;
+  padding-top: 20px;
   border-top: 1px solid var(--color-neutral-gray-2);
+  color: var(--color-brand-pax-purple);
   font-size: 16px;
+  line-height: 1.35;
 }
 
 h4 {
@@ -67,18 +42,19 @@ h4 {
 }
 
 small {
-  color: #6a6a6a;
+  color: var(--color-neutral-gray-6);
+  font-size: 13px;
   font-weight: normal;
 }
 
 dl {
   display: grid;
-  grid-template-columns: minmax(96px, max-content) 1fr;
+  grid-template-columns: minmax(0, 42%) minmax(0, 1fr);
   gap: 2px 16px;
   margin: 0;
 }
 
-dt { padding: 4px 0; color: var(--color-neutral-gray-6); }
+dt { padding: 4px 0; color: var(--color-neutral-gray-6); font-size: 15px; hyphens: auto; }
 
 dd {
   margin: 0 -8px;
@@ -97,34 +73,34 @@ ul {
 }
 
 .leer {
-  color: #6a6a6a;
+  color: var(--color-neutral-gray-6);
 }
 
+/* Where the calculation stands, marked by a coloured edge. */
 .phase {
-  padding: 0.4rem 0.6rem;
-  border-radius: 6px;
-  background: #eef2f7;
+  margin: 16px 0 0;
+  padding: 10px 14px;
+  border-radius: var(--radius-m);
+  background: var(--color-system-info-light);
+  box-shadow: inset 3px 0 0 var(--color-brand-pax-purple);
+  color: var(--color-brand-deep-purple);
+  font-size: 14px;
+  line-height: 1.45;
 
-  &.berechnet {
-    background: #e3f4e6;
-  }
-
-  &.fehlgeschlagen {
-    background: #fbe4e4;
-  }
+  &.berechnet { background: var(--color-system-success-light); box-shadow: inset 3px 0 0 var(--color-brand-contrast-green); color: var(--color-brand-deep-green); }
+  &.fehlgeschlagen { background: var(--color-system-error-light); box-shadow: inset 3px 0 0 var(--color-system-error); color: var(--color-system-error-dark); }
 }
 
 .badge {
-  margin-left: 0.3rem;
-  padding: 0 0.35rem;
-  border-radius: 4px;
-  background: #ececec;
-  color: #444;
-  font-size: 0.75rem;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: var(--radius-full);
+  background: var(--color-neutral-gray-2);
+  color: var(--color-neutral-gray-7);
+  font-size: 12px;
+  white-space: nowrap;
 
-  &.warnung {
-    background: #fff0c2;
-  }
+  &.warnung { background: var(--color-system-warning-light); color: var(--color-system-warning-dark); }
 }
 
 .fehlend li {
@@ -149,17 +125,19 @@ ul {
 
 .fehler,
 .abgelehnt {
-  color: #b00020;
+  color: var(--color-system-error-dark);
 }
 
 .hinweise {
-  color: #555;
+  color: var(--color-neutral-gray-6);
+  font-size: 14px;
 }
 
 table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.8rem;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
 
   &.veraltet {
     opacity: 0.5;
@@ -168,7 +146,7 @@ table {
   th,
   td {
     padding: 0.2rem 0.3rem;
-    border-bottom: 1px solid #e3e3e3;
+    border-bottom: 1px solid var(--color-neutral-gray-2);
     text-align: right;
   }
 
@@ -179,14 +157,93 @@ table {
 }
 
 details {
-  margin-top: 0.6rem;
+  margin-top: 12px;
+  font-size: 14px;
+
+  summary {
+    color: var(--color-neutral-gray-7);
+    cursor: pointer;
+
+    &:hover { color: var(--color-brand-pax-purple); }
+    &:focus-visible { outline: 2px solid var(--color-brand-pax-purple); outline-offset: 2px; }
+  }
+  &[open] summary { margin-bottom: 8px; }
 }
 
 pre {
   overflow-x: auto;
-  font-size: 0.75rem;
-  background: #f4f4f4;
-  padding: 0.5rem;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  background: var(--color-neutral-gray-1);
+  font-size: 12px;
+}
+
+/* ---------- Result: one bar per scenario ---------- */
+.ergebnis-meta { margin: 0 0 12px; color: var(--color-neutral-gray-6); font-size: 13px; }
+
+.ergebnis {
+  &.veraltet { opacity: 0.5; }
+  h4 { margin: 16px 0 6px; color: var(--color-neutral-gray-7); }
+}
+
+.legende {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 0;
+  color: var(--color-neutral-gray-7);
+  font-size: 13px;
+
+  span { display: inline-flex; align-items: center; gap: 6px; }
+}
+
+.farbe {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+
+  &.einnahmen { background: var(--color-brand-contrast-green); }
+  &.luecke { background: var(--color-chart-red); }
+}
+
+.balken-liste {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.balken-titel {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 4px;
+  font-size: 14px;
+  line-height: 1.35;
+
+  strong { flex: none; font-variant-numeric: tabular-nums; font-weight: 600; }
+  strong.gedeckt { color: var(--color-brand-deep-green); }
+  strong.offen { color: var(--color-neutral-gray-6); font-weight: 400; }
+}
+
+.vermoegen { display: block; margin-top: 4px; }
+
+/* Thin marks with a 2px surface gap between the two segments; the track is the shared scale. */
+.balken {
+  display: flex;
+  gap: 2px;
+  height: 10px;
+  border-radius: 4px;
+  background: var(--color-neutral-gray-1);
+
+  span { height: 100%; border-radius: 2px; }
+  span:first-child { border-radius: 4px 2px 2px 4px; }
+  span:last-child { border-top-right-radius: 4px; border-bottom-right-radius: 4px; }
+  .einnahmen { background: var(--color-brand-contrast-green); }
+  .luecke { background: var(--color-chart-red); }
 }
 
 .leer {
@@ -200,5 +257,5 @@ pre {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .inhalt, .kopf .chevron, dd { transition: none; }
+  dd { transition: none; }
 }

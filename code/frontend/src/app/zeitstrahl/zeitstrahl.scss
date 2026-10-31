@@ -1,201 +1,179 @@
+/* Lies on the page background like everything else; the green line carries the design. */
 :host {
-  --label-breite: 140px;
+  --zeit-breite: 64px;
   display: block;
+  color: var(--color-neutral-black);
 }
 
-/* Flat like the advisory state: only the chat is raised. */
-.zeitstrahl {
-  padding: 20px 24px;
-  border: 1px solid var(--color-neutral-gray-2);
-  border-radius: var(--radius-xl);
+/* Stays at the top of its column while the years scroll below it. */
+.kopf {
+  position: sticky;
+  /* The page sets this where the timeline does not scroll by itself (below the sticky brand bar). */
+  top: var(--zeitstrahl-kopf-oben, 0);
+  z-index: 2;
+  padding: 24px 0 4px;
   background: var(--color-neutral-white);
-}
-
-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 0 var(--color-neutral-gray-2);
 
   h2 { margin: 0 0 4px; color: var(--color-brand-pax-purple); font-size: var(--size-heading-s); }
-  p { margin: 0; color: var(--color-neutral-gray-6); font-size: 14px; line-height: 1.5; }
-  .pax-button { flex: none; height: 44px; padding: 8px 20px; }
+  p { margin: 0 0 12px; color: var(--color-neutral-gray-6); font-size: 14px; line-height: 1.5; }
 }
 
-.status {
-  min-height: 20px;
-  margin: 8px 0;
-  color: var(--color-brand-pax-purple);
-  font-size: 14px;
-}
-
-.scroller {
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  border: 1px solid var(--color-neutral-gray-2);
-  border-radius: var(--radius-m);
-}
-
-.inhalt { position: relative; }
-
-.zeile {
-  display: flex;
-  border-top: 1px solid var(--color-neutral-gray-2);
-
-  &.achse-zeile { border-top: 0; }
-}
-
-/* Lane names stay visible while the years scroll. */
-.label {
-  position: sticky;
-  left: 0;
-  z-index: 3;
-  display: flex;
-  flex: 0 0 var(--label-breite);
+.hinzufuegen {
+  display: inline-flex;
   align-items: center;
-  justify-content: space-between;
-  box-sizing: border-box;
-  padding: 0 8px 0 12px;
-  background: var(--color-neutral-gray-1);
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.plus {
-  width: 28px;
-  height: 28px;
-  padding: 0;
+  gap: 6px;
+  padding: 8px 16px;
   border: 0;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: var(--color-brand-pax-green);
   color: var(--color-neutral-black);
   font: inherit;
-  font-size: 18px;
-  line-height: 1;
+  font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
 
   &:hover { background: var(--color-brand-contrast-green); }
-  &:focus-visible { outline: 2px solid var(--color-brand-pax-purple); outline-offset: 2px; }
 }
 
-.achse { display: flex; }
+button:focus-visible { outline: 2px solid var(--color-brand-pax-purple); outline-offset: 2px; }
 
-.jahr {
-  flex: none;
-  box-sizing: border-box;
-  padding: 8px 0;
-  border-left: 1px solid var(--color-neutral-gray-2);
-  color: var(--color-neutral-gray-6);
-  font-size: 13px;
-  text-align: center;
+.status { min-height: 20px; margin: 8px 0; color: var(--color-brand-pax-purple); font-size: 13px; }
 
-  &.heute { color: var(--color-brand-pax-purple); font-weight: 700; }
-}
-
-.spur {
-  position: relative;
-  flex: 1;
-  cursor: copy;
-  /* Year grid */
-  background-image: linear-gradient(to right, var(--color-neutral-gray-2) 1px, transparent 1px);
-  background-size: 72px 100%;
-  transition: background-color 150ms;
-
-  &.ziel { background-color: var(--color-system-success-light); }
-}
-
-.pension {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  border-left: 2px dashed var(--color-brand-pax-purple);
-  pointer-events: none;
-
-  span {
-    position: absolute;
-    right: 4px;
-    bottom: 2px;
-    color: var(--color-brand-pax-purple);
-    font-size: 11px;
-    white-space: nowrap;
-  }
-}
-
-.drop-ziel {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  background: rgba(140, 205, 15, 0.25);
-  pointer-events: none;
-}
-
-.chip {
-  position: absolute;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  box-sizing: border-box;
-  height: 40px;
-  padding: 0 10px 0 4px;
-  border: 1.5px solid var(--color-brand-pax-green);
-  border-radius: var(--radius-full);
-  background: var(--color-neutral-white);
-  color: var(--color-neutral-black);
-  font: inherit;
-  font-size: 14px;
-  text-align: left;
-  cursor: grab;
-  touch-action: none;
-  user-select: none;
-  /* Plans moved by the chat glide to their new place. */
-  transition: left 400ms cubic-bezier(0.4, 0, 0.2, 1), top 400ms cubic-bezier(0.4, 0, 0.2, 1), opacity 150ms;
-
-  &:hover { box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15); }
-  &:focus-visible { outline: 2px solid var(--color-brand-pax-purple); outline-offset: 2px; }
-  &.unsicher { border-style: dashed; }
-  &.gezogen { opacity: 0.3; }
-  &.wartet { animation: warten 1.2s ease-in-out infinite; }
-  &.neu { animation: auftauchen 600ms cubic-bezier(0.34, 1.56, 0.64, 1), leuchten 2.5s ease-out; }
-
-  .icon {
-    display: grid;
-    flex: none;
-    place-items: center;
-    width: 30px;
-    height: 30px;
-    border-radius: 50%;
-    background: var(--color-brand-pax-green);
-  }
-  svg { width: 18px; height: 18px; fill: none; stroke: var(--color-neutral-black); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-  .text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .notiz { flex: none; width: 14px; height: 14px; stroke: var(--color-brand-pax-purple); }
-}
-
-.ohne-datum {
+.fach {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-  min-height: 56px;
-  margin-top: 12px;
-  padding: 8px 12px;
+  margin-bottom: 16px;
+  padding: 10px 12px;
   border: 1.5px dashed var(--color-neutral-gray-3);
   border-radius: var(--radius-m);
-  transition: background-color 150ms, border-color 150ms;
+  transition: border-color 150ms, background-color 150ms;
 
   &.ziel { border-color: var(--color-brand-pax-green); background: var(--color-system-success-light); }
-  .titel { margin-right: 4px; font-size: 14px; font-weight: 500; }
+  .fach-titel { width: 100%; font-size: 13px; font-weight: 500; }
   .hinweis { color: var(--color-neutral-gray-5); font-size: 13px; }
-  .chip.im-fach { position: static; }
 }
 
-.chip.geist {
+/* The path: one row per year along a vertical line. */
+.jahre {
+  position: relative;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 14px;
+    bottom: 14px;
+    left: calc(var(--zeit-breite) + 19px);
+    width: 2px;
+    background: linear-gradient(var(--color-brand-pax-green), rgba(140, 205, 15, 0.25));
+  }
+}
+
+.jahr {
+  position: relative;
+  display: grid;
+  grid-template-columns: var(--zeit-breite) 16px 1fr;
+  align-items: start;
+  gap: 0 12px;
+  min-height: 30px;
+  border-radius: var(--radius-sm);
+  cursor: copy;
+  transition: background-color 150ms;
+
+  &.belegt { padding: 6px 0; }
+  &.ziel { background: var(--color-system-success-light); }
+  &:hover .plus { opacity: 1; }
+}
+
+.zeit {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  padding-top: 5px;
+  line-height: 1.2;
+
+  .zahl { color: var(--color-neutral-gray-5); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .alter { color: var(--color-neutral-gray-4); font-size: 11px; }
+  .heute & .zahl, .belegt & .zahl { color: var(--color-neutral-black); font-weight: 700; }
+}
+
+.punkt {
+  z-index: 1;
+  width: 6px;
+  height: 6px;
+  margin: 10px 0 0 5px;
+  border-radius: 50%;
+  background: rgba(140, 205, 15, 0.5);
+
+  .heute &, .belegt & { width: 14px; height: 14px; margin: 6px 0 0 1px; background: var(--color-brand-pax-green); box-shadow: 0 0 0 4px var(--color-neutral-white); }
+}
+
+.inhalt {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+}
+
+.plus {
+  padding: 5px 0;
+  color: var(--color-neutral-gray-5);
+  font-size: 13px;
+  opacity: 0;
+  transition: opacity 150ms;
+  pointer-events: none;
+
+  .belegt & { display: none; }
+}
+
+.pension { padding: 4px 0; color: var(--color-brand-pax-purple); font-size: 13px; font-weight: 500; }
+
+.plan {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 340px;
+  padding: 6px 12px 6px 6px;
+  border: 1.5px solid transparent;
+  border-radius: var(--radius-full);
+  background: var(--color-neutral-gray-1);
+  color: var(--color-neutral-black);
+  font: inherit;
+  text-align: left;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+
+  &:hover { border-color: var(--color-brand-pax-green); }
+  &.unsicher { border-style: dashed; border-color: var(--color-neutral-gray-4); background: var(--color-neutral-white); }
+  &.gezogen { opacity: 0.3; }
+  &.wartet { animation: warten 1.2s ease-in-out infinite; }
+  &.neu { animation: auftauchen 600ms cubic-bezier(0.34, 1.56, 0.64, 1), leuchten 2.5s ease-out; }
+
+  .icon { display: grid; flex: none; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: var(--color-brand-pax-green); }
+  svg { width: 18px; height: 18px; fill: none; stroke: var(--color-neutral-black); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .text { display: flex; flex: 1; flex-direction: column; min-width: 0; line-height: 1.25; }
+  .beschreibung { overflow: hidden; font-size: 14px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+  .fuer { color: var(--color-neutral-gray-6); font-size: 12px; }
+  .notiz { flex: none; width: 14px; height: 14px; stroke: var(--color-brand-pax-purple); }
+}
+
+.plan.geist {
   position: fixed;
   z-index: 1000;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  width: 260px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
   cursor: grabbing;
   pointer-events: none;
-  transition: none;
   transform: rotate(-2deg);
 
   .ziel-etikett {
@@ -204,33 +182,21 @@ header {
     left: 0;
     padding: 2px 8px;
     border-radius: var(--radius-sm);
-    background: var(--color-brand-pax-purple);
-    color: var(--color-neutral-white);
+    background: var(--color-brand-pax-green);
+    color: var(--color-neutral-black);
     font-size: 12px;
+    font-weight: 500;
     white-space: nowrap;
   }
 }
 
-@keyframes auftauchen {
-  from { transform: scale(0.3); opacity: 0; }
-}
-
+@keyframes auftauchen { from { transform: scale(0.4); opacity: 0; } }
 @keyframes leuchten {
-  0%, 60% { box-shadow: 0 0 0 6px rgba(140, 205, 15, 0.45); }
+  0%, 60% { box-shadow: 0 0 0 5px rgba(140, 205, 15, 0.55); }
   100% { box-shadow: 0 0 0 0 rgba(140, 205, 15, 0); }
 }
-
-@keyframes warten {
-  50% { opacity: 0.55; }
-}
-
-@media (max-width: 600px) {
-  :host { --label-breite: 112px; }
-  .label { font-size: 14px; }
-  .zeitstrahl { padding: 16px; }
-  header p { display: none; }
-}
+@keyframes warten { 50% { opacity: 0.55; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .chip { transition: none; animation: none !important; }
+  .plan { animation: none !important; }
 }

@@ -75,7 +75,7 @@ function modell(antwort = 'Ein Hauskauf 2031 in Baselland: Habt ihr schon Eigenk
       scopeTexte.push(request.messages.at(-1)!.content);
       return '{"allowed":true}';
     }
-    if (request.responseFormat) return '{"aenderungen":[]}';
+    if (request.responseFormat?.name === 'profil_aenderungen') return '{"aenderungen":[]}';
     anfragen.push(request);
     return antwort;
   } };

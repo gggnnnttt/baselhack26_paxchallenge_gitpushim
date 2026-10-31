@@ -86,6 +86,9 @@ export const Profil = z.object({
     beziehungSeitJahr: fakt(z.number().int()).optional(),
     hatKinder: fakt(z.boolean()).optional(),
     gemeinsamerHaushalt: fakt(z.boolean()).optional(),
+    // Savings, securities and private pension (pillar 3a/3b) in CHF, without pension fund and owner-occupied home.
+    // Not an input of APICalc; compared with the capitalised gap afterwards.
+    vermoegen: fakt(z.number().nonnegative()).optional(),
   }).strict(),
   personen: z.object({ A: Person, B: Person.optional() }).strict(),
   kinder: z.array(Kind).max(10),

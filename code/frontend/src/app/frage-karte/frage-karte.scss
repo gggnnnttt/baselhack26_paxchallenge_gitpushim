@@ -1,0 +1,72 @@
+/* Answers are what the customer does, so they are green. */
+.karte {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.optionen { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.option, .weiter {
+  min-height: 40px;
+  padding: 8px 16px;
+  border: 1.5px solid var(--color-brand-pax-green);
+  border-radius: var(--radius-full);
+  background: var(--color-neutral-white);
+  color: var(--color-neutral-black);
+  font: inherit;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background-color 150ms;
+
+  &:hover:not(:disabled), &.an { background: var(--color-system-success-light); }
+  &.an { box-shadow: inset 0 0 0 1px var(--color-brand-pax-green); font-weight: 500; }
+  &:focus-visible { outline: 2px solid var(--color-brand-pax-purple); outline-offset: 2px; }
+  &:disabled { cursor: not-allowed; opacity: 0.5; }
+}
+
+.weiter { border-color: transparent; background: var(--color-brand-pax-green); font-weight: 500; }
+.weiter:hover:not(:disabled) { background: var(--color-brand-contrast-green); }
+
+.zahl {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+
+  label { display: flex; align-items: center; gap: 8px; }
+  input[type='number'] {
+    width: 9em;
+    min-height: 40px;
+    box-sizing: border-box;
+    padding: 6px 12px;
+    border: 1.5px solid var(--color-neutral-gray-4);
+    border-radius: var(--radius-m);
+    font: inherit;
+
+    &:focus { border-color: var(--color-brand-pax-green); outline: none; }
+  }
+  input[type='range'] { width: min(260px, 60vw); accent-color: var(--color-brand-contrast-green); }
+  output { min-width: 4em; font-weight: 500; font-variant-numeric: tabular-nums; }
+}
+
+.einheit { color: var(--color-neutral-gray-6); font-size: 14px; }
+.hinweis { margin: 0; color: var(--color-neutral-gray-6); font-size: 14px; }
+
+.weiss-nicht {
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--color-neutral-gray-6);
+  font: inherit;
+  font-size: 14px;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+
+  &:hover:not(:disabled) { color: var(--color-neutral-black); }
+  &:focus-visible { outline: 2px solid var(--color-brand-pax-purple); outline-offset: 2px; }
+  &:disabled { cursor: not-allowed; opacity: 0.5; }
+}

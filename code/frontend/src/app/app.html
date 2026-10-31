@@ -29,10 +29,16 @@
   </ul>
 </ng-template>
 
-<main>
+<main [class.voll]="accepted() && gestartet()">
   @if (!accepted()) {
-    <section class="notice intro-notice">
-      <h2>Bevor du startest</h2>
+    <section class="notice intro-notice" aria-labelledby="intro-titel">
+      <div class="intro-kopf">
+        <app-pax-avatar class="intro-gesicht" state="still" />
+        <div>
+          <h2 id="intro-titel">Bevor du startest</h2>
+          <p>Pax ist ein Prototyp vom Hackathon. Kurz, was mit deinen Angaben passiert:</p>
+        </div>
+      </div>
       <ng-container [ngTemplateOutlet]="privacyNotice" />
       <div class="acceptance-field" [class.invalid]="acceptance.invalid && (acceptance.touched || acceptance.dirty)">
         <label class="pax-accept">
@@ -53,6 +59,35 @@
       </button>
     </section>
   } @else {
+    <div class="arbeitsplatz" [class.gestartet]="gestartet()">
+    <!-- Left: what Pax knows about you. The profile collapses to a narrow strip, the path through the years scrolls on its own. -->
+    @if (gestartet()) {
+      <aside class="profil-leiste" [class.offen]="profilOffen()">
+        <button class="leiste-schalter" type="button" (click)="profilUmschalten()" [attr.aria-expanded]="profilOffen()" aria-controls="profil-inhalt"
+          [attr.aria-label]="profilOffen() ? 'Was ich bisher verstanden habe einklappen' : 'Was ich bisher verstanden habe anzeigen'">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path [attr.d]="profilOffen() ? 'm15 18-6-6 6-6' : 'm9 18 6-6-6-6'" />
+          </svg>
+          @if (!profilOffen()) {
+            <span class="leiste-titel">Was ich verstanden habe</span>
+            @if (profilNeu()) {
+              <span class="neu-punkt" aria-label="Neue Angaben"></span>
+            }
+          }
+        </button>
+        @if (profilOffen()) {
+          <div class="leiste-inhalt" id="profil-inhalt">
+            <app-beratungsstand [stand]="stand()" [gesperrt]="loading()" (korrektur)="korrigieren($event)" (frage)="nachfragen($event)" />
+          </div>
+        }
+      </aside>
+
+      <section class="weg-spalte" data-scrollbereich aria-label="Dein Weg">
+        <app-zeitstrahl [stand]="stand()" [ausstehend]="ausstehend()" (aktion)="zeitstrahlAktion($event)" />
+      </section>
+    }
+
+    <!-- Right: the conversation, the widest column. -->
     <section class="gespraech" [class.gestartet]="gestartet()" aria-label="Gespräch mit Pax">
       <div class="buehne">
         <app-pax-avatar class="gesicht" [state]="avatarState()" />
@@ -66,7 +101,19 @@
             <strong>Pax</strong>
             <span role="status">{{ status() }}</span>
           </div>
-          <button class="chat-loeschen" type="button" (click)="deleteDialog.showModal()" [disabled]="loading()">Chat löschen</button>
+          @if (fortschritt(); as f) {
+            <button class="fortschritt" type="button" (click)="profilZeigen()" [class.fertig]="f.fertig"
+              [attr.aria-label]="f.text + '. Angaben anzeigen'">
+              <span class="fortschritt-text">{{ f.text }}</span>
+              <span class="fortschritt-balken" aria-hidden="true"><span [style.width.%]="f.anteil * 100"></span></span>
+            </button>
+          }
+          <button class="chat-loeschen" type="button" (click)="deleteDialog.showModal()" [disabled]="loading()" title="Chat löschen">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" />
+            </svg>
+            <span>Chat löschen</span>
+          </button>
         }
       </div>
 
@@ -76,13 +123,23 @@
             <div class="messages">
               <div class="bot-turn">
                 <app-pax-avatar class="message-avatar" state="still" />
-                <div class="message"><strong>Hallo, ich bin Pax!</strong> {{ begruessung }}</div>
+                <div class="message pax"><strong>Hallo, ich bin Pax!</strong> {{ begruessung }}</div>
               </div>
               @for (m of messages(); track $index) {
                 @if (m.role === 'assistant') {
                   <div class="bot-turn">
                     <app-pax-avatar class="message-avatar" [state]="$last && talking() ? 'talking' : 'still'" />
-                    <div class="message message-markdown" [innerHTML]="m.content | markdown"></div>
+                    <div class="message pax">
+                      @if (m.content) {
+                        <div class="message-markdown" [innerHTML]="m.content | markdown"></div>
+                      }
+                      @if (m.frage; as frage) {
+                        <p class="frage-text">{{ frage.text }}</p>
+                        @if ($last && !loading()) {
+                          <app-frage-karte [frage]="frage" [gesperrt]="loading()" (antwort)="beantworten($event)" />
+                        }
+                      }
+                    </div>
                   </div>
                 } @else if (m.role === 'ereignis') {
                   <div class="ereignis" role="note">
@@ -94,11 +151,14 @@
               @if (loading()) {
                 <div class="bot-turn">
                   <app-pax-avatar class="message-avatar" state="thinking" />
-                  <div class="message tippt" aria-label="Pax schreibt"><span></span><span></span><span></span></div>
+                  <div class="message pax tippt" aria-label="Pax schreibt"><span></span><span></span><span></span></div>
                 </div>
               }
               @if (error()) {
-                <div class="error" role="alert">{{ error() }}</div>
+                <div class="error" role="alert">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 3 2 20h20zM12 10v4M12 17v.5" /></svg>
+                  <span>{{ error() }}</span>
+                </div>
               }
             </div>
           </div>
@@ -108,19 +168,27 @@
           <div class="eingabe-feld">
             <textarea #eingabe class="pax-input" name="input" rows="1" [(ngModel)]="input" (keydown)="taste($event)" (input)="hoeheAnpassen()"
               (focus)="fokussiert.set(true)" (blur)="fokussiert.set(false)" aria-label="Nachricht an Pax" autocomplete="off"
-              [placeholder]="gestartet() ? 'Antworte Pax oder stell eine Frage …' : fokussiert() ? 'Erzähl mir von deiner Situation …' : ''"></textarea>
+              [placeholder]="gestartet() ? 'Antworte Pax …' : fokussiert() ? 'Erzähl mir von deiner Situation …' : ''"></textarea>
             <!-- On the start screen, example sentences type themselves while the input is empty. -->
             @if (!gestartet()) {
               <app-beispiel-text [aktiv]="!input && !fokussiert()" [class.aus]="!!input || fokussiert()" />
             }
+            <button class="senden" type="submit" [disabled]="loading() || !input.trim()" aria-label="Nachricht senden" title="Senden (Enter)">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+                <path d="M12 19V5" />
+                <path d="m5 12 7-7 7 7" />
+              </svg>
+            </button>
           </div>
-          <button class="pax-button pax-icon-button" type="submit" [disabled]="loading() || !input.trim()" aria-label="Nachricht senden" title="Nachricht senden">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
-              <path d="M5 12h14" />
-              <path d="m12 5 7 7-7 7" />
-            </svg>
-          </button>
         </form>
+        @if (!gestartet()) {
+          <!-- A click puts the situation in the input; the customer adds the details before sending. -->
+          <div class="einstiege" role="group" aria-label="Beispiele zum Einstieg">
+            @for (e of einstiege; track e) {
+              <button class="einstieg" type="button" (click)="vorschlagen(e + '. ')">{{ e }}</button>
+            }
+          </div>
+        }
       </div>
       <p class="datenschutz-zeile">
         Bitte nur erfundene Angaben verwenden.
@@ -130,14 +198,7 @@
         <p class="pax-dialog-result" role="status">{{ info() }}</p>
       }
     </section>
-
-    <!-- Appears once Pax has processed the first message. -->
-    @if (stand()) {
-      <div class="arbeitsbereich">
-        <app-zeitstrahl [stand]="stand()" [ausstehend]="ausstehend()" (aktion)="zeitstrahlAktion($event)" />
-        <app-beratungsstand [stand]="stand()" [gesperrt]="loading()" (korrektur)="korrigieren($event)" (frage)="nachfragen($event)" />
-      </div>
-    }
+    </div>
   }
 </main>
 

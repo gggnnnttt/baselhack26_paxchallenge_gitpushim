@@ -31,6 +31,8 @@ export interface Profil {
     beziehungSeitJahr?: Fakt<number>;
     hatKinder?: Fakt<boolean>;
     gemeinsamerHaushalt?: Fakt<boolean>;
+    // Savings, securities and pillar 3a/3b in CHF; not part of the APICalc request.
+    vermoegen?: Fakt<number>;
   };
   personen: { A: Person; B?: Person };
   kinder: {
@@ -76,6 +78,8 @@ export interface Beratungsstand {
   phase: 'erfassung' | 'bereit' | 'berechnung' | 'berechnet' | 'fehlgeschlagen';
   phaseText: string;
   profil: Profil;
+  // Needed for the advice but not for the calculation, e.g. assets.
+  offen: Angabe[];
   risiko: {
     vorhanden: Angabe[];
     fehlend: Angabe[];
