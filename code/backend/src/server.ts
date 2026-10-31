@@ -44,6 +44,16 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
+// Uses the same bearer-like session ownership and concurrency guard as the chat.
+app.post('/api/szenario', async (req, res) => {
+  try { res.json(await chat.vergleicheSzenario(req.body)); }
+  catch (error) { res.status(error instanceof GuardrailError ? error.status : 500).json({ error: error instanceof GuardrailError ? error.message : 'Szenarioberechnung nicht verfügbar.' }); }
+});
+app.post('/api/szenario/uebernehmen', (req, res) => {
+  try { res.json(chat.uebernehmeSzenario(req.body)); }
+  catch (error) { res.status(error instanceof GuardrailError ? error.status : 500).json({ error: error instanceof GuardrailError ? error.message : 'Szenario konnte nicht übernommen werden.' }); }
+});
+
 app.delete('/api/chat', (req, res) => {
   try {
     chat.deleteSession(req.body);

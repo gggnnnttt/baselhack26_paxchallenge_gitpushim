@@ -101,6 +101,7 @@ export const Profil = z.object({
     bedarfPensionierung: fakt(Bedarf).optional(),
     vermoegenPensionierung: fakt(z.number().nonnegative()).optional(),
     pensionierungBasisBestaetigt: fakt(z.boolean()).optional(),
+    budgetPensionierungMonat: fakt(z.number().nonnegative().max(1_000_000)).optional(),
   }).strict(),
   personen: z.object({ A: Person, B: Person.optional() }).strict(),
   kinder: z.array(Kind).max(10),

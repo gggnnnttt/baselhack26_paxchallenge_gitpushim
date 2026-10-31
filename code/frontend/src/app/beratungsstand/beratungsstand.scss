@@ -124,3 +124,33 @@ pre {
   background: #f4f4f4;
   padding: 0.5rem;
 }
+
+.handlungsplan {
+  h3 { font-size: 1.15rem; color: #3c0078; margin-top: 0; }
+}
+.handlungskarte {
+  margin: 0.8rem 0;
+  padding: 1rem;
+  border: 1px solid #d9d0e5;
+  border-left: 4px solid #8ccd0f;
+  border-radius: 10px;
+  background: #fff;
+  &.klaerung { border-left-color: #3c0078; }
+  h4 { font-size: 1rem; margin-top: 0.3rem; }
+  .karten-reihenfolge { margin: 0; color: #655374; font-size: 0.8rem; }
+  button {
+    display: block; margin: 0.6rem 0; padding: 0.6rem 0.9rem;
+    border: 0; border-radius: 18px; background: #3c0078; color: #fff;
+    font: inherit; cursor: pointer;
+    &:disabled { opacity: 0.5; cursor: wait; }
+    &:focus-visible { outline: 2px solid #5ca700; outline-offset: 3px; }
+  }
+}
+.berechnungsdetails { margin-top: 1rem; }
+
+.produktzuordnung {
+  margin-top: 1.5rem;
+  h3 { color: #3c0078; font-size: 1.05rem; }
+}
+.produktkarte { background: #f8f5fc; border-left-color: #3c0078; }
+.handlungskarte a { color: #3c0078; text-underline-offset: 3px; }

@@ -6,6 +6,7 @@ export const FELDER = [
   'anliegen', 'beziehung', 'beziehung_seit_jahr', 'hat_kinder', 'gemeinsamer_haushalt',
   'geschlecht', 'geburtsjahr', 'erwerb', 'pensum', 'einkommen', 'bvg_versichert', 'bedarf_invaliditaet', 'bedarf_todesfall',
   'pensionierungsalter', 'pk_altersrente', 'pk_guthaben', 'bedarf_pensionierung', 'vermoegen_pensionierung', 'pensionierung_basis_bestaetigt',
+  'budget_pensionierung_monat',
   'private_eu_vorhanden', 'private_eu_rente', 'private_eu_deckung', 'private_eu_wartefrist_monate',
   'private_eu_endalter', 'private_eu_zusaetzlich', 'private_eu_mehrere_vertraege',
   'kind', 'kind_geburtsjahr', 'kind_elternteil', 'kind_alleiniges_sorgerecht',
@@ -276,6 +277,18 @@ function wende(profil: Profil, a: Aenderung, herkunft: Herkunft, neueIds: Map<st
       if (setzen) profil.haushalt.pensionierungBasisBestaetigt = fakt(janein(a, 'Basisannahmen bestätigen'));
       else delete profil.haushalt.pensionierungBasisBestaetigt;
       return;
+    case 'budget_pensionierung_monat': {
+      if (!setzen) {
+        delete profil.haushalt.budgetPensionierungMonat;
+        return;
+      }
+      if (a.person !== null) return ablehnen('Das zusätzliche Pensionierungsbudget gilt für den Haushalt, nicht nur eine Person.');
+      if (a.einheit !== 'chf_monat' && a.einheit !== 'chf_jahr') return ablehnen('Budget braucht einen zusätzlichen verfügbaren Betrag in CHF pro Monat oder Jahr.');
+      const betrag = a.zahl === null ? null : a.zahl / (a.einheit === 'chf_jahr' ? 12 : 1);
+      if (betrag === null || !Number.isFinite(betrag) || betrag < 0 || betrag > 1_000_000) return ablehnen('Monatsbudget muss zwischen CHF 0 und CHF 1’000’000 liegen.');
+      profil.haushalt.budgetPensionierungMonat = fakt(Math.round(betrag * 100) / 100);
+      return;
+    }
     case 'kind': {
       if (setzen && istNeu(a.ziel) && !neueIds.has(a.ziel!)) {
         if (profil.kinder.length >= 10) ablehnen('Es sind bereits 10 Kinder erfasst.');

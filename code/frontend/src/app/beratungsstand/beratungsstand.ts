@@ -1,4 +1,4 @@
-import { Component, computed, input } from '@angular/core';
+import { Component, computed, input, output } from '@angular/core';
 import { JsonPipe, NgTemplateOutlet } from '@angular/common';
 import type { Bedarf, Beratungsstand, Einkommen, Fakt, Herkunft, Person } from './beratungsstand.model';
 
@@ -45,6 +45,12 @@ function personZeilen(person: Person): Zeile[] {
 })
 export class BeratungsstandPanel {
   readonly stand = input<Beratungsstand | null>(null);
+  readonly disabled = input(false);
+  readonly aktion = output<string>();
+
+  protected hatHandlung(id: string): boolean {
+    return this.stand()?.handlungsplan.karten.some(k => k.id === id) ?? false;
+  }
 
   protected readonly chf = chf;
   protected readonly sparbetrag = (wert: number) => `CHF ${wert.toLocaleString('de-CH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -59,6 +65,7 @@ export class BeratungsstandPanel {
       ...zeile('Gemeinsamer Haushalt', h.gemeinsamerHaushalt, w => (w ? 'ja' : 'nein')),
       ...zeile('Bedarf im Ruhestand', h.bedarfPensionierung, bedarf),
       ...zeile('Privates Vorsorgevermögen', h.vermoegenPensionierung, chf),
+      ...zeile('Zusätzliches Monatsbudget Pensionierung', h.budgetPensionierungMonat, w => `${chf(w)} / Monat (Selbstauskunft)`),
       ...zeile('Basisannahmen bestätigt', h.pensionierungBasisBestaetigt, w => w ? 'ja' : 'nein'),
     ];
   });

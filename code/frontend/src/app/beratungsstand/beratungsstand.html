@@ -15,6 +15,79 @@
     <p class="leer">Noch nichts erfasst. Erzähl im Chat von deiner Situation.</p>
   } @else {
     @let s = stand()!;
+    <section class="handlungsplan" aria-labelledby="handlungsplan-titel">
+      <h3 id="handlungsplan-titel">Dein nächster Schritt</h3>
+      <p>{{ s.handlungsplan.hinweis }}</p>
+      @if (!s.handlungsplan.karten.length) {
+        <p>Aktuell ist kein zusätzlicher Handlungsschritt aus den vorhandenen Angaben ableitbar. Das ist keine vollständige Vorsorgeprüfung.</p>
+      }
+      @for (k of s.handlungsplan.karten; track k.id) {
+        <article class="handlungskarte" [id]="'handlung-' + k.id" [class.klaerung]="k.prioritaet === 1">
+          <p class="karten-reihenfolge">Schritt {{ k.reihenfolge }} · {{ k.prioritaet === 1 ? 'Zuerst klären' : k.prioritaet === 2 ? 'Danach planen' : 'Anschließend prüfen' }}</p>
+          <h4>{{ k.titel }}</h4>
+          <p>{{ k.begruendung }}</p>
+          <details>
+            <summary>Warum dieser Schritt?</summary>
+            <p><strong>Datengrundlage</strong></p>
+            <ul>@for (d of k.datengrundlage; track $index) { <li><strong>{{ d.quelle }}:</strong> {{ d.details }}</li> }</ul>
+            <p><strong>Offene Fragen</strong></p>
+            <ul>@for (f of k.offeneFragen; track f) { <li>{{ f }}</li> }</ul>
+          </details>
+          @for (f of s.produktzuordnung.faelle; track f.id) {
+            @if (f.handlungId === k.id && f.status === 'pruefkandidat' && f.produkt) {
+              <p><a [href]="'#produkt-' + f.id">Mögliche Pax-Lösung zu diesem Bedarf ansehen</a></p>
+            }
+          }
+          <p><strong>Nächster Schritt:</strong> {{ k.naechsterSchritt }}</p>
+          <button type="button" [disabled]="disabled()" (click)="aktion.emit(k.aktion.nachricht)">{{ k.aktion.label }}</button>
+          <small>Bereitet eine Nachricht vor. Du prüfst und sendest sie selbst.</small>
+        </article>
+      }
+    </section>
+    @if (s.produktzuordnung.faelle.length) {
+      <section class="produktzuordnung" aria-labelledby="produktzuordnung-titel">
+        <h3 id="produktzuordnung-titel">Vom Bedarf zur möglichen Lösung</h3>
+        <p>{{ s.produktzuordnung.statusText }}</p>
+        @for (f of s.produktzuordnung.faelle; track f.id) {
+          @if (f.status === 'pruefkandidat' && f.produkt; as produkt) {
+            <article class="handlungskarte produktkarte" [id]="'produkt-' + f.id">
+              <p class="karten-reihenfolge">Prüfkandidat · {{ f.szenario }}</p>
+              <h4>{{ produkt.name }} näher prüfen</h4>
+              <p><strong>Warum angezeigt?</strong> {{ f.begruendung }}</p>
+              <p>{{ produkt.beschreibung }}</p>
+              <p><strong>Zeitliche Grenze:</strong> {{ f.geltungsbereich }}</p>
+              <p><strong>Noch keine Offerte:</strong> Rentenhöhe, Prämie, Annahme und passende neue Vertragsbedingungen sind offen.</p>
+              <details>
+                <summary>Datengrundlage und offene Prüfungen</summary>
+                <ul>@for (d of f.datengrundlage; track $index) { <li><strong>{{ d.quelle }}:</strong> {{ d.details }}</li> }</ul>
+                <p><strong>Noch zu prüfen:</strong></p>
+                <ul>@for (frage of f.offenePruefungen; track frage) { <li>{{ frage }}</li> }</ul>
+                <p>Zuordnungsregel: {{ f.regelId }}</p>
+                <p><a [href]="produkt.quelle" target="_blank" rel="noopener noreferrer">Öffentliche Pax-Produktinformation</a> · Quellenstand {{ produkt.quellenstand }}</p>
+                <p>{{ produkt.fachlicheFreigabe }}</p>
+              </details>
+              <p><strong>Nächster Schritt:</strong> {{ f.naechsterSchritt }}</p>
+              @if (hatHandlung(f.handlungId)) { <p><a [href]="'#handlung-' + f.handlungId">Zugehörigen Handlungsschritt ansehen</a></p> }
+              <button type="button" [disabled]="disabled()" (click)="aktion.emit(f.aktion.nachricht)">{{ f.aktion.label }}</button>
+              <small>Bereitet nur eine Nachricht vor. Keine Buchung, Antragstellung oder Kontaktaufnahme.</small>
+            </article>
+          } @else {
+            <details class="produkt-klaerung">
+              <summary>{{ f.szenario }} · {{ f.status === 'kein_zusaetzlicher_bedarf' ? 'Kein zusätzlicher Prüfkandidat' : 'Zuerst klären' }}</summary>
+              <p>{{ f.begruendung }}</p>
+              <p>{{ f.geltungsbereich }}</p>
+              <ul>@for (frage of f.offenePruefungen; track frage) { <li>{{ frage }}</li> }</ul>
+              <p>{{ f.naechsterSchritt }}</p>
+            </details>
+          }
+        }
+        <details><summary>Grenzen der Produktzuordnung</summary>
+          <ul>@for (h of s.produktzuordnung.hinweise; track h) { <li>{{ h }}</li> }</ul>
+        </details>
+      </section>
+    }
+    <details class="berechnungsdetails">
+      <summary>Profil und Berechnungen im Detail</summary>
     <p class="phase" [class]="'phase ' + s.phase">{{ s.phaseText }}</p>
 
     @if (s.profil.anliegen.length) {
@@ -239,7 +312,7 @@
           über näherungsweise {{ spar.dauerJahre }} Jahre bei 0 % Verzinsung.</p>
         <p>Vorhandenes Vermögen ist bereits berücksichtigt. Zusätzliches Startkapital: CHF 0.</p>
         <p>Endkapital laut Sparrechner: {{ betrag(e.endkapital) }}. Die API-Rundung der Monatsrate kann zu einem etwas höheren Betrag als dem Sparziel führen.</p>
-        <p><strong>Tragbarkeit noch nicht geprüft:</strong> Der Betrag muss anschließend mit eurem Haushaltsbudget abgeglichen werden.</p>
+        <p>Der folgende Budgetabgleich verwendet deine Selbstauskunft. Eine umfassende Tragfähigkeitsprüfung ist damit nicht erfolgt.</p>
         <p>Ergebnis vom {{ e.zeitpunkt.slice(0, 16).replace('T', ' ') }}. Dies ist ein zusätzliches Szenario;
           die Pensionierungs-Basisrechnung oben enthält weiterhin keine weiteren Sparbeiträge.</p>
       }
@@ -250,6 +323,31 @@
       @if (spar.request) {
         <details><summary>Berechnungsgrundlage</summary><pre>{{ spar.request | json }}</pre></details>
       }
+    </section>
+
+    <section>
+      <h3>Budgetabgleich · Selbstauskunft</h3>
+      @let b = s.budget;
+      <p [class]="'phase ' + (b.status === 'ausreichend' ? 'berechnet' : b.status === 'unterdeckung' ? 'fehlgeschlagen' : '')">{{ b.statusText }}</p>
+      @if (b.status === 'offen') {
+        <p>Wie viel kannst du nach laufenden Ausgaben, bestehenden Sparverpflichtungen und einer Reserve
+          zusätzlich für die Pensionierung pro Monat zurücklegen? Eine Schätzung reicht; antworte im Chat.</p>
+      }
+      @if (b.status === 'ausreichend' || b.status === 'unterdeckung') {
+        <dl>
+          <dt>Rechnerischer Sparbedarf</dt><dd>{{ sparbetrag(b.sparbedarfMonat!) }} / Monat</dd>
+          <dt>Zusätzlich verfügbares Budget</dt><dd>{{ sparbetrag(b.verfuegbarMonat!) }} / Monat</dd>
+          <dt>Fehlbetrag</dt><dd>{{ sparbetrag(b.fehlbetragMonat!) }} / Monat</dd>
+          <dt>Verbleibendes angegebenes Budget</dt><dd>{{ sparbetrag(b.restbudgetMonat!) }} / Monat</dd>
+        </dl>
+        @if (b.status === 'unterdeckung') {
+          <p>Als nächsten Schritt können wir ein anderes Pensionierungsalter oder ein angepasstes Zielbudget im Ruhestand vergleichen.</p>
+        }
+      }
+      <p>Dies ist ein erster Abgleich anhand deiner Angaben, keine umfassende Tragfähigkeitsprüfung.</p>
+      <details><summary>Annahmen des Budgetabgleichs</summary>
+        <ul class="hinweise">@for (h of b.hinweise; track h) { <li>{{ h }}</li> }</ul>
+      </details>
     </section>
 
     @if (s.letzteNachricht.uebernommen.length || s.letzteNachricht.abgelehnt.length) {
@@ -265,5 +363,6 @@
         </ul>
       </details>
     }
+    </details>
   }
 </aside>

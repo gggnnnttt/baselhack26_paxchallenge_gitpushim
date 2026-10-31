@@ -1,0 +1,23 @@
+:host { display: block; min-width: 0; }
+.szenario { padding: 1.2rem; margin-bottom: 1.5rem; border: 1px solid #d9cce8; border-radius: 16px; background: #faf7fd; color: #221433; }
+h2 { margin: .3rem 0 .7rem; font-size: 1.3rem; } h3 { font-size: 1.1rem; margin-top: 1.5rem; }
+p { line-height: 1.45; } .eyebrow { color: #5b2387; font-size: .8rem; font-weight: 700; margin: 0; }
+label { display: block; font-weight: 600; margin-bottom: .6rem; }
+.eingabe { display: flex; flex-wrap: wrap; gap: .6rem; }
+input { box-sizing: border-box; width: 100%; max-width: 12rem; padding: .65rem; border: 1px solid #9e8caf; border-radius: 6px; font: inherit; }
+button { padding: .65rem .9rem; border: 1px solid #3c0078; border-radius: 18px; background: #3c0078; color: white; font: inherit; cursor: pointer; }
+button:disabled { opacity: .5; cursor: wait; } button.sekundaer { background: white; color: #3c0078; }
+button:focus-visible, input:focus-visible, .tabelle:focus-visible { outline: 3px solid #78a917; outline-offset: 3px; }
+.muted, .budget-text { color: #5e5466; font-size: .85rem; }
+.balkenkarte { padding: .8rem 0; border-bottom: 1px solid #e1d9e7; }
+.balken-titel { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .4rem; font-size: .9rem; }
+.balkenkarte p { margin: .55rem 0; }
+.balken { position: relative; height: 18px; background: #e6deec; border-radius: 5px; margin: 1rem 0; }
+.fuellung { background: #652a92; height: 100%; border-radius: 5px; min-width: 0; }
+.budget-marke { position: absolute; top: -7px; bottom: -7px; border-left: 3px dashed #234519; }
+.ergebnis { font-size: .9rem; font-weight: 600; } .unterdeckung, .fehler { color: #9a3012; }
+.tabelle { overflow-x: auto; margin: 1rem 0; } table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+caption { text-align: left; font-weight: 600; margin: .5rem 0; }
+th, td { padding: .65rem .35rem; border-bottom: 1px solid #ded6e6; text-align: right; } th:first-child { text-align: left; } td { white-space: nowrap; }
+.konsequenz { font-weight: 600; } summary { cursor: pointer; } li { margin-bottom: .5rem; font-size: .85rem; }
+.aktionen { display: flex; flex-wrap: wrap; gap: .6rem; margin-top: 1rem; }

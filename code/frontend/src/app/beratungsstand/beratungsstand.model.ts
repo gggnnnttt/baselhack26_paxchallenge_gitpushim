@@ -55,6 +55,7 @@ export interface Profil {
     bedarfPensionierung?: Fakt<Bedarf>;
     vermoegenPensionierung?: Fakt<number>;
     pensionierungBasisBestaetigt?: Fakt<boolean>;
+    budgetPensionierungMonat?: Fakt<number>;
   };
   personen: { A: Person; B?: Person };
   kinder: {
@@ -95,6 +96,28 @@ export interface Szenario {
 
 export interface Protokolleintrag { feld: string; text: string; grund?: string }
 
+export interface Handlungskarte {
+  id: string; reihenfolge: number; prioritaet: 1 | 2 | 3;
+  kategorie: 'grundlagen' | 'klaerung' | 'planung' | 'naechster_schritt';
+  titel: string; begruendung: string;
+  datengrundlage: { quelle: string; details: string }[];
+  offeneFragen: string[]; naechsterSchritt: string;
+  aktion: { label: string; nachricht: string };
+}
+
+export interface ProduktFall {
+  id: string; regelId: string;
+  status: 'pruefkandidat' | 'abklaerung' | 'kein_zusaetzlicher_bedarf' | 'nicht_bereit';
+  person: 'A' | 'B'; ursache: 'krankheit' | 'unfall'; szenario: string;
+  produkt: { id: string; name: string; bedarfsart: string; beschreibung: string; quelle: string; quellenstand: string; fachlicheFreigabe: string } | null;
+  handlungId: string; begruendung: string;
+  datengrundlage: { quelle: string; details: string }[];
+  urspruenglicheLueckeProJahr: number | null; restlueckeProJahr: number | null;
+  bestehendeWartefristMonate: number | null; bestehendeLeistungBisAlter: number | null;
+  geltungsbereich: string; offenePruefungen: string[]; naechsterSchritt: string;
+  aktion: { label: string; nachricht: string };
+}
+
 export interface Beratungsstand {
   phase: 'erfassung' | 'bereit' | 'berechnung' | 'berechnet' | 'fehlgeschlagen';
   phaseText: string;
@@ -124,5 +147,12 @@ export interface Beratungsstand {
     request: unknown;
     ergebnis: { zeitpunkt: string; monatlicherSparbetrag: number; einzahlungen: number; endkapital: number } | null;
   };
+  budget: {
+    status: 'wartet' | 'offen' | 'ausreichend' | 'unterdeckung' | 'kein_bedarf';
+    statusText: string; sparbedarfMonat: number | null; verfuegbarMonat: number | null;
+    fehlbetragMonat: number | null; restbudgetMonat: number | null; hinweise: string[];
+  };
+  handlungsplan: { hinweis: string; karten: Handlungskarte[] };
+  produktzuordnung: { statusText: string; hinweise: string[]; faelle: ProduktFall[] };
   letzteNachricht: { uebernommen: Protokolleintrag[]; abgelehnt: Protokolleintrag[] };
 }

@@ -17,6 +17,10 @@
       Für die Pensionierungs-Basisrechnung gehen zusätzlich gewünschtes Pensionierungsalter, PK-Rente,
       PK-Guthaben, privates Vorsorgevermögen und gewünschter Bedarf an APICalc. Die Berechnung verwendet
       nach deiner Bestätigung keine weiteren Sparbeiträge, 0 % Zins und einen Planungshorizont bis Alter 88.
+      Dein zusätzlich verfügbares Pensionierungsbudget wird als Selbstauskunft im Profil und mit dem KI-Anbieter verarbeitet,
+      für den Budgetabgleich aber nicht an APICalc gesendet.
+      Bei einem ausdrücklich angeforderten Szenariovergleich werden dieselben Berechnungen mit einem alternativen Jahresbedarf ausgeführt.
+      Die Alternative wird erst mit „Dieses Ziel übernehmen“ im Profil und Gespräch übernommen.
       Bei einer Kapitallücke wird daraus zusätzlich ein Sparszenario mit Zielkapital, Spardauer,
       monatlicher Einzahlung, Startkapital CHF 0 und 0 % Zins an APICalc gesendet.
     </span></li>
@@ -96,7 +100,11 @@
           <button type="submit" [disabled]="loading()">Senden</button>
         </form>
       </div>
-      <app-beratungsstand [stand]="stand()" />
+      <div class="beratung">
+        <app-szenario [stand]="stand()" [vergleich]="vergleich()" [disabled]="loading()" [busy]="szenarioBusy()" [fehler]="szenarioFehler()"
+          (berechnen)="berechneSzenario($event)" (uebernehmen)="uebernehmeSzenario()" (verwerfen)="verwerfeSzenario()" />
+      <app-beratungsstand [stand]="stand()" [disabled]="loading()" (aktion)="bereiteAktionVor($event)" />
+      </div>
     </div>
   }
 </main>

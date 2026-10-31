@@ -176,3 +176,104 @@ Erwartung: Person A erhält eine deklarierte private Jahresrente CHF 12’000. F
 API-Verhalten im privaten EU-Vergleich: Die echte Risiko-API liefert im geprüften synthetischen Fall ErrorCode 0 für erfolgreiche Szenarien, während Swagger v1.2 dafür 1 nennt. Der Vergleich akzeptiert 0 und 1 mit einer gültigen nichtnegativen Einkommenslücke; andere oder fehlende Codes werden nicht angerechnet. Ein Regressionstest deckt diese Abweichung ab.
 
 Der vollständige Chat-Service wurde nach dieser Korrektur mit echter KI und APICalc anhand eines synthetischen ledigen Mannes (1990, CHF 100’000 Bruttojahreseinkommen, Risiko-Bedarf 80 %/70 %) erfolgreich geprüft. Die nachträglich erfasste private Rente CHF 1’000/Monat, Krankheit und Unfall, sechs Monate Wartefrist bis Alter 65 wurde ohne abgelehnte Profiländerungen übernommen. Krankheit: API-Lücke CHF 30’724/Jahr, private Jahresrente CHF 12’000, modellierte Restlücke CHF 18’724/Jahr ab Leistungsbeginn. Unfall: API-Lücke bereits null, keine negative Restlücke. Testsitzung anschließend gelöscht.
+
+## Kleiner Budgetabgleich nach dem Sparbedarf
+
+`src/berechnung/budget.ts` vergleicht den aktuellen zusätzlichen monatlichen Sparbedarf mit einer Selbstauskunft zum zusätzlich verfügbaren Haushaltsbudget für die Pensionierung. Keine neue API-Anfrage. Der Vergleich wird in `darstellung.ts` für Frontend und Modellkontext jedes Mal frisch abgeleitet.
+
+Neues Haushaltsfeld `budgetPensionierungMonat` mit den üblichen Herkunftsdaten. `profil.ts` definiert den Wert, `aenderungen.ts` validiert Beleg und Monat/Jahr-Einheit (Jahresbudget geteilt durch 12, Rundung auf Rappen); negative Werte, Prozentangaben und eine Zuordnung nur zu Person A/B werden abgelehnt. Ausdrückliches CHF 0 ist gültig. `extraktion.ts` beschreibt die Zweckbindung: zusätzlich nach laufenden Ausgaben, vorhandenen Sparverpflichtungen und einer Reserve. Einkommen, Kapital und bereits gebundene Sparbeiträge dürfen nicht als freies Budget übernommen werden. Unsicherheit/Widerruf entfernt den Wert.
+
+Zustände:
+
+- `wartet`: kein aktueller Sparbetrag, kein gültiger Budgetvergleich und keine Budgetfrage erzwingen.
+- `offen`: Sparbetrag bekannt, Budget fehlt; gezielte Rückfrage im Chat.
+- `ausreichend`: Sparbedarf liegt innerhalb des angegebenen Budgets. Keine umfassende Tragfähigkeitsprüfung.
+- `unterdeckung`: Differenz als monatlichen Fehlbetrag anzeigen, Szenariovergleich anbieten, keine Annahmen automatisch ändern.
+- `kein_bedarf`: keine Kapitallücke für dieses Modellziel, daraus keine allgemeine Entwarnung ableiten.
+
+Beispiel: Sparbedarf CHF 335, Budget CHF 250 → Fehlbetrag CHF 85/Monat. Budget CHF 400 → verbleibendes angegebenes Monatsbudget CHF 65. Budget CHF 335 → exakte Deckung. Fehlendes Budget ist nicht null. Der Vergleich arbeitet in Rappen und verändert weder die ursprüngliche Pensionierungsrechnung noch Vermögen, angenommene Sparbeiträge oder den API-Sparbetrag.
+
+Die UI zeigt einen eigenen Abschnitt „Budgetabgleich · Selbstauskunft“ und das Budget im Haushaltsprofil. Der Berater fragt bei unbekanntem Budget nach einem aktuellen Sparergebnis nach dem zusätzlichen Monatsbetrag. Bei bekanntem Budget fragt er nicht erneut. Das ist kein vollständiges Haushaltsbuch und keine Produkt-Eignungsprüfung.
+
+Test: Nach dem synthetischen Pensionierungsfall mit CHF 70’000 Jahresbedarf erscheint die Budgetfrage. Antworten:
+
+> Nach meinen laufenden Ausgaben, bestehenden Sparverpflichtungen und einer Reserve kann ich zusätzlich CHF 250 pro Monat für die Pensionierung zurücklegen.
+
+Erwartung: CHF 335 Sparbedarf, CHF 250 Budget, CHF 85 Fehlbetrag. Danach „Korrektur: Zusätzlich verfügbar sind CHF 400 im Monat für die Pensionierung“ → innerhalb des angegebenen Budgets, CHF 65 verbleiben. Danach „Ich bin mir nicht mehr sicher, wie viel zusätzlich verfügbar ist“ → kein gültiger Vergleich mehr. Für reine Budgetkorrekturen wird weder Pensionierungs- noch Spar-API erneut aufgerufen.
+
+`test/budget.test.ts` prüft Betrag/equal/Unterdeckung, CHF 0, unbekannte Angaben, veralteten Sparstand, Rappen, Jahresumrechnung, ungültige Eingaben und den Chat-Datenweg samt Korrektur, Widerruf und dem Fall ohne Kapitallücke. 57 lokale Tests und Backend-Typecheck erfolgreich.
+
+Der vollständige Chat-Service wurde mit echter KI und APICalc anhand des synthetischen CHF-70’000-Pensionierungsfalls erfolgreich geprüft. Nach dem Sparergebnis CHF 335/Monat fragte die KI nach dem zusätzlichen Monatsbudget. Die Antwort CHF 250/Monat wurde ohne abgelehnte Änderungen übernommen, das Backend wies CHF 85/Monat Unterdeckung aus, und die KI bot einen Szenariovergleich an. Testsitzung anschließend gelöscht. Frontend-Produktionsbuild erfolgreich.
+
+## Regelbasierter Handlungsplan
+
+`src/beratung/handlungsplan.ts` erzeugt aus dem aktuellen Beratungsstand strukturierte Karten mit stabiler Regel-ID, Reihenfolge, Priorität, Kategorie, Begründung, Datengrundlage, offenen Fragen, nächstem Schritt und einem Nachrichtenvorschlag. Die Funktion ist deterministisch und verändert weder Profil noch Ergebnisse. Keine weitere KI-/API-Anfrage nötig. Die Karten werden bei jeder akzeptierten Antwort neu abgeleitet und nicht als erledigte externe Vorgänge gespeichert.
+
+Prioritäten sind Abhängigkeiten im Beratungsablauf: 1 = Grundlagen und Unklarheiten klären, 2 = Lücken/Ziele planen, 3 = nächste Schritte prüfen. Innerhalb einer Gruppe gilt eine feste stabile Sortierung nach Regel-ID. Es ist keine allgemeine finanzielle Dringlichkeitsbewertung. Unabhängige Risiko- und Pensionierungszweige bleiben bearbeitbar.
+
+Regeln unter anderem: fehlende PK-Alterswerte, fehlende Risiko-/Pensionierungsgrundlagen, nicht verfügbare Berechnung, ungeklärte private EU-Rente, noch unbekannte bestehende EU-Absicherung bei positiver API-Lücke, abgegrenzt verbleibende EU-Lücke, ungeprüfte Hinterbliebenensituation, fehlende Budget-Selbstauskunft, Unterdeckung des Sparbedarfs, nächster Sparweg bei ausreichendem Budget und Prüfung der Basisannahmen ohne Kapitallücke. Keine Produktauswahl, Prämie oder Vertragsaktion wird vorgetäuscht.
+
+`darstellung.ts` liefert denselben Plan an Frontend und Modellkontext. Die KI soll die gelieferten Karten erklären, nicht Prioritäten erfinden. Der bestehende Chat-Commit bleibt die Grenze: blockierte Antworten übernehmen keine neuen Angaben oder Karten.
+
+Im Frontend steht „Dein nächster Schritt“ oben im Beratungspanel; Profil und Berechnungen sind darunter aufklappbar. Jede Karte bietet „Warum dieser Schritt?“ mit Datenbasis und offenen Fragen. Ein Kartenbutton übergibt über ein Angular-Output einen Nachrichtenvorschlag an die App. Die App füllt nur das Eingabefeld; erst der Nutzer sendet. Während einer laufenden Antwort sind Buttons deaktiviert. Es werden keine Versicherer angeschrieben, Szenarien automatisch geändert oder Übergaben ausgeführt.
+
+`test/handlungsplan.test.ts` prüft leeres Profil, PK-Lücken, unveränderte Quellen, deterministische Reihenfolge, Budgetkorrekturen/Widerruf, Vertragsklärung vor Planung, begrenzte EU-Restlücken, veraltete Werte, API-Ausfall und identische Karten im Modell- und Frontend-Stand. 64 lokale Tests und Backend-Typecheck erfolgreich.
+
+### Demo für einen dreiminütigen Pitch
+
+Vorher den synthetischen Einpersonen-Pensionierungsfall (1990, CHF 100’000 Einkommen, Alter 65, PK-Rente CHF 30’000/Jahr, PK-Guthaben CHF 120’000, privates Kapital CHF 50’000, Ruhestandsbedarf CHF 70’000, bestätigte Basisannahmen) mit zusätzlich verfügbarem Budget CHF 250/Monat in einer eigenen Testsitzung vorbereiten. Keine langen Eingaben oder vollständigen Rechenlisten live vorlesen. Der vorbereitete Chat ist eine reale berechnete Demo mit erfundenen Daten.
+
+- 0:00–0:25: Problem und Kunde: „Ich weiß nicht, ob meine Pensionierungspläne und mein Budget zusammenpassen.“
+- 0:25–1:00: Ergebnis kurz zeigen: Kapitallücke CHF 116’530, Sparbedarf CHF 335/Monat, Budget CHF 250. Keine Produktwerbung.
+- 1:00–1:40: Karte „Pensionierungsziel und Budget abstimmen“ zeigen. „Warum dieser Schritt?“ öffnen: Differenz CHF 85, Datenquellen, offene Entscheidung. Satz: „Aus einer Zahl wird ein begründeter nächster Schritt.“
+- 1:40–2:10: „Szenarien vergleichen“ klicken. Zeigen, dass nur eine prüfbare Nachricht vorbereitet wird. Für eine kurze vorab geprobte Live-Änderung den Vorschlag ersetzen durch: „Korrektur: Für die Pensionierung sind zusätzlich CHF 400 pro Monat verfügbar. Alle anderen Angaben bleiben gleich.“ Anschließend selbst senden. Während der Antwort erklären, dass die Regeln im Backend und die Berechnungen bei Logismata liegen.
+- 2:10–2:40: Die alte Unterdeckungskarte ist verschwunden, „Sparweg weiter prüfen“ erscheint. Datenbasis: CHF 335 Sparbedarf, CHF 400 Budget, CHF 65 verbleiben. Das ist eine Budgetkorrektur, kein Beleg eines neuen Einkommens oder einer vollständig geprüften Tragbarkeit.
+- 2:40–3:00: Nutzen und Grenzen: „Die KI erklärt. Berechnungen und nachvollziehbare Regeln führen den Plan. Bei Unsicherheit klären wir zuerst die Grundlagen.“ Produktempfehlung, Antrag und Police sind noch weitere Entwicklungsschritte, kein bereits fertiger End-to-End-Abschluss.
+
+Für die Live-Demo ist die Antwortzeit vorab zu proben. Zusätzlich Screenshots oder einen kurzen Mitschnitt des tatsächlichen synthetischen Ablaufs bereithalten; einen Fallback sichtbar als Aufzeichnung kennzeichnen.
+
+Der Browser-Test mit echter KI/APICalc ist erfolgreich: Bei CHF 250 Budget erscheint „Pensionierungsziel und Budget abstimmen“ mit CHF 85 Differenz. Der Button „Szenarien vergleichen“ füllt nur die Eingabe; es wird nicht automatisch gesendet. Nach ausdrücklich gesendeter Korrektur auf CHF 400 verschwindet die Unterdeckungskarte und „Sparweg weiter prüfen“ erscheint mit CHF 65 verbleibendem angegebenem Monatsbudget. Die Quellen und offenen Fragen sind über „Warum dieser Schritt?“ sichtbar. Frontend-Produktionsbuild erfolgreich.
+
+## Begründete Pax-EU-Produktzuordnung (erste Produktfamilie)
+
+`src/produkte/katalog.ts` enthält einen kuratierten Datensatz der Pax Erwerbsunfähigkeitsversicherung: Name, Zweck, kurze öffentliche Beschreibung, offizieller Quellenlink und Quellenstand 31.10.2026. Es werden keine Beispielofferten als Tarif verwendet. Es gibt keine persönlichen Preise, neue Versicherungssummen oder Annahmezusagen. Die öffentliche Beschreibung wurde mit der offiziellen Pax-Produktseite abgeglichen; eine individuelle Eignungsprüfung oder Freigabe durch Pax ist damit nicht erfolgt.
+
+`src/produkte/zuordnung.ts` ordnet einen aktuellen abgegrenzten EU-Bedarf diesem Produkt als Möglichkeit zur Prüfung zu. Jeder Fall ist über stabile ID, Person, Ursache und Regelversion `eu-pruefkandidat-v1` nachvollziehbar. Status: `pruefkandidat`, `abklaerung`, `kein_zusaetzlicher_bedarf` oder `nicht_bereit`. Nur `pruefkandidat` enthält ein Produktobjekt. Fehlende oder veraltete Risikoergebnisse liefern keine Fälle mit Produkt; unbekannte/fehlerhafte Szenarien, nicht erfasster Bedarf oder ungeklärte private Absicherung werden nicht als geklärter Bedarf behandelt.
+
+Eine private EU-Rente wird anhand des vorhandenen getrennten Modellvergleichs berücksichtigt. Nach vollständiger Klärung und positiver jährlicher Restlücke entsteht ein Prüfkandidat. Bei ausdrücklich keiner privaten EU-Rente wird die ursprüngliche positive API-Lücke als noch zu prüfender Bedarfsbereich verwendet. Bei ausgeschlossener Ursache werden nur vollständige abgegrenzte Vertragsangaben verwendet. Mehrere Verträge, unsichere Verrechnung und unvollständige Daten führen zur Abklärung. Positive Lücken von Person A lösen keine Zuordnung für Person B oder Todesfall aus.
+
+Eine Restlücke während bestehender Rentenleistung gilt ausschließlich nach der Wartefrist und während der bestehenden Leistungsdauer. Die Karte zeigt diese Grenzen und fordert die Prüfung der Zeit davor/danach. Ist die Lücke nur während der Rentenleistung null, bleibt eine zeitliche Abklärung statt pauschaler Entwarnung. Die Restlücke wird nicht automatisch in eine empfohlene neue Versicherungssumme umgewandelt. Das Pensionierungsbudget ist kein Budget für eine EU-Prämie. Individuelle PK-Risikoleistungen, Koordination, Wartefrist, Dauer, Annahmebedingungen und konkrete Prämie bleiben offen; Gesundheitsprüfung außerhalb des Chats.
+
+`darstellung.ts` stellt die gleiche Zuordnung dem Frontend und der KI bereit. Das Frontend zeigt „Vom Bedarf zur möglichen Lösung“, verlinkt positive Kandidaten mit ihrem Handlungsschritt und zeigt die Herkunft sowie offene Prüfungen. Die öffentliche Pax-Quelle ist direkt verlinkt. „Pax-Beratung vorbereiten“ füllt nur eine Chatnachricht aus; keine Kontaktaufnahme, Terminbuchung, Antragstellung oder Vertragsannahme. Bei Widerruf verschwindet das Produktobjekt aus dem aktuellen Fall. Keine neue API-Route, kein neuer Modellaufruf und keine zusätzliche Speicherung.
+
+`test/produktzuordnung.test.ts` prüft positive Bedarfskandidaten, person-/ursachengenaue Zuordnung, Quellen und Zeitgrenzen, fehlende Bedingungen, Null-Lücken, reine Zeitabschnittsdeckung, explizit fehlende private Versicherung, Fehlercodes, Widerruf, veraltete Ergebnisse und identische Modell-/Frontend-Daten. 72 lokale Tests und Backend-Typecheck erfolgreich.
+
+### Test mit synthetischen Angaben
+
+Neue Sitzung, Nachricht 1:
+
+> Ich bin ledig, männlich, Jahrgang 1990, angestellt und bei einer Pensionskasse versichert. Ich verdiene CHF 100’000 brutto pro Jahr und habe keine Kinder. Bei meiner Erwerbsunfähigkeit brauche ich 80 % meines heutigen Einkommens, im Todesfall 70 %. Ich möchte meine Absicherung prüfen.
+
+Noch keine Produktzuordnung aus ungeklärter privater Absicherung. Nachricht 2:
+
+> Ich habe genau einen bestehenden privaten Erwerbsunfähigkeitsrentenvertrag. Versichert bin ich selbst. Er zahlt CHF 1’000 pro Monat bei Krankheit und Unfall nach 6 Monaten Wartefrist bis Alter 65. Ich bestätige, dass diese Rente zusätzlich zu den gesetzlichen und PK-Leistungen ohne Verrechnung oder Kürzung dieser Leistungen ausgezahlt wird.
+
+Im bereits bestätigten Risiko-Referenzfall ist die Krankheitslücke CHF 30’724/Jahr und die private Rente CHF 12’000/Jahr; der abgegrenzte Restbedarf beträgt CHF 18’724/Jahr ab Leistungsbeginn. Dafür ist die Pax-EU-Versicherung ein Prüfkandidat, keine verbindliche Offerte. Unfall hat bereits keine ursprüngliche Jahreslücke. Bei nachfolgendem Widerruf der Zusatzbestätigung darf kein Produktprüfkandidat weiter angezeigt werden.
+
+Der vollständige Browser-Test mit echter KI und APICalc ist erfolgreich: Zunächst erscheint bei ungeklärter privater Absicherung kein konkretes Produkt. Nach Nachricht 2 erscheint der Krankheits-Prüfkandidat mit CHF 18’724/Jahr, Quellenlink, Zeitgrenzen und offenen Prüfungen. Der Button füllt lediglich das Chatfeld aus. Nach „Ich bin nicht mehr sicher, ob meine private Erwerbsunfähigkeitsrente ohne Verrechnung mit anderen Leistungen ausgezahlt wird“ verschwindet die konkrete Produktkarte; Vertragsklärung steht im Handlungsplan zuerst. Die KI nimmt die reduzierte Restlücke zurück und nennt die ursprüngliche Modelllücke von CHF 30’724/Jahr. Frontend-Produktionsbuild erfolgreich.
+
+## Pensionierungsziele vergleichen
+
+Neue Funktion `src/beratung/szenario.ts`: Aus einem aktuellen Pensionierungs- und Sparergebnis werden Vergleichswerte abgeleitet. Ein alternatives jährliches Haushaltsbudget wird über eine Kopie des Profils mit `Beratungsablauf.aktualisiere` durch dieselben Pensionierungs- und Sparrechner geführt. Alle anderen Angaben bleiben gleich. Der Budgetabgleich verwendet dieselbe Selbstauskunft. Keine weitere KI-Anfrage, keine freie Ersatzschätzung bei einem Rechnerfehler. Renteneinkommen (1. + 2. Säule) und Vermögensverzehr werden getrennt dargestellt.
+
+`POST /api/szenario` erwartet ausschließlich `sessionId`, `revision` und `jahresbedarf` (CHF 0 bis 1’000’000 pro Jahr). Antwort: Vergleichs-ID, Revision, Ausgangslage, Alternative und gemeinsame Berechnungsgrenzen. Jede Sitzung hält nur den letzten erfolgreich berechneten Vergleich im Arbeitsspeicher. Berechnen verändert weder Profil noch Gespräch. Eine neue Berechnung ersetzt den vorherigen Kandidaten. Unbekanntes Budget bleibt unbekannt; eine modellierte Kapitallücke null führt zu Sparbedarf null.
+
+`POST /api/szenario/uebernehmen` erwartet `sessionId`, `revision` und `szenarioId`. Nur die passende unveränderte Ausgangslage erlaubt die Übernahme. Jede akzeptierte Chatnachricht und jede Übernahme erhöhen die Revision und entwerten ältere Vergleiche. Während einer Berechnung blockiert derselbe Sitzungsschutz konkurrierende Änderungen. Gelöschte/abgelaufene Sitzungen lassen sich nicht wiederherstellen. Beim Übernehmen werden das berechnete alternative Ziel sowie die daraus abgeleiteten Ergebnisse und Handlungskarten zum aktuellen Stand. Die ausdrückliche Formularbestätigung wird als sichtbare Nutzeraktion mit deterministischer Bestätigung im Gespräch festgehalten; spätere Modellaufrufe erhalten diese Änderung im regulären Verlauf. Keine Kontaktaufnahme, Produktentscheidung oder Vertragsaktion.
+
+Frontend: eigene Angular-Komponente `src/app/szenario/`. Nach einer erfolgreichen Pensionierungs- und Sparberechnung erscheint „Alternative durchrechnen“. Nach Eingabe eines anderen Jahresbedarfs zeigt die Komponente zwei Balken auf derselben Skala; die gestrichelte Linie markiert das verfügbare Monatsbudget. Text nennt Fehlbetrag oder verbleibendes Budget. Tabelle: Jahresbedarf, Renteneinkommen, Vermögensverzehr, Einkommenslücke, Kapitallücke und monatlicher Sparbedarf. Annahmen sind aufklappbar. „Dieses Ziel übernehmen“ aktualisiert den Beratungsstand ausdrücklich; „Alternative verwerfen“ entfernt den sichtbaren Vergleich. Chatänderungen entfernen den Vergleich ebenfalls. Auf schmalen Bildschirmen stehen die Balken untereinander und die Tabelle ist bei Bedarf horizontal scrollbar.
+
+Test: synthetischen Pensionierungsfall mit Bedarf CHF 70’000/Jahr und zusätzlichem Monatsbudget CHF 250 vorbereiten. „Alternative durchrechnen“ öffnen, CHF 65’000 eingeben, berechnen. Ausgangslage bleibt CHF 70’000, alternative Ergebnisse kommen aus APICalc. Danach alternativ CHF 60’000 prüfen (keine Kapitallücke im bisherigen Referenzfall), verwerfen oder übernehmen. Nach Übernahme müssen Profil, Budget und Handlungskarten zum neuen Ziel passen. Das ist ein Vergleich des Ruhestandsbudgets; Pensionierungsalter, Familie und Eigenheim sind noch keine auswählbaren Szenarioparameter.
+
+`test/szenario.test.ts` prüft isolierte Kopie, Wiederverwendung der Rechner ohne Modellaufruf, Budgetvergleich, Null-Lücke, unbekanntes Budget, Übernahme mit Herkunft und anschließendem Chatkontext, ungültige Eingaben, fehlende/fehlgeschlagene Berechnung, alte Revision, ersetzte Vergleichs-ID, Sitzungstrennung und Löschung während einer laufenden Berechnung. Insgesamt 77 Tests und Backend-Typecheck erfolgreich. Frontend-Produktionsbuild erfolgreich.
+
+Browser-Verifikation mit echter KI und APICalc: Ausgangslage CHF 70’000 Jahresbedarf, Kapitallücke CHF 116’530, Sparbedarf CHF 335, Budget CHF 250. Alternative CHF 65’000: Kapitallücke CHF 1’530, Sparbedarf CHF 5 und CHF 245 verbleibendes Monatsbudget. Nach Verwerfen bleibt die ursprüngliche Unterdeckungskarte bestehen. Neue Alternative CHF 60’000: Kapitallücke und Sparbedarf null. Nach ausdrücklicher Übernahme erscheint die Bestätigung im Verlauf und statt der Unterdeckungskarte die Karte „Pensionierungsannahmen überprüfen“. Beide Balken und Tabellenwerte wurden visuell im Browser geprüft.

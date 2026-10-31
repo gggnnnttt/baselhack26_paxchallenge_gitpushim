@@ -1,0 +1,70 @@
+@if (bereit()) {
+  <section class="szenario" aria-labelledby="szenario-titel" [attr.aria-busy]="busy()">
+    <p class="eyebrow">Was wäre, wenn …?</p>
+    <h2 id="szenario-titel">Dein Ruhestandsziel vergleichen</h2>
+    @if (!offen) {
+      <p>Wie verändert ein anderes Einkommen im Ruhestand deinen heutigen Sparbedarf?</p>
+      <button type="button" (click)="oeffnen()" [disabled]="disabled()">Alternative durchrechnen</button>
+    } @else {
+      <form (ngSubmit)="absenden()">
+        <label for="alternativer-bedarf">Gewünschtes Haushaltseinkommen im Ruhestand · CHF pro Jahr</label>
+        <div class="eingabe">
+          <input id="alternativer-bedarf" name="jahresbedarf" type="number" min="0" max="1000000" step="0.01" required
+            [(ngModel)]="jahresbedarf" (ngModelChange)="aendern()" [disabled]="disabled()" aria-describedby="szenario-grenzen" />
+          <button type="submit" [disabled]="disabled() || !gueltig()">{{ busy() ? 'Wird berechnet …' : 'Alternative berechnen' }}</button>
+        </div>
+        <p id="szenario-grenzen" class="muted">Nur dieses Jahresziel verändert sich. Einkommen, PK, Vermögen, Pensionierungsalter und verfügbares Monatsbudget bleiben gleich.</p>
+      </form>
+      @if (fehler()) { <p class="fehler" role="alert">{{ fehler() }}</p> }
+      @if (vergleich(); as v) {
+        <div aria-live="polite">
+          <h3>Monatlicher Sparbedarf im Vergleich</h3>
+          <p class="muted">Beide Balken haben dieselbe Skala: CHF 0 bis {{ chf(skala()) }} pro Monat. Die gestrichelte Linie zeigt dein angegebenes Budget.</p>
+          @for (spalte of spalten(); track spalte.titel) {
+            <article class="balkenkarte">
+              <div class="balken-titel"><strong>{{ spalte.titel }}</strong><span>{{ chf(spalte.werte.bedarfJahr) }}/Jahr im Ruhestand</span></div>
+              <p><strong>{{ chf(spalte.werte.sparbedarfMonat) }}/Monat</strong> zusätzlich sparen</p>
+              <div class="balken" role="img" [attr.aria-label]="spalte.titel + ': Sparbedarf ' + chf(spalte.werte.sparbedarfMonat) + ' pro Monat, verfügbares Budget ' + chf(spalte.werte.budget.verfuegbarMonat)">
+                <div class="fuellung" [style.width.%]="spalte.werte.sparbedarfMonat / skala() * 100"></div>
+                @if (spalte.werte.budget.verfuegbarMonat !== null) {
+                  <span class="budget-marke" [style.left.%]="spalte.werte.budget.verfuegbarMonat! / skala() * 100"></span>
+                }
+              </div>
+              <p class="budget-text">Budget: {{ chf(spalte.werte.budget.verfuegbarMonat) }}/Monat</p>
+              @if (spalte.werte.sparbedarfMonat === 0) {
+                <p class="ergebnis">Kein zusätzlicher Sparbedarf für diese modellierte Kapitallücke.</p>
+              } @else if (spalte.werte.budget.fehlbetragMonat === null) {
+                <p class="ergebnis">Budget noch offen – die Passung lässt sich noch nicht beurteilen.</p>
+              } @else if (spalte.werte.budget.fehlbetragMonat! > 0) {
+                <p class="ergebnis unterdeckung">{{ chf(spalte.werte.budget.fehlbetragMonat) }}/Monat fehlen zum Sparziel.</p>
+              } @else {
+                <p class="ergebnis">Passt zum angegebenen Budget. {{ chf(spalte.werte.budget.restbudgetMonat) }}/Monat verbleiben.</p>
+              }
+            </article>
+          }
+          <div class="tabelle" tabindex="0" role="region" aria-label="Berechnete Werte beider Pensionierungsziele">
+            <table>
+              <caption>Berechnete Werte · Ausgangslage und Alternative</caption>
+              <thead><tr><th scope="col">Wert</th><th scope="col">Bisheriges Ziel</th><th scope="col">Alternative</th></tr></thead>
+              <tbody>
+                <tr><th scope="row">Bedarf / Jahr</th><td>{{ chf(v.ausgangslage.bedarfJahr) }}</td><td>{{ chf(v.alternative.bedarfJahr) }}</td></tr>
+                <tr><th scope="row">Renteneinkommen / Jahr (1. + 2. Säule)</th><td>{{ chf(v.ausgangslage.renteneinkommenJahr) }}</td><td>{{ chf(v.alternative.renteneinkommenJahr) }}</td></tr>
+                <tr><th scope="row">Vermögensverzehr / Jahr</th><td>{{ chf(v.ausgangslage.vermoegensverzehrJahr) }}</td><td>{{ chf(v.alternative.vermoegensverzehrJahr) }}</td></tr>
+                <tr><th scope="row">Einkommenslücke / Jahr</th><td>{{ chf(v.ausgangslage.einkommenslueckeJahr) }}</td><td>{{ chf(v.alternative.einkommenslueckeJahr) }}</td></tr>
+                <tr><th scope="row">Kapitallücke (einmalig)</th><td>{{ chf(v.ausgangslage.kapitalluecke) }}</td><td>{{ chf(v.alternative.kapitalluecke) }}</td></tr>
+                <tr><th scope="row">Zusätzlicher Sparbedarf / Monat</th><td>{{ chf(v.ausgangslage.sparbedarfMonat) }}</td><td>{{ chf(v.alternative.sparbedarfMonat) }}</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="konsequenz">Bei {{ chf(v.alternative.bedarfJahr) }} statt {{ chf(v.ausgangslage.bedarfJahr) }} Jahresbedarf verändert sich der rechnerische monatliche Sparbedarf von {{ chf(v.ausgangslage.sparbedarfMonat) }} auf {{ chf(v.alternative.sparbedarfMonat) }}.</p>
+          <p class="muted">Aktuelle Angaben bleiben bis zur Übernahme erhalten. Jede spätere Chatänderung erfordert einen neuen Vergleich.</p>
+          <details><summary>Annahmen und Berechnungsgrenzen</summary><ul>@for (h of v.hinweise; track $index) { <li>{{ h }}</li> }</ul><p>Berechnet: {{ v.alternative.zeitpunkt }}</p></details>
+          <div class="aktionen">
+            <button type="button" (click)="uebernehmen.emit()" [disabled]="disabled()">Dieses Ziel übernehmen</button>
+            <button type="button" class="sekundaer" (click)="schliessen()" [disabled]="disabled()">Alternative verwerfen</button>
+          </div>
+        </div>
+      }
+    }
+  </section>
+}

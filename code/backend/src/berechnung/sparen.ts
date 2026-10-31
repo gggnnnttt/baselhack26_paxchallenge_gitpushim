@@ -31,7 +31,7 @@ export function starteSparen(): SparStand {
     'Zusätzliches Sparszenario mit 0 % Verzinsung, ohne Kosten, Steuern oder Inflation. Keine Produkt- oder Renditezusage.',
     'Startkapital CHF 0: Das vorhandene private Vorsorgevermögen ist bereits in der Kapitallücke berücksichtigt und wird nicht nochmals angerechnet.',
     'Spardauer näherungsweise in ganzen Jahren aus Jahrgang und Pensionierungsalter; bei Paaren bis zum ersten Rentenfall. Kein taggenauer Sparplan.',
-    'Der Sparbetrag ist ein rechnerischer Zielbetrag. Ob er ins Haushaltsbudget passt, wurde noch nicht geprüft.',
+    'Der Sparbetrag ist ein rechnerischer Zielbetrag. Der getrennte Budgetabgleich prüft nur die Passung zur Selbstauskunft, keine umfassende Tragbarkeit.',
     'Die API kann die monatliche Rate runden. Deshalb wird auch das daraus resultierende Endkapital ausgewiesen; es kann etwas über dem Ziel liegen.',
     'Das Szenario wird nicht als bereits vereinbarter Sparbeitrag in die Pensionierungs-Basisrechnung zurückgeschrieben.',
   ], fehler: null, zielkapital: null, zieljahr: null, dauerJahre: null, request: null, ergebnis: null, grundlageJson: null };

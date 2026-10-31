@@ -1,3 +1,6 @@
+import { ermittleProduktvorschlaege, type Produktzuordnung } from '../produkte/zuordnung.js';
+import { erstelleHandlungsplan, type Handlungsplan } from './handlungsplan.js';
+import { gleicheBudgetAb, type BudgetAbgleich } from '../berechnung/budget.js';
 import { vergleichePrivateEu, type PrivateEuAnsicht } from '../berechnung/private-eu.js';
 import type { SparStand } from '../berechnung/sparen.js';
 import type { PensionierungsStand, RetirementRequest, RetirementResponse } from '../berechnung/pensionierung.js';
@@ -50,6 +53,7 @@ export function profilText(profil: Profil): string {
     `Haushalt: Beziehung ${h.beziehung ? h.beziehung.wert.replace('_', ' ') + abgeleitet(h.beziehung) : 'unbekannt'}`
       + `${h.beziehungSeitJahr ? ` seit ${h.beziehungSeitJahr.wert}` : ''}; Kinder ${profil.kinder.length ? 'ja' : janein(h.hatKinder?.wert)}; gemeinsamer Haushalt ${janein(h.gemeinsamerHaushalt?.wert)}`,
     `Pensionierung Haushalt: Bedarf ${h.bedarfPensionierung ? bedarfText(h.bedarfPensionierung.wert) : 'unbekannt'}; privates Vorsorgevermögen ${h.vermoegenPensionierung ? chf(h.vermoegenPensionierung.wert) : 'unbekannt'}; Basisannahmen bestätigt ${janein(h.pensionierungBasisBestaetigt?.wert)}`,
+    `Zusätzliches Pensionierungsbudget des Haushalts: ${h.budgetPensionierungMonat ? chf(h.budgetPensionierungMonat.wert) + ' pro Monat (Selbstauskunft nach Ausgaben, Sparverpflichtungen und Reserve)' : 'unbekannt'}`,
     personText(profil.personen.A, 'A'),
     personText(profil.personen.B, 'B'),
     `Kinder: ${profil.kinder.length ? profil.kinder.map(k => `${k.id} ${kindLabel(profil, k)} (Jahrgang ${k.geburtsjahr?.wert ?? 'unbekannt'}, Elternteil ${k.elternteil?.wert ?? 'unbekannt'}${k.alleinigesSorgerecht ? `, alleiniges Sorgerecht ${janein(k.alleinigesSorgerecht.wert)}` : ''})`).join('; ') : 'keine erfasst'}`,
@@ -105,6 +109,9 @@ export function beratungsKontext(stand: AblaufStand, bericht: Aenderungsbericht)
     '',
     pensionierungsKontext(stand.pensionierung),
     sparKontext(stand.sparen),
+    budgetKontext(gleicheBudgetAb(stand.kontext.profil, stand.sparen)),
+    handlungsplanKontext(erstelleHandlungsplan(stand)),
+    produktKontext(ermittleProduktvorschlaege(stand)),
     '',
     '### Aus der letzten Nachricht',
     `Übernommen: ${bericht.uebernommen.length ? bericht.uebernommen.map(e => e.text).join('; ') : 'nichts'}`,
@@ -160,6 +167,44 @@ function sparKontext(s: SparStand): string {
   ].join('\n');
 }
 
+function budgetKontext(b: BudgetAbgleich): string {
+  return [
+    '### Budgetabgleich (Backend, Selbstauskunft)', b.statusText,
+    ...b.hinweise,
+    `Sparbedarf ${b.sparbedarfMonat === null ? 'unbekannt' : b.sparbedarfMonat.toFixed(2)} CHF/Monat; zusätzlich verfügbar ${b.verfuegbarMonat === null ? 'unbekannt' : b.verfuegbarMonat.toFixed(2)} CHF/Monat.`,
+    ...(b.status === 'offen' ? ['Frage jetzt gezielt, wie viel der Haushalt nach laufenden Ausgaben, bestehenden Sparverpflichtungen und einer Reserve zusätzlich für die Pensionierung pro Monat zurücklegen kann. Eine Schätzung reicht. Keine vollständige Ausgabenliste erzwingen.'] : []),
+    ...(b.status === 'ausreichend' || b.status === 'unterdeckung' ? [
+      `Monatlicher Fehlbetrag ${b.fehlbetragMonat!.toFixed(2)} CHF; verbleibendes angegebenes Monatsbudget ${b.restbudgetMonat!.toFixed(2)} CHF.`,
+      'Budget bereits bekannt: nicht erneut danach fragen. Nur innerhalb der Selbstauskunft beurteilen, nicht als geprüfte Tragbarkeit oder Produktempfehlung.',
+    ] : []),
+    ...(b.status === 'unterdeckung' ? ['Erkläre die Differenz und biete einen Vergleich mit anderem Pensionierungsalter oder Zielbudget im Ruhestand an. Keine Werte automatisch ändern, keine unmögliche Sparrate empfehlen.'] : []),
+    ...(b.status === 'wartet' || b.status === 'kein_bedarf' ? ['Keine Budgetfrage nur wegen dieses Abschnitts stellen. Zuerst das aktuelle Anliegen und gegebenenfalls fehlende Rechengrundlagen bearbeiten. Keine veralteten Budget-Vergleichswerte verwenden.'] : []),
+  ].join('\n');
+}
+
+function handlungsplanKontext(plan: Handlungsplan): string {
+  return [
+    '### Priorisierter Handlungsplan (verbindliche Backend-Reihenfolge)', plan.hinweis,
+    'Erkläre die gelieferten Karten und den nächsten passenden Schritt. Erfinde keine Karten, Prioritäten, Abschlüsse oder erfolgten Übergaben. Bei Zwischenfragen beantworte das Anliegen; ändere deswegen die Kartenreihenfolge nicht. Ein Kartenklick ist nur ein Nachrichtenvorschlag, keine bereits ausgeführte Aktion.',
+    ...plan.karten.map(k => `${k.reihenfolge}. [${k.id}, Priorität ${k.prioritaet}] ${k.titel}: ${k.begruendung} Grundlage: ${k.datengrundlage.map(d => `${d.quelle}: ${d.details}`).join('; ')} Offen: ${k.offeneFragen.join('; ')} Nächster Schritt: ${k.naechsterSchritt}`),
+  ].join('\n');
+}
+
+function produktKontext(p: Produktzuordnung): string {
+  return [
+    '### Bedarfsbezogene Pax-Produktzuordnung (ausschließlich Backend-Regeln)', p.statusText,
+    ...p.hinweise,
+    ...p.faelle.map(f => [
+      `[${f.id}; Regel ${f.regelId}; Status ${f.status}] ${f.szenario}: ${f.begruendung}`,
+      `Geltungsbereich: ${f.geltungsbereich}`,
+      ...f.datengrundlage.map(d => `Grundlage ${d.quelle}: ${d.details}`),
+      ...(f.produkt ? [`Prüfkandidat: ${f.produkt.name}. ${f.produkt.beschreibung} Quelle: ${f.produkt.quelle}, Quellenstand ${f.produkt.quellenstand}. ${f.produkt.fachlicheFreigabe}`] : ['Kein Produkt anzeigen oder aus eigener Auswahl ergänzen.']),
+      `Offen: ${f.offenePruefungen.join('; ')}`, `Nächster Schritt: ${f.naechsterSchritt}`,
+    ].join(' ')),
+    'Nur Fälle mit Status pruefkandidat dürfen mit dem gelieferten Produktnamen als Möglichkeit zur Prüfung erklärt werden. Das ist keine persönliche Kaufempfehlung. Bei abklaerung/nicht_bereit zuerst die fehlenden Grundlagen klären. Keine Versicherungssumme aus der Restlücke ableiten und keine Prämie erfinden.',
+  ].join('\n');
+}
+
 function privateEuAnsicht(stand: AblaufStand): PrivateEuAnsicht {
   const { profil, berechnung, pruefung, jahr } = stand.kontext;
   const aktuell = stand.phase === 'berechnet' && berechnung?.requestJson === pruefung.requestJson;
@@ -197,6 +242,9 @@ export interface BeratungsstandAnsicht {
   privateEu: PrivateEuAnsicht;
   pensionierung: PensionierungsAnsicht;
   sparen: Omit<SparStand, 'grundlageJson'>;
+  budget: BudgetAbgleich;
+  handlungsplan: Handlungsplan;
+  produktzuordnung: Produktzuordnung;
   letzteNachricht: Aenderungsbericht;
 }
 
@@ -218,6 +266,9 @@ export function ansicht(stand: AblaufStand, bericht: Aenderungsbericht): Beratun
     privateEu: privateEuAnsicht(stand),
     pensionierung: pensionierungsAnsicht(stand.pensionierung),
     sparen: (({ grundlageJson: _, ...sichtbar }) => sichtbar)(stand.sparen),
+    budget: gleicheBudgetAb(profil, stand.sparen),
+    handlungsplan: erstelleHandlungsplan(stand),
+    produktzuordnung: ermittleProduktvorschlaege(stand),
     letzteNachricht: bericht,
   };
 }
