@@ -1,4 +1,6 @@
 import { Component, ElementRef, computed, input, output, signal, viewChild } from '@angular/core';
+import type { Beratungsstand } from '../beratungsstand/beratungsstand.model';
+import { ProtokollDokument } from './protokoll-dokument';
 import { DatePipe } from '@angular/common';
 import { istTermin, monatJahr, type Antrag } from './abschluss.model';
 
@@ -9,7 +11,7 @@ import { istTermin, monatJahr, type Antrag } from './abschluss.model';
  */
 @Component({
   selector: 'app-kundenportal',
-  imports: [DatePipe],
+  imports: [DatePipe, ProtokollDokument],
   templateUrl: './kundenportal.html',
   styleUrl: './kundenportal.scss',
 })
@@ -17,6 +19,10 @@ export class Kundenportal {
   readonly antrag = input.required<Antrag>();
   // The Müller demo household is loaded: the portal greets it by its persona name, which stays in the browser.
   readonly demo = input(false);
+  // For the printable advice record: the current advisory state with the pillar chart.
+  readonly stand = input<Beratungsstand | null>(null);
+  readonly sessionId = input<string | undefined>(undefined);
+  readonly revision = input(0);
   readonly beratung = output<void>();
   readonly neu = output<void>();
 
@@ -24,6 +30,7 @@ export class Kundenportal {
   protected readonly monatJahr = monatJahr;
   protected readonly freigegeben = signal(false);
   private readonly protokoll = viewChild.required<ElementRef<HTMLDialogElement>>('protokoll');
+  private readonly dokument = viewChild.required(ProtokollDokument);
 
   protected readonly policen = computed(() => this.antrag().pakete.filter((p) => !istTermin(p)));
   protected readonly termin = computed(() => this.antrag().pakete.find(istTermin) ?? null);
@@ -47,6 +54,12 @@ export class Kundenportal {
 
   protected protokollOeffnen() {
     this.protokoll().nativeElement.showModal();
+  }
+
+  // Opens the print dialog with the advice record alone; there it can be saved as PDF.
+  protected alsPdf() {
+    if (this.protokoll().nativeElement.open) this.protokoll().nativeElement.close();
+    this.dokument().drucken();
   }
 
   protected protokollSchliessen() {

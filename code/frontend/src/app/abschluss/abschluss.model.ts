@@ -7,6 +7,8 @@ export interface Auswahl {
   pakete: Empfehlung[];
   regelHinweis: string;
   statusText: string;
+  // What the model recognised on the recommendations page; goes into the advice record.
+  erkenntnisse: string[];
   revision: number;
   gewaehltAm: Date;
 }

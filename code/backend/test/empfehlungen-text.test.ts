@@ -51,3 +51,14 @@ test('the explanation is AI prose, but every number in it must come from the cit
  assert.equal(nurBelegteZahlen('Es fehlen CHF 18’350 pro Jahr.', "Lücke CHF 18'350 pro Jahr"), 'Es fehlen CHF 18’350 pro Jahr.');
  assert.equal(nurBelegteZahlen('Es fehlen CHF 20’000 pro Jahr.', "Lücke CHF 18'350 pro Jahr"), null);
 });
+
+test('family words are allowed, names with a title are not; long or unproven side texts drop alone', async () => {
+ const stand = await fixture();
+ const mit = (einordnung: string, erkenntnisse: string[] = []) => antwort().replace("einordnung: 'Im Ruhestand", 'x').replace(/"einordnung":"[^"]*"/, JSON.stringify({ einordnung }).slice(1, -1)).replace('"erkenntnisse":["Ihr Ruhestand braucht Planung."]', JSON.stringify({ erkenntnisse }).slice(1, -1));
+ const frau = await begruendeEmpfehlungen(stand, { generate: async () => mit('Wenn Ihre Frau ihr Pensum reduziert, ändert sich Ihr Einkommen im Ruhestand.') });
+ assert.match(frau.empfehlungen[0]!.einordnung!, /Ihre Frau/);
+ const name = await begruendeEmpfehlungen(stand, { generate: async () => mit('Frau Muster sollte vorsorgen.', ['x'.repeat(400), 'Für Frau Muster ist das wichtig.', 'Ihr Ruhestand braucht Planung.']) });
+ assert.equal(name.empfehlungen[0]!.einordnung, null, 'a name with a title drops the explanation only');
+ assert.deepEqual(name.erkenntnisse.map(e => e.length <= 240), [true, true]);
+ assert.ok(!name.erkenntnisse.some(e => /Muster/.test(e)));
+});

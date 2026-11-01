@@ -13,6 +13,14 @@ h1, h2 { color: var(--color-brand-pax-purple); }
 h1 { margin: 8px 0; font-size: clamp(30px,3vw,42px); line-height: 1.15; }
 h2 { margin: 6px 0 14px; font-size: var(--size-heading-s); line-height: 1.25; }
 .einleitung { margin-bottom: 28px; color: var(--color-neutral-gray-7); }
+.grafik-karte { margin: 0 0 32px; padding: 24px; border: 1px solid var(--color-neutral-gray-2); border-radius: var(--radius-xl); background: var(--color-neutral-white); }
+.uebergabe {
+  margin: 0 0 24px; padding: 20px 24px; border-radius: var(--radius-xl); background: var(--color-system-warning-light); color: var(--color-neutral-black);
+  h2 { margin: 0 0 8px; color: var(--color-system-warning-dark); font-size: 19px; }
+  p { margin: 0 0 8px; line-height: 1.55; }
+  ul { margin: 0 0 8px; padding-left: 20px; line-height: 1.5; }
+  .klein { color: var(--color-neutral-gray-7); font-size: 13px; }
+}
 .liste, .saeulen, .erkenntnisse { list-style: none; padding: 0; margin: 0; }
 .empfehlung { display: grid; grid-template-columns: 44px minmax(0,1fr); gap: 18px; padding: 24px; border: 1px solid var(--color-neutral-gray-2); border-radius: var(--radius-xl); background: var(--color-neutral-white); }
 .empfehlung + .empfehlung { margin-top: 16px; }

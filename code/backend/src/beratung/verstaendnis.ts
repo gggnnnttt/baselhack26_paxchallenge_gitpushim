@@ -186,8 +186,10 @@ export function lagebildKontext(l: Lagebild): string {
     `Fokus des Kunden: ${l.fokus === 'beides' ? 'Absicherung und Pensionierung' : l.fokus}`,
     ...l.saeulen.map(s => `- ${s.titel} (${s.untertitel}): ${s.status}${s.bekannt.length ? `; bekannt: ${s.bekannt.join(', ')}` : ''}${s.offen.length ? `; offen: ${s.offen.join(', ')}` : ''}`),
     ...l.themen.map(t => `- ${t.titel}: ${t.text}`),
-    'Erkenntnisse:',
-    ...(l.erkenntnisse.length ? l.erkenntnisse.map(e => `- ${e.text}`) : ['- noch keine']),
+    'Erkenntnisse aus den Berechnungen:',
+    ...(l.erkenntnisse.some(e => e.quelle !== 'ki') ? l.erkenntnisse.filter(e => e.quelle !== 'ki').map(e => `- ${e.text}`) : ['- noch keine']),
+    'Deine eigenen Erkenntnisse aus der letzten Antwort (nicht vom Backend geprüft, bei Bedarf ersetzen):',
+    ...(l.erkenntnisse.some(e => e.quelle === 'ki') ? l.erkenntnisse.filter(e => e.quelle === 'ki').map(e => `- ${e.text}`) : ['- noch keine']),
     'Als Nächstes:',
     ...(l.naechstes.length ? l.naechstes.map(n => `- ${n.label} – ${n.warum}`) : ['- nichts offen']),
   ].join('\n');

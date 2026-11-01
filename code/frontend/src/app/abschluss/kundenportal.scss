@@ -93,6 +93,13 @@ h2 { margin: 0 0 18px; color: var(--color-brand-pax-purple); font-size: var(--si
   text-decoration: underline; text-underline-offset: 3px; cursor: pointer;
   &:focus-visible { outline: 2px solid var(--color-brand-pax-purple); outline-offset: 2px; }
 }
+.pdf {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 40px; margin-bottom: 6px; padding: 8px 16px;
+  border: 1.5px solid var(--color-brand-pax-purple); border-radius: var(--radius-full); background: var(--color-neutral-white);
+  color: var(--color-brand-pax-purple); font: inherit; font-weight: 500; cursor: pointer;
+  &:hover { background: var(--color-system-info-light); }
+  &:focus-visible { outline: 2px solid var(--color-brand-pax-purple); outline-offset: 2px; }
+}
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 .protokoll {

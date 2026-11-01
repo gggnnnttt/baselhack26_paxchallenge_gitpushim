@@ -144,3 +144,17 @@
 @media (prefers-reduced-motion: reduce) {
   .tippt span { animation: none; }
 }
+
+/* A predefined criterion for a specialist was met: the hand-over is its own card in the conversation. */
+.uebergabe-karte {
+  display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 12px; margin: 4px 0 18px 52px; padding: 16px 18px;
+  border-radius: 16px; background: var(--color-system-warning-light); color: var(--color-neutral-black);
+  box-shadow: inset 0 0 0 1px rgba(129, 76, 0, 0.18);
+  h3 { margin: 0 0 6px; color: var(--color-system-warning-dark); font-size: 16px; }
+  p { margin: 0 0 8px; line-height: 1.5; }
+  ul { margin: 0 0 12px; padding-left: 18px; font-size: 14px; line-height: 1.5; }
+  .herkunft { margin: 10px 0 0; color: var(--color-neutral-gray-6); font-size: 12px; }
+  .vorgemerkt { color: var(--color-system-success-dark); }
+}
+.uebergabe-icon { color: var(--color-system-warning-dark); }
+@media (max-width: 600px) { .uebergabe-karte { margin-left: 0; } }

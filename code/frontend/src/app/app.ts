@@ -114,6 +114,10 @@ export class App {
       const r = this.revision();
       if (untracked(this.auswahl)?.revision !== r) this.auswahl.set(null);
     });
+    // Without a current choice the application step has nothing to show: back to the recommendations.
+    effect(() => {
+      if (this.seite() === 'abschluss' && !this.auswahl()) this.seite.set('empfehlungen');
+    });
     effect(() => {
       if (this.stand() && !untracked(this.profilOffen)) this.profilNeu.set(true);
     });
@@ -300,7 +304,7 @@ export class App {
       );
       this.sessionId = res.sessionId;
       this.revision.set(res.revision);
-      this.messages.update((m) => [...m, { role: 'assistant', content: res.reply, frage: res.frage }]);
+      this.messages.update((m) => [...m, { role: 'assistant', content: res.reply, frage: res.frage, ...this.neueUebergabe(res.beratungsstand) }]);
       this.stand.set(res.beratungsstand);
       this.startTalking(res.reply);
     } catch (err: any) {
@@ -341,7 +345,7 @@ export class App {
         ...m,
         ...uebernommen.map((e): Message => ({ role: 'ereignis', content: e.text })),
         ...abgelehnt.map((e): Message => ({ role: 'ereignis', content: `Nicht übernommen: ${e.text} – ${e.grund}` })),
-        { role: 'assistant', content: res.reply, frage: res.frage },
+        { role: 'assistant', content: res.reply, frage: res.frage, ...this.neueUebergabe(res.beratungsstand) },
       ]);
       this.stand.set(res.beratungsstand);
       this.startTalking(res.reply);
@@ -353,6 +357,13 @@ export class App {
       this.loading.set(false);
       void this.zeitstrahlSenden();
     }
+  }
+
+  // A hand-over card appears once, with the reply in which a predefined criterion is met for the first time.
+  private neueUebergabe(neu: Beratungsstand): Pick<Message, 'uebergabe'> {
+    const bisher = new Set(this.stand()?.uebergabe?.kriterien.map((k) => k.id) ?? []);
+    const u = neu.uebergabe;
+    return u?.noetig && u.kriterien.some((k) => !bisher.has(k.id)) ? { uebergabe: { text: u.text, kriterien: u.kriterien } } : {};
   }
 
   // The avatar "talks" a little longer for longer replies.

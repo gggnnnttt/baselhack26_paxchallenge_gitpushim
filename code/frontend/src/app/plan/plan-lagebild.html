@@ -53,6 +53,12 @@
     }
   </section>
 
+  @if (stand()?.grafik?.length) {
+    <section class="grafik-abschnitt">
+      <app-saeulen-grafik [zeilen]="stand()!.grafik" [sessionId]="sessionId()" [revision]="revision()" [kompakt]="true" />
+    </section>
+  }
+
   @if (l.erkenntnisse.length) {
     <section aria-labelledby="erkannt-titel">
       <h2 id="erkannt-titel">Was Pax erkannt hat</h2>

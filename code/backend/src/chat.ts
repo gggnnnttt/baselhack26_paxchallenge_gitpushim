@@ -12,7 +12,9 @@ import { wendeAenderungenAn } from './profil/aenderungen.js';
 import { extrahiereAenderungen } from './profil/extraktion.js';
 import { checkScope } from './scope.js';
 import { muellerProfil } from './profil/demo.js';
-import { nurBelegteZahlen } from './beratung/belege.js';
+import { belegteZahlen, nurBelegteZahlen } from './beratung/belege.js';
+import { pruefeUebergabe } from './beratung/uebergabe.js';
+import { erklaereGrafik } from './beratung/grafik.js';
 
 export interface ChatMessage { role: 'user' | 'assistant'; content: string }
 // Model payloads are built only from accepted chat turns of the same session.
@@ -27,9 +29,16 @@ export interface ChatOptionen { rechner?: RisikoRechner | null; heute?: () => Da
 // `frage`: at most one question, shown with a fitting control in the browser.
 // `revision`: counts accepted profile changes; a scenario comparison is only valid for the revision it was computed on.
 export interface ChatAntwort { reply: string; frage: Frage | null; sessionId: string; beratungsstand: BeratungsstandAnsicht; revision: number }
+// The model's insights replace the previous ones; without a readable answer the previous ones stay.
+// The specialist explanation is only kept while one of the predefined criteria applies.
+function uebernimmKiTexte(ablauf: AblaufStand, antwort: AdvisorAntwort) {
+  if (antwort.erkenntnisse) ablauf.erkenntnisse = antwort.erkenntnisse;
+  ablauf.uebergabeText = pruefeUebergabe(ablauf).noetig ? antwort.uebergabe ?? ablauf.uebergabeText : undefined;
+}
 // `entfernt`: older turns dropped from `messages`, so message numbers in the profile stay stable.
 interface Session {
   empfehlungen?: { revision: number; ergebnis: EmpfehlungenAntwort };
+  grafik?: { revision: number; text: string | null };
   messages: ChatMessage[]; entfernt: number; updated: number; busy: boolean; ablauf: AblaufStand; revision: number;
   szenario?: { vergleich: SzenarioVergleich; ablauf: AblaufStand; beleg: string };
 }
@@ -72,12 +81,11 @@ export class ChatService {
       const aenderungen = await extrahiereAenderungen(this.provider, vorher, context, this.heute());
       const angewendet = wendeAenderungenAn(vorher, aenderungen, { text: content, index: session.entfernt + session.messages.length, jahr: session.ablauf.kontext.jahr });
       const ablauf = await this.ablauf.aktualisiere(session.ablauf, angewendet.profil);
-      const antwort = await this.antworten(`${this.instructions}\n\n${beratungsKontext(ablauf, angewendet)}`, context);
+      const antwort = await this.antworten(beratungsKontext(ablauf, angewendet), context);
       // Deleted while the provider call was running: keep nothing and return nothing.
       if (this.sessions.get(sessionId) !== session) throw new GuardrailError('Dieser Chat wurde gelöscht.', 410);
       this.anhaengen(session, userMessage, antwort.verlauf);
-      // The model's insights replace the previous ones; without a readable answer the previous ones stay.
-      if (antwort.erkenntnisse) ablauf.erkenntnisse = antwort.erkenntnisse;
+      uebernimmKiTexte(ablauf, antwort);
       session.ablauf = ablauf;
       session.revision++;
       delete session.szenario;
@@ -133,13 +141,12 @@ export class ChatService {
       const ablauf = await this.ablauf.aktualisiere(session.ablauf, angewendet.profil);
       const userMessage: ChatMessage = { role: 'user', content: ZEITSTRAHL_NACHRICHT };
       const antwort = await this.antworten(
-        `${this.instructions}\n\n${beratungsKontext(ablauf, angewendet)}\n\n${zeitstrahlKontext(angewendet)}`,
+        `${beratungsKontext(ablauf, angewendet)}\n\n${zeitstrahlKontext(angewendet)}`,
         [...session.messages.map(message => ({ ...message })), userMessage],
       );
       if (this.sessions.get(sessionId) !== session) throw new GuardrailError('Dieser Chat wurde gelöscht.', 410);
       this.anhaengen(session, userMessage, antwort.verlauf);
-      // The model's insights replace the previous ones; without a readable answer the previous ones stay.
-      if (antwort.erkenntnisse) ablauf.erkenntnisse = antwort.erkenntnisse;
+      uebernimmKiTexte(ablauf, antwort);
       session.ablauf = ablauf;
       // A timeline change is a profile change like a chat answer: an open scenario was computed on the old state.
       session.revision++;
@@ -156,18 +163,21 @@ export class ChatService {
   }
 
   // The advisor's reply: short text and at most one question, checked by the output guardrails.
-  private async antworten(instructions: string, messages: ChatMessage[]): Promise<AdvisorAntwort> {
+  private async antworten(kontext: string, messages: ChatMessage[]): Promise<AdvisorAntwort> {
     const roh = await this.provider.generate({
-      instructions: `${instructions}\n\n${ANTWORT_REGELN}`,
+      instructions: `${this.instructions}\n\n${kontext}\n\n${ANTWORT_REGELN}`,
       messages,
       maxOutputTokens: this.rails.config.maxOutputTokens,
       responseFormat: ANTWORT_FORMAT,
     });
     const antwort = leseAntwort(roh, text => this.rails.checkOutput(text));
-    // An insight may only use numbers the model was given (advisory state or conversation).
-    const belege = [instructions, ...messages.map(m => m.content)].join('\n');
-    return { ...antwort, erkenntnisse: antwort.erkenntnisse?.filter(e => nurBelegteZahlen(e, belege) !== null) ?? null };
+    // An insight may only use numbers from the advisory state or the conversation, not from the fixed instructions
+    // (their examples, e.g. 500 or 85000, would otherwise count as evidence).
+    const zahlen = belegteZahlen([kontext, ...messages.map(m => m.content)].join('\n'));
+    return { ...antwort, erkenntnisse: antwort.erkenntnisse?.filter(e => nurBelegteZahlen(e, zahlen) !== null) ?? null,
+      uebergabe: antwort.uebergabe && nurBelegteZahlen(antwort.uebergabe, zahlen) };
   }
+
 
   // Same session rules as in reply(); the timeline may also start a conversation.
   private oeffneSitzung(existingId: string | undefined): { sessionId: string; session: Session; existing: Session | undefined } {
@@ -274,6 +284,25 @@ export class ChatService {
       session.updated = Date.now();
       return { ...ergebnis, revision: session.revision };
     } finally { session.busy = false; }
+  }
+
+  /**
+   * The model's explanation of the pillar chart, once per revision. Read-only: it does not take the session lock,
+   * so it can run next to the recommendations. A result for an older revision is returned with that revision.
+   */
+  async grafik(body: unknown): Promise<{ revision: number; text: string | null }> {
+    const input = z.object({ sessionId: z.string().min(1).max(100) }).strict().safeParse(body);
+    if (!input.success) throw new GuardrailError('Ungültige Sitzung.', 400);
+    this.removeExpired();
+    const session = this.sessions.get(input.data.sessionId);
+    if (!session) throw new GuardrailError('Die Sitzung ist abgelaufen. Bitte starten Sie einen neuen Chat.', 410);
+    const revision = session.revision;
+    if (session.grafik?.revision === revision) return session.grafik;
+    const roh = await erklaereGrafik(session.ablauf, this.provider);
+    let text: string | null = null;
+    try { text = roh && this.rails.checkOutput(roh); } catch { text = null; }
+    if (this.sessions.get(input.data.sessionId) === session && session.revision === revision) session.grafik = { revision, text };
+    return { revision, text };
   }
 
   // Removes the server-side history only. Copies already sent to the model provider are not affected.

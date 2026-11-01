@@ -1,0 +1,92 @@
+<article class="dokument" lang="de">
+  <header class="kopf">
+    <img src="pax-logo.svg" alt="Pax" width="120" height="39" />
+    <div class="kopf-text">
+      <h1>Beratungsprotokoll</h1>
+      <p>{{ demo() ? 'Haushalt Familie Müller (Demo)' : 'Digitale Vorsorgeberatung' }}</p>
+    </div>
+  </header>
+
+  <dl class="meta">
+    <div><dt>Erstellt am</dt><dd>{{ erstellt }}</dd></div>
+    <div><dt>Antrag</dt><dd>{{ antrag().nummer }}</dd></div>
+    <div><dt>Stand der Beratung</dt><dd>Version {{ antrag().revision }}</dd></div>
+    <div><dt>Freigabe</dt><dd>{{ freigegeben() ? 'Durch Pax-Fachperson erteilt (Demo)' : 'Ausstehend: Prüfung durch eine Pax-Fachperson' }}</dd></div>
+  </dl>
+
+  <section>
+    <h2>1. Ihre Situation</h2>
+    <div class="saeulen">
+      @for (s of saeulen(); track s.titel) {
+        <div class="saeule">
+          <h3>{{ s.titel }}</h3>
+          @if (s.sie.length) { <p>{{ s.sie.join(', ') }}</p> }
+          @if (s.partner.length) { <p><span class="leise">Partner/in:</span> {{ s.partner.join(', ') }}</p> }
+          @if (s.offen.length) { <p class="leise">Offen: {{ s.offen.join(', ') }}</p> }
+        </div>
+      }
+    </div>
+    @if (kiErkenntnisse().length || berechnet().length) {
+      <h3>Was Pax erkannt hat</h3>
+      <ul>
+        @for (e of berechnet(); track e.text) { <li>{{ e.text }} <span class="quelle">Berechnung</span></li> }
+        @for (e of kiErkenntnisse(); track e.text) { <li>{{ e.text }} <span class="quelle">KI</span></li> }
+      </ul>
+    }
+  </section>
+
+  @if (stand()?.grafik?.length) {
+    <section class="grafik-abschnitt">
+      <h2>2. Was fehlt im Ernstfall?</h2>
+      <app-saeulen-grafik [zeilen]="stand()!.grafik" [sessionId]="sessionId()" [revision]="revision()" [mitTitel]="false" />
+    </section>
+  }
+
+  <section>
+    <h2>{{ stand()?.grafik?.length ? '3' : '2' }}. Empfehlungen und Begründung</h2>
+    <p class="leise vorspann">{{ antrag().regelHinweis }}</p>
+    @for (p of antrag().pakete; track p.id; let i = $index) {
+      <div class="paket">
+        <h3>{{ i + 1 }}. {{ p.produkt.name }}@if (p.produkt.saeule) { <span class="saeule-marke">Säule {{ p.produkt.saeule }}</span> }</h3>
+        @if (p.titel !== p.produkt.name) { <p><strong>{{ p.titel }}</strong></p> }
+        <h4>Begründung <span class="quelle">KI</span></h4>
+        <p>{{ p.begruendung }}</p>
+        @if (p.einordnung) {
+          <h4>Einordnung der Lage <span class="quelle">KI</span></h4>
+          <p>{{ p.einordnung }}</p>
+        }
+        <h4>Grundlagen <span class="quelle">Angaben und Berechnung</span></h4>
+        <p class="grundlage">{{ p.grundlage }}</p>
+        @if (p.hinweis) { <p class="hinweis">{{ p.hinweis }}</p> }
+        @if (!istTermin(p)) { <p class="leise">Gewünschter Vertragsbeginn: 1. {{ monatJahr(antrag().beginn) }}. Prämie folgt mit der verbindlichen Offerte.</p> }
+      </div>
+    }
+  </section>
+
+  @if (stand()?.uebergabe; as u) {
+    @if (u.noetig) {
+      <section>
+        <h2>Übergabe an eine Pax-Fachperson</h2>
+        @if (u.text) { <p>{{ u.text }} <span class="quelle">KI</span></p> }
+        <ul>@for (k of u.kriterien; track k.id) { <li>{{ k.titel }}</li> }</ul>
+      </section>
+    }
+  }
+
+  <section class="schluss">
+    <h2>So geht es weiter</h2>
+    <ol>
+      <li>Eine Pax-Fachperson prüft dieses Protokoll und Ihre Auswahl, bevor ein Vertrag entsteht.</li>
+      <li>Bei fondsgebundenen Produkten folgt eine Angemessenheitsprüfung.</li>
+      <li>Sie erhalten eine verbindliche Offerte mit Prämie. Gesundheitsfragen und Identifikation erledigen Sie direkt mit Pax.</li>
+      <li>Nach der Unterschrift haben Sie 14 Tage Widerrufsrecht.</li>
+    </ol>
+    <p class="rechtlich">
+      Empfehlungen und Erklärungen mit dem Vermerk „KI“ wurden von einem KI-Modell auf Basis Ihrer Angaben und der Berechnungen formuliert;
+      Zahlen in diesen Texten werden automatisch gegen die Berechnungen geprüft. Berechnungen: Pax-Rechenschnittstelle (APICalc).
+      Dieses Protokoll ist keine Offerte und keine verbindliche Eignungsprüfung. Demo-Dokument aus einem Hackathon-Prototyp mit erfundenen Angaben.
+    </p>
+  </section>
+
+  <footer>Pax, Schweizerische Lebensversicherungs-Gesellschaft AG, Aeschenplatz 13, 4002 Basel</footer>
+</article>

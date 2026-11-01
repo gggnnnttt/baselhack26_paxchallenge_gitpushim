@@ -5,12 +5,13 @@ import type { Auswahl } from '../abschluss/abschluss.model';
 import { Component, DestroyRef, computed, effect, inject, input, output, signal } from '@angular/core';
 import type { Beratungsstand, Erkenntnis } from '../beratungsstand/beratungsstand.model';
 import { PaxAvatar, type PaxAvatarState } from '../pax-avatar/pax-avatar';
+import { SaeulenGrafik } from '../grafik/saeulen-grafik';
 
 const PARTNER = 'Partner/in: ';
 
 @Component({
   selector: 'app-empfehlungen-seite',
-  imports: [PaxAvatar],
+  imports: [PaxAvatar, SaeulenGrafik],
   templateUrl: './empfehlungen-seite.html',
   styleUrl: './empfehlungen-seite.scss',
 })
@@ -93,6 +94,7 @@ export class EmpfehlungenSeite {
       pakete: r.empfehlungen.filter((e) => this.gewaehlt().has(e.id)),
       regelHinweis: r.regelHinweis,
       statusText: r.statusText,
+      erkenntnisse: r.erkenntnisse ?? [],
       revision: r.revision,
       gewaehltAm: new Date(),
     });

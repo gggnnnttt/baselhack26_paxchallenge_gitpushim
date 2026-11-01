@@ -15,6 +15,24 @@
       <h1 id="empfehlungen-titel">Unsere Empfehlungen für Sie</h1>
       <p class="einleitung">Abgeleitet aus Ihren drei Säulen und dem, was Ihnen wichtig ist.</p>
 
+      <!-- Predefined criteria met: a Pax specialist takes over; the model explains why. -->
+      @if (stand()?.uebergabe; as u) {
+        @if (u.noetig) {
+          <aside class="uebergabe" aria-labelledby="uebergabe-titel">
+            <h2 id="uebergabe-titel">Hier sollte eine Pax-Fachperson übernehmen</h2>
+            @if (u.text) { <p>{{ u.text }}</p> }
+            <ul>@for (k of u.kriterien; track k.id) { <li>{{ k.titel }}</li> }</ul>
+            <p class="klein">Vordefinierte Kriterien von Pax. Die Erklärung oben schreibt die KI.</p>
+          </aside>
+        }
+      }
+
+      @if (stand()?.grafik?.length) {
+        <section class="grafik-karte">
+          <app-saeulen-grafik [zeilen]="stand()!.grafik" [sessionId]="sessionId()" [revision]="revision()" />
+        </section>
+      }
+
       @if (laden()) {
         <p role="status">Pax stellt Ihre Empfehlungen zusammen …</p>
       } @else if (fehler()) {

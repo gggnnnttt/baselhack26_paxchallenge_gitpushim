@@ -156,6 +156,10 @@ export interface Beratungsstand {
   };
   handlungsplan: { hinweis: string; karten: Handlungskarte[] };
   lagebild: Lagebild;
+  // Predefined criteria for a Pax specialist; the explanation is written by the model (null until it wrote one).
+  uebergabe: { noetig: boolean; kriterien: { id: string; titel: string }[]; text: string | null };
+  // Mirrors GrafikZeile in backend/src/beratung/grafik.ts: need and pillars per scenario, CHF per year.
+  grafik: GrafikZeile[];
   produktzuordnung: { statusText: string; hinweise: string[]; faelle: ProduktFall[] };
   letzteNachricht: { uebernommen: Protokolleintrag[]; abgelehnt: Protokolleintrag[] };
 }
@@ -171,4 +175,9 @@ export interface Lagebild {
   erkenntnisse: Erkenntnis[];
   naechstes: { label: string; warum: string }[];
   verstanden: number;
+}
+
+export interface GrafikZeile {
+  id: string; titel: string; wer: 'Sie' | 'Partner/in' | 'Haushalt';
+  bedarf: number; ersteSaeule: number; zweiteSaeule: number; weiteres: number; luecke: number;
 }

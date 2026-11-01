@@ -1,0 +1,84 @@
+@if (zeilen().length) {
+  <figure class="grafik" [class.kompakt]="kompakt()">
+    <figcaption>
+      @if (mitTitel()) { <h3>Was fehlt im Ernstfall?</h3> }
+      <p>Ihr Bedarf pro Jahr und was die drei Säulen leisten. Berechnet mit der Pax-Rechenschnittstelle (APICalc).</p>
+    </figcaption>
+
+    <ul class="legende" aria-label="Legende">
+      @for (t of teile; track t.key) {
+        <li><span class="muster" [class]="'muster ' + t.klasse" aria-hidden="true"></span>{{ t.name }}</li>
+      }
+      <li><span class="bedarf-muster" aria-hidden="true"></span>Bedarf</li>
+    </ul>
+
+    @if (!tabelle()) {
+      <ol class="zeilen">
+        @for (z of zeilen(); track z.id) {
+          <li class="zeile" tabindex="0" [attr.aria-label]="beschreibung(z)"
+            (mouseenter)="aktiv.set(z.id)" (mouseleave)="aktiv.set(null)" (focus)="aktiv.set(z.id)" (blur)="aktiv.set(null)">
+            <div class="kopf">
+              <span class="titel">{{ z.titel }} <span class="wer">{{ wer[z.wer] }}</span></span>
+              <!-- The one direct label per bar: the gap, the number the story is about. -->
+              <span class="wert" [class.offen]="z.luecke > 0">{{ z.luecke > 0 ? 'Lücke ' + chf(z.luecke) : 'gedeckt' }}</span>
+            </div>
+            <div class="spur" aria-hidden="true">
+              <div class="balken">
+                @for (t of teile; track t.key) {
+                  @if (z[t.key] > 0) {
+                    <span [class]="'teil ' + t.klasse" [style.width.%]="breite(z[t.key])"></span>
+                  }
+                }
+              </div>
+              <span class="bedarf" [style.left.%]="breite(z.bedarf)"></span>
+            </div>
+            @if (aktiv() === z.id) {
+              <div class="tooltip" role="presentation">
+                <strong>{{ z.titel }}</strong>
+                <dl>
+                  <div><dt><span class="bedarf-muster" aria-hidden="true"></span>Bedarf</dt><dd>{{ chf(z.bedarf) }}</dd></div>
+                  @for (t of teile; track t.key) {
+                    @if (z[t.key] > 0) {
+                      <div><dt><span [class]="'muster ' + t.klasse" aria-hidden="true"></span>{{ t.name }}</dt><dd>{{ chf(z[t.key]) }}</dd></div>
+                    }
+                  }
+                </dl>
+                <span class="pro-jahr">Beträge pro Jahr</span>
+              </div>
+            }
+          </li>
+        }
+      </ol>
+      <div class="achse" aria-hidden="true">
+        @for (t of ticks(); track t.wert) {
+          <span [style.left.%]="t.pos">{{ t.text }}</span>
+        }
+      </div>
+    } @else {
+      <table class="tabelle">
+        <caption class="sr-only">Bedarf und Leistungen pro Szenario in CHF pro Jahr</caption>
+        <thead><tr><th scope="col">Szenario</th><th scope="col">Bedarf</th>@for (t of teile; track t.key) { <th scope="col">{{ t.name }}</th> }</tr></thead>
+        <tbody>
+          @for (z of zeilen(); track z.id) {
+            <tr><th scope="row">{{ z.titel }} <span class="wer">{{ wer[z.wer] }}</span></th><td>{{ chf(z.bedarf) }}</td>@for (t of teile; track t.key) { <td>{{ chf(z[t.key]) }}</td> }</tr>
+          }
+        </tbody>
+      </table>
+    }
+    <button class="umschalten" type="button" (click)="tabelle.set(!tabelle())">{{ tabelle() ? 'Als Grafik anzeigen' : 'Als Tabelle anzeigen' }}</button>
+
+    <!-- The explanation is written by the model for this state of the advice; numbers only from the chart. -->
+    <div class="erklaerung" aria-live="polite">
+      <span class="ki">Erklärung von Pax (KI)</span>
+      @if (laedt()) {
+        <p class="laedt">Pax erklärt die Grafik …</p>
+      } @else if (erklaerung(); as text) {
+        <p>{{ text }}</p>
+      } @else if (fehler()) {
+        <p>Die Erklärung ist gerade nicht verfügbar. <button class="link" type="button" (click)="nochmal()">Erneut versuchen</button></p>
+      } @else {
+        <p>Für diese Grafik liegt noch keine geprüfte Erklärung vor. Die Zahlen oben stammen direkt aus der Berechnung.</p>
+      }
+    </div>
+  </figure>
+}

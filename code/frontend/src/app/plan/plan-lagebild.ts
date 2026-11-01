@@ -1,5 +1,6 @@
 import { Component, computed, input, output, signal } from '@angular/core';
 import type { Beratungsstand, Saeule } from '../beratungsstand/beratungsstand.model';
+import { SaeulenGrafik } from '../grafik/saeulen-grafik';
 
 const EINLEITUNG = {
   verstehen: 'Erzählen Sie Pax von sich. Die drei Säulen füllen sich, je besser Pax Ihre Situation kennt.',
@@ -18,11 +19,14 @@ const PARTNER = 'Partner/in: ';
  */
 @Component({
   selector: 'app-plan-lagebild',
+  imports: [SaeulenGrafik],
   templateUrl: './plan-lagebild.html',
   styleUrl: './plan-lagebild.scss',
 })
 export class PlanLagebild {
   readonly stand = input<Beratungsstand | null>(null);
+  readonly sessionId = input<string | undefined>(undefined);
+  readonly revision = input(0);
   readonly empfehlungen = output<void>();
 
   protected readonly lagebild = computed(() => this.stand()?.lagebild ?? null);

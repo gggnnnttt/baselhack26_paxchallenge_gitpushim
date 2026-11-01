@@ -15,7 +15,8 @@ const model = process.env['OPENAI_MODEL'] || 'gpt-6-luna';
 const rails = new Guardrails(JSON.parse(readFileSync(new URL('../guardrails.config.json', import.meta.url), 'utf8')));
 const instructions = readFileSync(new URL('../advisor.instructions.md', import.meta.url), 'utf8');
 // logLevel 'off' also ignores OPENAI_LOG=debug, which would print full request bodies including chat text.
-const client = new OpenAI({ apiKey, maxRetries: 0, timeout: 30000, logLevel: 'off' });
+// 60 s: the recommendations page asks for several explanations in one structured answer.
+const client = new OpenAI({ apiKey, maxRetries: 0, timeout: 60000, logLevel: 'off' });
 // Without APICALC_TOKEN the profile still works; the flow then stops at "bereit" and shows the prepared request.
 const apiCalcToken = process.env['APICALC_TOKEN'];
 const rechner = apiCalcToken ? createApiCalcClient({
@@ -69,6 +70,11 @@ app.post('/api/szenario/uebernehmen', (req, res) => {
 app.post('/api/empfehlungen', async (req, res) => {
   try { res.json(await chat.empfehlungen(req.body)); }
   catch (error) { res.status(error instanceof GuardrailError ? error.status : 500).json({ error: error instanceof GuardrailError ? error.message : 'Empfehlungen sind momentan nicht verfügbar.' }); }
+});
+
+app.post('/api/grafik', async (req, res) => {
+  try { res.json(await chat.grafik(req.body)); }
+  catch (error) { res.status(error instanceof GuardrailError ? error.status : 500).json({ error: error instanceof GuardrailError ? error.message : 'Die Erklärung ist momentan nicht verfügbar.' }); }
 });
 
 app.post('/api/demo', async (_req, res) => {

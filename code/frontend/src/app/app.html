@@ -85,7 +85,7 @@
       }
       @case ('portal') {
         @if (antrag(); as a) {
-          <app-kundenportal [antrag]="a" [demo]="demoAktiv()" (beratung)="seiteWechseln('beratung')" (neu)="deleteDialog.showModal()" />
+          <app-kundenportal [antrag]="a" [demo]="demoAktiv()" [stand]="stand()" [sessionId]="sessionId" [revision]="revision()" (beratung)="seiteWechseln('beratung')" (neu)="deleteDialog.showModal()" />
         }
       }
     }
@@ -125,7 +125,7 @@
           }
         </div>
         <div role="tabpanel" id="plan-lagebild" aria-labelledby="reiter-lagebild" [hidden]="planReiter() !== 'lagebild'">
-          <app-plan-lagebild [stand]="stand()" (empfehlungen)="seiteWechseln('empfehlungen')" />
+          <app-plan-lagebild [stand]="stand()" [sessionId]="sessionId" [revision]="revision()" (empfehlungen)="seiteWechseln('empfehlungen')" />
         </div>
         <div role="tabpanel" id="plan-weg" aria-labelledby="reiter-weg" [hidden]="planReiter() !== 'weg'">
           <app-zeitstrahl [stand]="stand()" [ausstehend]="ausstehend()" (aktion)="zeitstrahlAktion($event)" />

@@ -1,4 +1,4 @@
-import { Component, input, output } from '@angular/core';
+import { Component, input, output, signal } from '@angular/core';
 import { FrageKarte, type Frage } from '../frage-karte/frage-karte';
 import { MarkdownPipe } from '../markdown.pipe';
 import { PaxAvatar } from '../pax-avatar/pax-avatar';
@@ -9,6 +9,8 @@ export interface Message {
   content: string;
   // Pax's open question, answered with the controls of the question card.
   frage?: Frage | null;
+  // A predefined criterion for a Pax specialist was newly met with this reply; the text is the model's explanation.
+  uebergabe?: { text: string | null; kriterien: { id: string; titel: string }[] };
 }
 
 /** The conversation: Pax's greeting and replies (with the open question as controls), the customer's turns and timeline notes. */
@@ -29,4 +31,10 @@ export class ChatVerlauf {
   readonly empfehlungen = output<void>();
   // An answer chosen on the question card.
   readonly antwort = output<string>();
+  // Demo: the request for a specialist is only noted in the browser.
+  protected readonly angefragt = signal(new Set<number>());
+
+  protected anfragen(index: number) {
+    this.angefragt.update((s) => new Set(s).add(index));
+  }
 }
