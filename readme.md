@@ -1,15 +1,29 @@
-# Pax Advisor – BaselHack 2026, Pax Challenge (Team A2)
+# KI-Vorsorgeberater – Prototyp für die Pax Challenge, BaselHack 2026 (Team „Git Pushim“)
 
-Prototyp eines KI-gestützten Vorsorgeberaters für Pax: Im Chat erfasst Pax die Situation eines Haushalts
-(drei Säulen, Pläne, Anliegen), rechnet Risiko- und Pensionierungslücken über die Pax-APICalc-Schnittstelle,
-erklärt die Ergebnisse und leitet zu persönlichen Empfehlungen und einem Beratungsprotokoll weiter.
-In komplexen Fällen übergibt Pax nach vordefinierten Kriterien an eine Pax-Fachperson.
+> **Hackathon-Prototyp.** Dieses Projekt ist unser Beitrag zu einer von Pax gesponserten Challenge am
+> BaselHack 2026. Es ist **kein Produkt, kein Angebot und kein offizieller Dienst von Pax**, wurde nicht von
+> Pax entwickelt und wird von Pax weder betrieben noch geprüft oder freigegeben. Nur für erfundene Demo-Angaben,
+> keine Offerte, keine Beratung.
 
-> Hackathon-Prototyp, nur für erfundene Demo-Angaben. Keine Offerte, keine Beratung, kein Produkt von Pax.
+## Worum es geht
+
+Die Challenge lautete: Wie könnte der digitale Versicherungsberater der Zukunft aussehen? Unser Prototyp zeigt
+einen KI-gestützten Vorsorgeberater: Im Chat erfasst er die Situation eines Haushalts (drei Säulen, Pläne,
+Anliegen), rechnet Risiko- und Pensionierungslücken, erklärt die Ergebnisse und leitet zu Empfehlungen und
+einem Beratungsprotokoll weiter. In komplexen Fällen empfiehlt er nach vordefinierten Kriterien die Übergabe an
+eine menschliche Fachperson.
+
+**Warum das Pax-Design:** Weil die Challenge von Pax gestellt wurde, ist der Prototyp im Stil von Pax gestaltet
+(Name, Logo, Farben, Schrift, Figur) und verwendet öffentlich verfügbare Produktinformationen von pax.ch. Das ist
+reines Demo-Theming für die Präsentation. Alle Rechte an diesem Material liegen bei Pax (siehe unten).
+
+**Schnittstellen:** Für die Berechnungen nutzt der Prototyp die Berechnungs-API (APICalc), die den Teams für die
+Challenge zur Verfügung gestellt wurde. Die Texte erzeugt ein Sprachmodell von OpenAI. Für beide braucht es
+eigene Zugangsdaten; im Repository sind keine enthalten.
 
 ## Team
 
-Edon Kurtaj, Elton Zijadin Malici, Gentian Sadriu
+**Git Pushim:** Edon Kurtaj, Elton Zijadin Malici, Gentian Sadriu
 
 ## Struktur
 
