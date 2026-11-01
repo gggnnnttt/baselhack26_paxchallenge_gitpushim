@@ -39,10 +39,11 @@ export class EmpfehlungenSeite {
   private readonly lagebild = computed(() => this.stand()?.lagebild ?? null);
 
   protected readonly gutes = computed(() => this.lagebild()?.erkenntnisse.filter((e) => e.art === 'gut') ?? []);
-  // What Pax recognised: written by the model with the recommendations, otherwise its insights from the conversation.
+  // What Pax recognised: written by the model with the recommendations, until then its insights from the conversation.
+  // Only model texts: no fixed sentences from the backend.
   protected readonly hinweise = computed(() => {
     const ki = this.ergebnis()?.erkenntnisse ?? [];
-    return ki.length ? ki.map((text): Erkenntnis => ({ art: 'hinweis', text, quelle: 'ki' })) : this.lagebild()?.erkenntnisse.filter((e) => e.art === 'hinweis') ?? [];
+    return ki.length ? ki.map((text): Erkenntnis => ({ art: 'hinweis', text, quelle: 'ki' })) : this.lagebild()?.erkenntnisse.filter((e) => e.quelle === 'ki') ?? [];
   });
 
   // Each pillar in one line: the customer's own facts; the partner's are only mentioned.

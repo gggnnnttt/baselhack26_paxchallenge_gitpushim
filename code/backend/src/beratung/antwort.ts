@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { StrukturFormat } from '../chat.js';
 import { fuerStrictModus } from '../profil/extraktion.js';
 import { alsZahl } from './belege.js';
+import { bereinigeUrteil, KRITERIUM_IDS, type UebergabeUrteil } from './uebergabe.js';
 
 /**
  * Pax answers briefly and asks at most one question, which the browser shows with a fitting control
@@ -20,7 +21,9 @@ const Frage = z.object({
   // A realistic example value shown as placeholder, e.g. 1988 for a birth year. Checked in bereinige().
   beispiel: z.string().nullable(),
 }).strict();
-const Antwort = z.object({ antwort: z.string(), frage: Frage.nullable(), erkenntnisse: z.array(z.string()), uebergabe: z.string().nullable() }).strict();
+// The model's judgement against the predefined criteria; only catalogue ids are possible.
+const Uebergabe = z.object({ kriterien: z.array(z.enum(KRITERIUM_IDS)), text: z.string() }).strict();
+const Antwort = z.object({ antwort: z.string(), frage: Frage.nullable(), erkenntnisse: z.array(z.string()), uebergabe: Uebergabe.nullable() }).strict();
 export type Frage = z.infer<typeof Frage>;
 
 export const ANTWORT_FORMAT: StrukturFormat = {
@@ -35,7 +38,7 @@ Du antwortest als JSON mit \`antwort\`, \`frage\`, \`erkenntnisse\` und \`ueberg
 - \`frage.eingabe\` bestimmt das Bedienelement. Wähle die einfachste passende: \`ja_nein\`; \`auswahl\` (eine aus 2 bis 6 kurzen \`optionen\`); \`mehrfach\` (mehrere aus 2 bis 6 \`optionen\`); \`betrag\` (Franken, \`einheit\` z. B. „CHF pro Jahr“); \`zahl\` (mit \`einheit\` wie „%“ und sinnvollem \`min\`/\`max\`); \`jahr\`; \`text\` für freie Antworten. Nur bei \`auswahl\` und \`mehrfach\` hat \`optionen\` Einträge, sonst ist die Liste leer. \`einheit\`, \`min\` und \`max\` sind null, wenn sie nicht passen.
 - \`frage.beispiel\`: ein realistischer, typischer Beispielwert als Platzhalter, passend zu genau dieser Frage, z. B. „1988“ für ein Geburtsjahr, „85000“ für einen Jahreslohn, „500“ für einen monatlichen Sparbetrag, „2030“ für einen geplanten Hauskauf, „80“ für ein Pensum in %. Nur die Zahl ohne Einheit oder Tausendertrennzeichen; bei \`text\` ein kurzes Beispiel; bei \`ja_nein\`, \`auswahl\` und \`mehrfach\` null. Vergangenes (Geburt, Heirat) liegt in der Vergangenheit, Geplantes in der Zukunft.
 - \`erkenntnisse\`: 0 bis 3 kurze Sätze (je höchstens 25 Wörter): was du als Berater aus der aktuellen Lage dieser Person erkennst und warum es für ihre Vorsorge wichtig ist, z. B. was ein Kind, ein geplanter Schritt oder die Erwerbssituation konkret für sie bedeutet. Persönlich und konkret, keine allgemeinen Lehrbuchsätze, keine Produkte, keine Zahlen ausser solchen, die im Beratungsstand stehen. Gib jedes Mal die vollständige aktuelle Liste; sie ersetzt die bisherige. Leere Liste, solange du noch nichts Belastbares erkennst.
-- \`uebergabe\`: Nur wenn unter „Übergabe an eine Pax-Fachperson“ Kriterien stehen: 2 bis 3 Sätze, warum in dieser Situation eine Pax-Fachperson übernehmen sollte und was sie konkret prüft, bezogen auf genau diese Kriterien und die Lage der Person, ruhig und ohne Alarm. Sonst null. Keine Zahlen ausser solchen aus dem Beratungsstand.
+- \`uebergabe\`: deine Beurteilung, ob eine Pax-Fachperson übernehmen sollte, nur nach den Kriterien unter „Übergabe an eine Pax-Fachperson“. Massgeblich ist die konkrete Konstellation dieser Person: Eine einzelne Absicht oder ein Stichwort (z. B. „ich will mich selbstständig machen“) reicht nie, erst wenn du ihre Lage kennst und die Tragweite erheblich ist oder mehrere Faktoren ineinandergreifen. Im Zweifel null. Sonst \`kriterien\` (die zutreffenden ids) und \`text\`: ein bis zwei ruhige Sätze, was eine Fachperson in genau dieser Lage prüft, ohne Alarm. Gib jedes Mal die vollständige aktuelle Beurteilung; ändert sich die Lage nicht, bleibt sie gleich. Keine Zahlen ausser solchen aus dem Beratungsstand. Erwähne die Übergabe nicht zusätzlich in \`antwort\`.
 - Die Person kann immer auch frei schreiben oder „Weiss ich nicht“ wählen; biete das nicht als Option an.`;
 
 export interface AdvisorAntwort {
@@ -43,8 +46,9 @@ export interface AdvisorAntwort {
   frage: Frage | null;
   // Insights for the situation picture; null keeps the previous ones (e.g. when the model ignored the format).
   erkenntnisse: string[] | null;
-  // Why a specialist should take over; null if the model wrote none or it was rejected.
-  uebergabe: string | null;
+  // Whether a specialist should take over: null means no, undefined keeps the previous judgement
+  // (format ignored or the explanation rejected by the output guardrails).
+  uebergabe: UebergabeUrteil | null | undefined;
   // What goes into the history: the model and the profile extraction need the question to understand a short answer.
   verlauf: string;
 }
@@ -59,7 +63,7 @@ export function leseAntwort(roh: string, pruefen: (text: string) => string): Adv
   const geparst = Antwort.safeParse(daten);
   if (!geparst.success) {
     const text = pruefen(roh);
-    return { text, frage: null, erkenntnisse: null, uebergabe: null, verlauf: text };
+    return { text, frage: null, erkenntnisse: null, uebergabe: undefined, verlauf: text };
   }
   const frage = bereinige(geparst.data.frage, pruefen);
   const text = geparst.data.antwort.trim() ? pruefen(geparst.data.antwort) : '';
@@ -68,8 +72,8 @@ export function leseAntwort(roh: string, pruefen: (text: string) => string): Adv
   const erkenntnisse = geparst.data.erkenntnisse.map(e => e.trim()).filter(Boolean).flatMap(e => {
     try { return [pruefen(e).slice(0, 240)]; } catch { return []; }
   }).slice(0, 3);
-  let uebergabe: string | null = null;
-  try { uebergabe = geparst.data.uebergabe?.trim() ? pruefen(geparst.data.uebergabe.trim()).slice(0, 600) : null; } catch { uebergabe = null; }
+  let uebergabe: UebergabeUrteil | null | undefined = bereinigeUrteil(geparst.data.uebergabe);
+  try { if (uebergabe) uebergabe = { ...uebergabe, text: pruefen(uebergabe.text).slice(0, 400) }; } catch { uebergabe = undefined; }
   return { text, frage, erkenntnisse, uebergabe, verlauf: [text, frage?.text].filter(Boolean).join('\n\n') };
 }
 

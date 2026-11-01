@@ -4,13 +4,14 @@ import { assign, createActor, fromPromise, setup, waitFor, type Snapshot } from 
 import type { RisikoRechner } from '../berechnung/apicalc.js';
 import { pruefeRisiko, type RiskRequest, type RiskResponse, type RisikoPruefung } from '../berechnung/risiko.js';
 import { leeresProfil, type Profil } from '../profil/profil.js';
+import type { UebergabeUrteil } from './uebergabe.js';
 
 export interface Berechnung { requestJson: string; antwort: RiskResponse; zeitpunkt: string }
 export interface AblaufKontext { jahr: number; profil: Profil; pruefung: RisikoPruefung; berechnung: Berechnung | null; fehler: string | null }
 export type Phase = 'erfassung' | 'bereit' | 'berechnung' | 'berechnet' | 'fehlgeschlagen';
 // erkenntnisse: what the advisor model recognised in its last reply; carried over until it answers again.
-export interface AblaufStand { phase: Phase; kontext: AblaufKontext; snapshot: Snapshot<unknown>; pensionierung: PensionierungsStand; sparen: SparStand; erkenntnisse?: string[]; uebergabeText?: string }
-// uebergabeText: the model's explanation why a specialist should take over; only kept while a criterion applies.
+export interface AblaufStand { phase: Phase; kontext: AblaufKontext; snapshot: Snapshot<unknown>; pensionierung: PensionierungsStand; sparen: SparStand; erkenntnisse?: string[]; uebergabe?: UebergabeUrteil }
+// uebergabe: the model's last judgement against the predefined specialist criteria (see uebergabe.ts).
 
 type AblaufEvent = { type: 'PROFIL_AKTUALISIERT'; profil: Profil };
 
@@ -102,7 +103,7 @@ export class Beratungsablauf {
       ]);
       const sparen = await aktualisiereSparen(vorher.sparen, pensionierung, vorher.kontext.jahr,
         this.rechner?.berechneSparen ? { berechneSparen: request => this.rechner!.berechneSparen!(request) } : null);
-      return { ...this.stand(actor), pensionierung, sparen, erkenntnisse: vorher.erkenntnisse, uebergabeText: vorher.uebergabeText };
+      return { ...this.stand(actor), pensionierung, sparen, erkenntnisse: vorher.erkenntnisse, uebergabe: vorher.uebergabe };
     } finally {
       actor.stop();
     }

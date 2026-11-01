@@ -62,7 +62,7 @@ export async function begruendeEmpfehlungen(stand: AblaufStand, provider: ModelA
   // These are facts and calculation freshness checks, never product-selection rules.
   const grundlagen: Record<string, unknown> = {
     profil: werte(profil),
-    lagebild: { fokus: l.fokus, themen: l.themen, erkenntnisse: l.erkenntnisse.filter(e => e.quelle !== 'ki') },
+    lagebild: { fokus: l.fokus, themen: l.themen, erkenntnisse: l.erkenntnisse.filter(e => e.quelle !== 'ki'), nichtEingerechnet: l.nichtEingerechnet },
     risiko: { status: stand.phase, aktuell: risikoAktuell, szenarien: risikoAktuell ? szenarien(berechnung!.antwort).filter(s => !s.szenario.endsWith('Person B') || !!pruefung.request?.Person2) : [] },
     privateEu: risikoAktuell ? werte(vergleichePrivateEu(profil, berechnung!.antwort, jahr)) : { status: 'offen' },
     pensionierung: { status: p.phase, aktuell: pensionAktuell, ergebnis: pensionAktuell ? p.berechnung!.antwort.response : null },
@@ -74,7 +74,8 @@ export async function begruendeEmpfehlungen(stand: AblaufStand, provider: ModelA
       `Vermögen für die Pensionierung: ${profil.haushalt.vermoegenPensionierung ? `CHF ${profil.haushalt.vermoegenPensionierung.wert.toLocaleString('de-CH')}` : 'offen'}.`,
       ...profil.anliegen.map(a => a.text),
     ].join(' '),
-    lagebild: [...l.themen.map(t => t.text), ...l.erkenntnisse.filter(e => e.quelle !== 'ki').map(e => e.text)].join(' '),
+    lagebild: [...l.themen.map(t => t.text), ...l.erkenntnisse.filter(e => e.quelle !== 'ki').map(e => e.text),
+      ...(l.nichtEingerechnet.length ? [`Nicht in den Berechnungen enthalten (geplante Schritte): ${l.nichtEingerechnet.join(', ')}.`] : [])].join(' '),
     risiko: risikoAktuell ? szenarien(berechnung!.antwort).filter(s => !s.szenario.endsWith('Person B') || !!pruefung.request?.Person2).map(s => `${s.szenario}: ${s.fehler ?? (s.luecke === undefined ? 'Lücke offen' : `CHF ${s.luecke.toLocaleString('de-CH')} Lücke pro Jahr`)}`).join('; ') : 'Keine aktuelle Risikoberechnung verfügbar.',
     privateEu: Object.entries(profil.personen).map(([id, person]) => {
       const eu = person.privateEu;

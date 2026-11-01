@@ -97,7 +97,8 @@ h2 { margin: 0 0 18px; color: var(--color-brand-pax-purple); font-size: var(--si
   display: inline-flex; align-items: center; gap: 8px; min-height: 40px; margin-bottom: 6px; padding: 8px 16px;
   border: 1.5px solid var(--color-brand-pax-purple); border-radius: var(--radius-full); background: var(--color-neutral-white);
   color: var(--color-brand-pax-purple); font: inherit; font-weight: 500; cursor: pointer;
-  &:hover { background: var(--color-system-info-light); }
+  &:hover:not(:disabled) { background: var(--color-system-info-light); }
+  &:disabled { opacity: 0.6; cursor: progress; }
   &:focus-visible { outline: 2px solid var(--color-brand-pax-purple); outline-offset: 2px; }
 }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
@@ -109,7 +110,6 @@ h2 { margin: 0 0 18px; color: var(--color-brand-pax-purple); font-size: var(--si
   .protokoll-saeule { margin-left: 10px; padding: 2px 10px; border-radius: var(--radius-full); background: var(--color-brand-pax-green); color: var(--color-neutral-black); font-size: 13px; font-weight: 500; vertical-align: middle; }
   h4 { margin: 14px 0 4px; color: var(--color-neutral-gray-6); font-size: 14px; font-weight: 500; }
   .klein { margin: 0 0 20px; }
-  .grundlage { white-space: pre-line; font-size: 14px; }
 }
 .protokoll-meta {
   display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 24px; margin: 0 0 16px;

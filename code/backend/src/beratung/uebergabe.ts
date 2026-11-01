@@ -1,54 +1,64 @@
-import { szenarien } from '../berechnung/risiko.js';
-import { istPaar, type Person, type Profil } from '../profil/profil.js';
 import type { AblaufStand } from './ablauf.js';
+import { lagebild } from './verstaendnis.js';
 
 /**
  * When a Pax specialist has to take over. The legal framework asks for human review in complex cases
- * or with significant implications "based on predefined criteria": these criteria are fixed rules,
- * so the same situation always leads to the same decision. Only the explanation for the customer is
- * written by the model (see ANTWORT_REGELN, `uebergabe`).
+ * or with significant implications "based on predefined criteria". The criteria are this fixed catalogue;
+ * whether the concrete situation meets one is judged by the model, because complexity lies in how the
+ * facts of a household interact, not in a single keyword. The backend only accepts catalogue ids and
+ * asks for a judgement only once the situation is understood (all three pillars known), so a first
+ * "I want to become self-employed" never triggers a handoff on its own.
  * Sources: SYSTEM-ANALYSE.md §6 (human-advisor triggers) and the tariff provisions for disability cover.
  */
 export interface Kriterium { id: string; titel: string }
 export interface Uebergabe { noetig: boolean; kriterien: Kriterium[] }
+// What the model decided last: catalogue ids and its explanation for the customer.
+export interface UebergabeUrteil { kriterien: string[]; text: string }
 
-// Above this yearly disability pension a private cover is indemnity insurance with an over-insurance check (tariff SIR).
-const EU_RENTE_GRENZE = 36_000;
-const SELBSTSTAENDIG = /selbst(st|s)?ändig|selbststaendig|eigene firma|freiberuf/i;
-
-const personen = (profil: Profil): { person: Person; wer: string }[] => [
-  { person: profil.personen.A, wer: 'Sie' },
-  ...(istPaar(profil) && profil.personen.B ? [{ person: profil.personen.B, wer: 'Ihr Partner oder Ihre Partnerin' }] : []),
+interface Katalogeintrag extends Kriterium { wann: string }
+export const KRITERIEN: readonly Katalogeintrag[] = [
+  { id: 'selbststaendigkeit', titel: 'Selbstständigkeit mit Folgen für Pensionskasse und Risikoschutz',
+    wann: 'Die Person ist oder wird selbstständig, und der Wegfall von Pensionskasse und Risikoschutz trifft diesen Haushalt konkret, z. B. weil Familie oder Wohneigentum vom Einkommen abhängen oder über eine freiwillige BVG-Lösung, das Freizügigkeitsguthaben oder einen Kapitalbezug entschieden werden muss.' },
+  { id: 'pensionierung', titel: 'Pensionierung mit weitreichenden Entscheiden',
+    wann: 'Die Pensionierung steht in wenigen Jahren an oder ist erfolgt, und es sind Entscheide mit grosser Tragweite offen: Rente oder Kapital, gestaffelter Bezug, Einkäufe, Steuern, Frühpensionierung.' },
+  { id: 'bestehende_vertraege', titel: 'Bestehende Verträge ersetzen oder anrechnen',
+    wann: 'Es bestehen private Versicherungen oder Vorsorgeverträge, und die Beratung läuft auf Kündigung, Ersatz, Anrechnung oder Überschneidung hinaus.' },
+  { id: 'familie', titel: 'Familienkonstellation mit rechtlichen Folgen',
+    wann: 'Patchwork, Kinder aus früheren Beziehungen, Unterhaltspflichten, Konkubinat oder Trennung beeinflussen Begünstigung, Hinterlassenenleistungen oder Absicherung so, dass rechtliche Fragen zu klären sind.' },
+  { id: 'hohe_absicherung', titel: 'Hohe Absicherung mit Prüfung beim Versicherer',
+    wann: 'Die nötige Absicherung ist so hoch, dass Überversicherung, Gesundheitsprüfung oder Annahmegrenzen des Versicherers eine Rolle spielen, z. B. eine Lücke bei Erwerbsunfähigkeit deutlich über CHF 36\'000 pro Jahr, oder es gibt Hinweise auf gesundheitliche Vorbelastungen.' },
+  { id: 'grosse_entscheidung', titel: 'Entscheid mit grosser finanzieller Tragweite',
+    wann: 'Ein Schritt bindet einen grossen Teil des Vermögens oder der Vorsorge oder ist kaum umkehrbar: Vorbezug für Wohneigentum, grosser Pensionskasseneinkauf, Auswanderung, Erbschaft.' },
+  { id: 'verflochten', titel: 'Mehrere Themen greifen ineinander',
+    wann: 'Mehrere Veränderungen oder widersprüchliche Ziele hängen so zusammen, dass eine Standardempfehlung nicht reicht und eine individuelle Gesamtplanung nötig ist.' },
 ];
+export const KRITERIUM_IDS = KRITERIEN.map(k => k.id) as [string, ...string[]];
+
+// Pax judges only once it understands the household; until then a statement of intent is not enough.
+export const kannBeurteilen = (stand: AblaufStand) => lagebild(stand).phase !== 'verstehen';
 
 export function pruefeUebergabe(stand: AblaufStand): Uebergabe {
-  const { profil, berechnung, jahr } = stand.kontext;
-  const kriterien: Kriterium[] = [];
-  const dazu = (id: string, titel: string) => { if (!kriterien.some(k => k.id === id)) kriterien.push({ id, titel }); };
-
-  for (const { person, wer } of personen(profil)) {
-    if (person.erwerb?.wert === 'selbststaendig' && person.bvgVersichert?.wert === false) {
-      dazu('selbststaendig_ohne_pk', `Selbstständig ohne Pensionskasse (${wer}): die ganze 2. Säule fehlt`);
-    }
-    const alter = person.geburtsjahr ? jahr - person.geburtsjahr.wert : null;
-    const pension = person.pensionierungsalter?.wert ?? 65;
-    if (alter !== null && pension - alter <= 5) dazu('pensionierung_nah', `Pensionierung in höchstens fünf Jahren (${wer}): Bezug und Steuern planen`);
-    if (person.privateEu?.vorhanden?.wert) dazu('bestehende_versicherung', 'Bestehende private Versicherung: Anrechnung oder Ersatz prüfen');
-  }
-  if (profil.plaene.some(p => SELBSTSTAENDIG.test(p.beschreibung))) dazu('selbststaendigkeit_geplant', 'Geplante Selbstständigkeit: Pensionskasse und Risikoschutz fallen weg');
-  if (profil.kinder.some(k => k.elternteil && k.elternteil.wert !== 'beide')) dazu('patchwork', 'Kinder aus einer früheren Beziehung: Sorgerecht und Unterhalt prüfen');
-  if (stand.phase === 'berechnet' && berechnung) {
-    const hoch = szenarien(berechnung.antwort).some(s => s.szenario.startsWith('Erwerbsunfähigkeit') && (s.luecke ?? 0) > EU_RENTE_GRENZE);
-    if (hoch) dazu('eu_rente_hoch', "Lücke bei Erwerbsunfähigkeit über CHF 36'000 pro Jahr: Überversicherung prüfen");
-    if (szenarien(berechnung.antwort).some(s => s.fehler?.includes('pensioniert'))) dazu('pensionierung_nah', 'Pensionierung steht bevor oder ist erfolgt: Bezug und Steuern planen');
-  }
+  const ids = new Set(stand.uebergabe?.kriterien ?? []);
+  const kriterien = KRITERIEN.filter(k => ids.has(k.id)).map(({ id, titel }) => ({ id, titel }));
   return { noetig: kriterien.length > 0, kriterien };
 }
 
-/** For the advisor instructions: the criteria and what the model has to write about them. */
-export function uebergabeKontext(u: Uebergabe): string {
+/** For the advisor instructions: the catalogue, the current judgement and when to judge at all. */
+export function uebergabeKontext(stand: AblaufStand): string {
+  const titel = '## Übergabe an eine Pax-Fachperson (vordefinierte Kriterien)';
+  if (!kannBeurteilen(stand)) return [titel, 'Das Lagebild ist noch unvollständig. Beurteile noch keine Übergabe, `uebergabe` ist null.'].join('\n');
+  const aktuell = pruefeUebergabe(stand);
   return [
-    '## Übergabe an eine Pax-Fachperson (vordefinierte Kriterien des Backends)',
-    ...(u.noetig ? u.kriterien.map(k => `- ${k.titel}`) : ['- Kein Kriterium erfüllt. `uebergabe` ist null.']),
+    titel,
+    'Beurteile anhand der Lage dieser Person, ob eines dieser Kriterien erfüllt ist:',
+    ...KRITERIEN.map(k => `- \`${k.id}\` (${k.titel}): ${k.wann}`),
+    `Deine bisherige Beurteilung: ${aktuell.noetig ? aktuell.kriterien.map(k => `\`${k.id}\``).join(', ') : 'keine Übergabe'}.`,
   ].join('\n');
+}
+
+/** Only catalogue ids count; without a valid criterion or explanation there is no handoff. */
+export function bereinigeUrteil(roh: { kriterien: string[]; text: string } | null): UebergabeUrteil | null {
+  if (!roh) return null;
+  const kriterien = [...new Set(roh.kriterien)].filter(id => KRITERIUM_IDS.includes(id));
+  return kriterien.length && roh.text.trim() ? { kriterien, text: roh.text.trim() } : null;
 }

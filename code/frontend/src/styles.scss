@@ -425,10 +425,4 @@ body {
 /* Links in Pax's answers. */
 .message-markdown a { color: var(--color-brand-pax-purple); text-underline-offset: 3px; }
 
-/* The advice record prints on its own: the document moves to <body> (see ProtokollDokument.drucken()). */
-@media print {
-  @page { size: A4; margin: 16mm 15mm; }
-  body.protokoll-druck { margin: 0; background: #fff; }
-  body.protokoll-druck > *:not(app-protokoll-dokument) { display: none !important; }
-  body.protokoll-druck > app-protokoll-dokument { display: block !important; }
-}
+

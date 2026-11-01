@@ -13,8 +13,9 @@ import { extrahiereAenderungen } from './profil/extraktion.js';
 import { checkScope } from './scope.js';
 import { muellerProfil } from './profil/demo.js';
 import { belegteZahlen, nurBelegteZahlen } from './beratung/belege.js';
-import { pruefeUebergabe } from './beratung/uebergabe.js';
+import { kannBeurteilen } from './beratung/uebergabe.js';
 import { erklaereGrafik } from './beratung/grafik.js';
+import { schreibeProtokoll, type ProtokollTexte } from './beratung/protokoll.js';
 
 export interface ChatMessage { role: 'user' | 'assistant'; content: string }
 // Model payloads are built only from accepted chat turns of the same session.
@@ -30,15 +31,16 @@ export interface ChatOptionen { rechner?: RisikoRechner | null; heute?: () => Da
 // `revision`: counts accepted profile changes; a scenario comparison is only valid for the revision it was computed on.
 export interface ChatAntwort { reply: string; frage: Frage | null; sessionId: string; beratungsstand: BeratungsstandAnsicht; revision: number }
 // The model's insights replace the previous ones; without a readable answer the previous ones stay.
-// The specialist explanation is only kept while one of the predefined criteria applies.
+// The specialist judgement is only taken once Pax understands the situation; a rejected one keeps the previous.
 function uebernimmKiTexte(ablauf: AblaufStand, antwort: AdvisorAntwort) {
   if (antwort.erkenntnisse) ablauf.erkenntnisse = antwort.erkenntnisse;
-  ablauf.uebergabeText = pruefeUebergabe(ablauf).noetig ? antwort.uebergabe ?? ablauf.uebergabeText : undefined;
+  if (kannBeurteilen(ablauf) && antwort.uebergabe !== undefined) ablauf.uebergabe = antwort.uebergabe ?? undefined;
 }
 // `entfernt`: older turns dropped from `messages`, so message numbers in the profile stay stable.
 interface Session {
   empfehlungen?: { revision: number; ergebnis: EmpfehlungenAntwort };
   grafik?: { revision: number; text: string | null };
+  protokoll?: { revision: number; ids: string; texte: ProtokollTexte };
   messages: ChatMessage[]; entfernt: number; updated: number; busy: boolean; ablauf: AblaufStand; revision: number;
   szenario?: { vergleich: SzenarioVergleich; ablauf: AblaufStand; beleg: string };
 }
@@ -175,7 +177,7 @@ export class ChatService {
     // (their examples, e.g. 500 or 85000, would otherwise count as evidence).
     const zahlen = belegteZahlen([kontext, ...messages.map(m => m.content)].join('\n'));
     return { ...antwort, erkenntnisse: antwort.erkenntnisse?.filter(e => nurBelegteZahlen(e, zahlen) !== null) ?? null,
-      uebergabe: antwort.uebergabe && nurBelegteZahlen(antwort.uebergabe, zahlen) };
+      uebergabe: antwort.uebergabe && (nurBelegteZahlen(antwort.uebergabe.text, zahlen) === null ? undefined : antwort.uebergabe) };
   }
 
 
@@ -303,6 +305,26 @@ export class ChatService {
     try { text = roh && this.rails.checkOutput(roh); } catch { text = null; }
     if (this.sessions.get(input.data.sessionId) === session && session.revision === revision) session.grafik = { revision, text };
     return { revision, text };
+  }
+
+  /**
+   * The model's texts for the advice record (PDF) of the chosen packages. Read-only like the chart explanation;
+   * only for the revision the recommendations were made on, so the record matches what the customer chose.
+   */
+  async protokoll(body: unknown): Promise<ProtokollTexte & { revision: number }> {
+    const input = z.object({ sessionId: z.string().min(1).max(100), revision: z.number().int().min(0), pakete: z.array(z.string().min(1).max(20)).min(1).max(5) }).strict().safeParse(body);
+    if (!input.success) throw new GuardrailError('Ungültige Anfrage.', 400);
+    this.removeExpired();
+    const { sessionId, revision, pakete } = input.data;
+    const session = this.sessions.get(sessionId);
+    if (!session) throw new GuardrailError('Die Sitzung ist abgelaufen. Bitte starten Sie einen neuen Chat.', 410);
+    const empfehlungen = session.empfehlungen;
+    if (session.revision !== revision || empfehlungen?.revision !== revision) throw new GuardrailError('Die Beratung hat sich seit der Auswahl geändert.', 409);
+    const ids = [...new Set(pakete)].sort().join(',');
+    if (session.protokoll?.revision === revision && session.protokoll.ids === ids) return { ...session.protokoll.texte, revision };
+    const texte = await schreibeProtokoll(session.ablauf, empfehlungen.ergebnis, pakete, this.provider);
+    if (this.sessions.get(sessionId) === session && session.revision === revision) session.protokoll = { revision, ids, texte };
+    return { ...texte, revision };
   }
 
   // Removes the server-side history only. Copies already sent to the model provider are not affected.

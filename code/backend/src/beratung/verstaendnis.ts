@@ -24,6 +24,8 @@ export interface Lagebild {
   naechstes: { label: string; warum: string }[];
   // Share of the facts the pillars need that are known, 0 to 1.
   verstanden: number;
+  // Planned steps the calculations do not include yet. A fact for the models, not a text for the customer.
+  nichtEingerechnet: string[];
 }
 
 const chf = (betrag: number) => `CHF ${Math.round(betrag).toLocaleString('de-CH')}`;
@@ -132,10 +134,6 @@ function erkenntnisse(stand: AblaufStand, themenListe: Thema[]): Erkenntnis[] {
   if (budget.status === 'unterdeckung' && budget.fehlbetragMonat !== null) {
     liste.push({ art: 'luecke', thema: 'sparen', text: `Um die Lücke bis zur Pension zu schliessen, fehlen in Ihrem Budget ${chf(budget.fehlbetragMonat)} pro Monat.` });
   }
-  const gerechnet = themenListe.some(t => t.status === 'berechnet');
-  if (gerechnet && profil.plaene.length) {
-    liste.push({ art: 'hinweis', text: `Ihre Pläne (${profil.plaene.map(p => p.beschreibung).join(', ')}) sind in diesen Zahlen noch nicht eingerechnet.` });
-  }
   return liste;
 }
 
@@ -169,6 +167,7 @@ export function lagebild(stand: AblaufStand): Lagebild {
     erkenntnisse: erkenntnisse(stand, themenListe),
     naechstes: naechstes(stand, saeulenListe, fokusWert),
     verstanden: gesamt ? bekannt / gesamt : 0,
+    nichtEingerechnet: themenListe.some(t => t.status === 'berechnet') ? profil.plaene.map(p => p.beschreibung) : [],
   };
 }
 
@@ -188,6 +187,7 @@ export function lagebildKontext(l: Lagebild): string {
     ...l.themen.map(t => `- ${t.titel}: ${t.text}`),
     'Erkenntnisse aus den Berechnungen:',
     ...(l.erkenntnisse.some(e => e.quelle !== 'ki') ? l.erkenntnisse.filter(e => e.quelle !== 'ki').map(e => `- ${e.text}`) : ['- noch keine']),
+    ...(l.nichtEingerechnet.length ? [`Nicht in den Berechnungen enthalten (geplante Schritte): ${l.nichtEingerechnet.join(', ')}. Erwähne das nur, wenn es für die Einordnung wichtig ist.`] : []),
     'Deine eigenen Erkenntnisse aus der letzten Antwort (nicht vom Backend geprüft, bei Bedarf ersetzen):',
     ...(l.erkenntnisse.some(e => e.quelle === 'ki') ? l.erkenntnisse.filter(e => e.quelle === 'ki').map(e => `- ${e.text}`) : ['- noch keine']),
     'Als Nächstes:',

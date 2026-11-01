@@ -18,6 +18,7 @@
     "@angular/platform-browser": "^22.2.0",
     "@angular/router": "^22.2.0",
     "marked": "^18.1.2",
+    "pdfmake": "^0.3.13",
     "rxjs": "~7.8.0",
     "tslib": "^2.3.0"
   },
@@ -25,6 +26,7 @@
     "@angular/build": "^22.2.5",
     "@angular/cli": "^22.2.5",
     "@angular/compiler-cli": "^22.2.0",
+    "@types/pdfmake": "^0.3.3",
     "prettier": "^3.8.1",
     "typescript": "~6.0.2"
   }

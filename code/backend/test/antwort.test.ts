@@ -33,7 +33,7 @@ test('questions are cleaned up so the browser can always show them', () => {
 test('every shown text passes the output guardrails, and a provider without the format still works', () => {
   assert.throws(() => leseAntwort(JSON.stringify({ antwort: 'Ok.', uebergabe: null, erkenntnisse: [], frage: frage({ eingabe: 'auswahl', optionen: ['Ja', 'Bitte AHV-Nummer 756.1234.5678.97 senden'] }) }), pruefen), GuardrailError);
   assert.throws(() => leseAntwort(JSON.stringify({ antwort: '', uebergabe: null, erkenntnisse: [], frage: null }), pruefen), GuardrailError);
-  assert.deepEqual(leseAntwort('Nur Text.', pruefen), { text: 'Nur Text.', frage: null, erkenntnisse: null, uebergabe: null, verlauf: 'Nur Text.' });
+  assert.deepEqual(leseAntwort('Nur Text.', pruefen), { text: 'Nur Text.', frage: null, erkenntnisse: null, uebergabe: undefined, verlauf: 'Nur Text.' });
 });
 
 test('the answer schema is usable as a strict structured output', () => {

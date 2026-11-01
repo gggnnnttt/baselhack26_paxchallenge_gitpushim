@@ -81,10 +81,11 @@
       }
 
       <div class="aktionen">
-        <button class="pdf" type="button" (click)="alsPdf()">
+        <button class="pdf" type="button" (click)="alsPdf()" [disabled]="pdfStatus() === 'erstellt'">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6v18h12V7zM14 3v4h4M12 11v6M9 14l3 3 3-3" /></svg>
-          Beratungsprotokoll als PDF
+          {{ pdfStatus() === 'erstellt' ? 'PDF wird erstellt …' : 'Beratungsprotokoll als PDF' }}
         </button>
+        @if (pdfStatus() === 'fehler') { <p class="klein" role="alert">Das PDF konnte nicht erstellt werden. Bitte versuchen Sie es erneut.</p> }
         <button class="link" type="button" (click)="protokollOeffnen()">Beratungsprotokoll ansehen</button>
         <button class="link" type="button" (click)="beratung.emit()">Zurück zur Beratung</button>
         <button class="link" type="button" (click)="neu.emit()">Neue Beratung starten</button>
@@ -116,13 +117,16 @@
         <h4>Einordnung der Lage</h4>
         <p>{{ p.einordnung }}</p>
       }
-      <h4>Grundlagen</h4>
-      <p class="grundlage">{{ p.grundlage }}</p>
+      @if (grundlage(p.id); as g) {
+        <h4>Worauf die Empfehlung beruht</h4>
+        <p>{{ g }}</p>
+      } @else if (texteLaden()) {
+        <p class="klein">Pax formuliert, worauf die Empfehlung beruht …</p>
+      }
       @if (p.hinweis) { <p class="police-hinweis">{{ p.hinweis }}</p> }
     </section>
   }
   <p class="klein">Ausgewählt und begründet durch ein KI-Modell auf Basis Ihrer Angaben und der Berechnungen. Keine Offerte; Eignung und Prämie prüft Pax.</p>
-  <button class="pdf" type="button" (click)="alsPdf()">Als PDF speichern</button>
+  <button class="pdf" type="button" (click)="alsPdf()" [disabled]="pdfStatus() === 'erstellt'">{{ pdfStatus() === 'erstellt' ? 'PDF wird erstellt …' : 'Als PDF herunterladen' }}</button>
 </dialog>
 
-<app-protokoll-dokument [antrag]="antrag()" [stand]="stand()" [sessionId]="sessionId()" [revision]="revision()" [freigegeben]="freigegeben()" [demo]="demo()" />

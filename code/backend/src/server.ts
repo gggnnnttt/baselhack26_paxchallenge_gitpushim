@@ -77,6 +77,11 @@ app.post('/api/grafik', async (req, res) => {
   catch (error) { res.status(error instanceof GuardrailError ? error.status : 500).json({ error: error instanceof GuardrailError ? error.message : 'Die Erklärung ist momentan nicht verfügbar.' }); }
 });
 
+app.post('/api/protokoll', async (req, res) => {
+  try { res.json(await chat.protokoll(req.body)); }
+  catch (error) { res.status(error instanceof GuardrailError ? error.status : 500).json({ error: error instanceof GuardrailError ? error.message : 'Die Texte für das Protokoll sind momentan nicht verfügbar.' }); }
+});
+
 app.post('/api/demo', async (_req, res) => {
   try { res.json(await chat.demo()); }
   catch (error) { res.status(error instanceof GuardrailError ? error.status : 500).json({ error: error instanceof GuardrailError ? error.message : 'Die Demo konnte nicht geladen werden. Bitte erneut versuchen.' }); }

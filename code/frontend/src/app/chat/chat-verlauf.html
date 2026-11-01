@@ -19,20 +19,24 @@
       </div>
     </div>
     @if (m.uebergabe; as u) {
-      <section class="uebergabe-karte" [attr.aria-labelledby]="'uebergabe-' + $index">
-        <svg class="uebergabe-icon" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M19 20a6.5 6.5 0 0 0-3-5.5" /></svg>
-        <div>
-          <h3 [id]="'uebergabe-' + $index">Hier sollte eine Pax-Fachperson übernehmen</h3>
+      <!-- Quiet hint: one line; the explanation and the request open on demand. -->
+      <details class="uebergabe">
+        <summary>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></svg>
+          <span class="titel">Das schaut sich am besten eine Pax-Fachperson mit Ihnen an.</span>
+          <svg class="pfeil" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+        </summary>
+        <div class="inhalt">
           @if (u.text) { <p>{{ u.text }}</p> }
-          <ul>@for (k of u.kriterien; track k.id) { <li>{{ k.titel }}</li> }</ul>
+          <p class="kriterien">@for (k of u.kriterien; track k.id) { <span>{{ k.titel }}</span> }</p>
           @if (angefragt().has($index)) {
             <p class="vorgemerkt" role="status">Demo: Ihr Wunsch ist vorgemerkt. Es wurden keine Daten gesendet und kein Termin gebucht.</p>
           } @else {
-            <button class="los" type="button" (click)="anfragen($index)">Gespräch mit Fachperson anfragen</button>
+            <button class="anfragen" type="button" (click)="anfragen($index)">Gespräch mit einer Fachperson anfragen</button>
           }
-          <p class="herkunft">Vordefinierte Kriterien von Pax, Erklärung von der KI.</p>
+          <p class="herkunft">Kriterien vordefiniert von Pax, Beurteilung und Erklärung von der KI.</p>
         </div>
-      </section>
+      </details>
     }
   } @else if (m.role === 'ereignis') {
     <div class="ereignis" role="note">
