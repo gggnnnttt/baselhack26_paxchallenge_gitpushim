@@ -1,5 +1,6 @@
 @if (!bearbeiten()) {
-  <span class="wert">{{ wert() }}<ng-content /></span>
+  <!-- The space lets a badge (e.g. "abgeleitet") wrap as a whole instead of splitting the value's last word. -->
+  <span class="wert">{{ wert() }} <ng-content /></span>
   <button class="stift" type="button" (click)="start()" [disabled]="gesperrt()" [attr.aria-label]="label() + ' korrigieren'" title="Korrigieren">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M4 20h4L19 9l-4-4L4 16zM13.5 6.5l4 4" />

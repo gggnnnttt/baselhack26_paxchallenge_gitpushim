@@ -77,7 +77,8 @@ ul {
 }
 
 .badge {
-  margin-left: 6px;
+  display: inline-block;
+  margin-left: 2px;
   padding: 1px 8px;
   border-radius: var(--radius-full);
   background: var(--color-neutral-gray-2);
