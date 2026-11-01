@@ -1,4 +1,4 @@
-# Pax Advisor – BaselHack 2026, Pax Challenge (Team A2)
+# Pax Advisor – BaselHack 2026, Pax Challenge (Team Git Pushim)
 
 Prototyp eines KI-gestützten Vorsorgeberaters für Pax: Im Chat erfasst Pax die Situation eines Haushalts
 (drei Säulen, Pläne, Anliegen), rechnet Risiko- und Pensionierungslücken über die Pax-APICalc-Schnittstelle,
