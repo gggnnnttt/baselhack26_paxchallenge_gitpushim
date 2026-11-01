@@ -55,7 +55,7 @@ export interface RisikoPruefung {
 
 const chf = (betrag: number) => `CHF ${Math.round(betrag).toLocaleString('de-CH')}`;
 const BEZIEHUNG_API = { ledig: 1, geschieden: 1, verwitwet: 1, verheiratet: 2, konkubinat: 3, eingetragene_partnerschaft: 4 } as const;
-const BEZIEHUNG_SEIT = { verheiratet: 'Jahr der Heirat', konkubinat: 'Seit welchem Jahr ihr zusammenlebt', eingetragene_partnerschaft: 'Jahr der Eintragung der Partnerschaft' } as const;
+const BEZIEHUNG_SEIT = { verheiratet: 'Jahr der Heirat', konkubinat: 'Seit welchem Jahr Sie zusammenleben', eingetragene_partnerschaft: 'Jahr der Eintragung der Partnerschaft' } as const;
 
 /**
  * Checks which inputs for the risk calculation are present and builds the request only when nothing is missing.
@@ -227,7 +227,7 @@ function pruefeKinder(profil: Profil, paar: boolean, jahr: number, vorhanden: An
     }
     const sorgerecht = kind.alleinigesSorgerecht;
     if (!sorgerecht) {
-      fehlend.push({ label: `Ob ${elternteil === 'A' ? 'du' : 'Person B'} das alleinige Sorgerecht für ${name} hat`, warum: 'APICalc zählt bei einem Elternteil nur Kinder mit alleinigem Sorgerecht.' });
+      fehlend.push({ label: `Ob ${elternteil === 'A' ? 'Sie' : 'Ihr Partner/Ihre Partnerin'} das alleinige Sorgerecht für ${name} hat`, warum: 'APICalc zählt bei einem Elternteil nur Kinder mit alleinigem Sorgerecht.' });
       vollstaendig = false;
       continue;
     }

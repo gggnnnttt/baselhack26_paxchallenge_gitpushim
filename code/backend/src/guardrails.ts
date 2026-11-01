@@ -52,11 +52,11 @@ export class Guardrails {
 
   checkOutput(value: unknown): string {
     if (typeof value !== 'string' || !value.trim() || value.length > this.config.maxOutputCharacters) {
-      throw new GuardrailError('Die Antwort konnte nicht geprüft werden. Bitte versuche es erneut.', 503);
+      throw new GuardrailError('Die Antwort konnte nicht geprüft werden. Bitte versuchen Sie es erneut.', 503);
     }
     const text = normalise(value.trim());
     if (this.outputPatterns.some(pattern => pattern.test(text))) {
-      throw new GuardrailError('Diese Antwort wurde durch die Sicherheitsprüfung zurückgehalten. Bitte formuliere dein Beratungsanliegen erneut.');
+      throw new GuardrailError('Diese Antwort wurde durch die Sicherheitsprüfung zurückgehalten. Bitte formulieren Sie Ihr Beratungsanliegen erneut.');
     }
     return text.replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[E-MAIL ENTFERNT]')
       .replace(/\+\d[\d ().-]{7,20}\d/g, '[TELEFON ENTFERNT]');

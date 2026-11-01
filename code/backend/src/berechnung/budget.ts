@@ -34,6 +34,6 @@ export function gleicheBudgetAb(profil: Profil, sparen: SparStand): BudgetAbglei
   if (budget === undefined) return { ...result, status: 'offen', statusText: 'Der Sparbedarf liegt vor. Das zusätzlich verfügbare Monatsbudget ist noch nicht bekannt.' };
   const differenz = Math.round(budget * 100) - rateCents;
   return { ...result, status: differenz >= 0 ? 'ausreichend' : 'unterdeckung',
-    statusText: differenz >= 0 ? 'Der Sparbedarf liegt innerhalb deines angegebenen zusätzlichen Monatsbudgets.' : 'Dein angegebenes zusätzliches Monatsbudget reicht für diesen Sparbedarf noch nicht aus.',
+    statusText: differenz >= 0 ? 'Der Sparbedarf liegt innerhalb Ihres angegebenen zusätzlichen Monatsbudgets.' : 'Ihr angegebenes zusätzliches Monatsbudget reicht für diesen Sparbedarf noch nicht aus.',
     fehlbetragMonat: Math.max(0, -differenz) / 100, restbudgetMonat: Math.max(0, differenz) / 100 };
 }

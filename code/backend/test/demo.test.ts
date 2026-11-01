@@ -15,13 +15,16 @@ test('Müller shortcut creates an isolated session and gives the model the famil
     assert.equal(input.grundlagen.profil.personen.A.erwerb, 'nicht_erwerbstaetig');
     assert.equal(input.grundlagen.profil.personen.B.einkommen.betrag, 100000);
     assert.match(input.grundlagen.profil.anliegen[0].text, /fünf Monate/);
+    assert.doesNotMatch(request.messages[0]!.content, /Müller/, 'the persona name must not reach the model');
+    assert.equal(input.grundlagen.profil.haushalt.vermoegenPensionierung, 20000, 'assets as in the persona');
     assert.equal(input.katalog.length, 6);
     assert.equal(input.empfehlungen, undefined);
-    return JSON.stringify({ status: 'vorschlaege', statusText: 'Familie schützen', empfehlungen: [{ produktId: 'pax-todesfall', thema: 'absicherung', titel: 'Familienschutz', begruendung: 'Euer Kind hängt vom Einkommen ab. Prüft die Absicherung.', grundlageIds: ['profil'] }] });
+    return JSON.stringify({ status: 'vorschlaege', statusText: 'Familie schützen', erkenntnisse: [], empfehlungen: [{ produktId: 'pax-todesfall', thema: 'absicherung', titel: 'Familienschutz', begruendung: 'Euer Kind hängt vom Einkommen ab. Prüft die Absicherung.', einordnung: 'Ihr habt ein kleines Kind und lebt von einem Einkommen.', grundlageIds: ['profil'] }] });
   } }, rails, 'Berate zur Vorsorge.', { heute: () => new Date('2026-10-31T12:00:00Z') });
   const first = await service.demo();
   const second = await service.demo();
   assert.notEqual(first.sessionId, second.sessionId);
+  assert.doesNotMatch(first.reply, /Müller/, 'the demo reply is sent with later chat turns');
   assert.equal(calls, 0);
   assert.deepEqual(first.beratungsstand.produktzuordnung.faelle, []);
   const result = await service.empfehlungen({ sessionId: first.sessionId });
@@ -37,4 +40,13 @@ test('five-month-old child and future return to work cross year boundaries corre
   assert.equal(p.kinder[0]!.geburtsjahr!.wert, 2026);
   assert.equal(p.plaene[0]!.zeitpunkt!.wert.monat, 7);
   assert.equal(p.personen.A.einkommen, undefined, 'future income must not become current income');
+});
+
+test('the demo household reaches every calculation, so no pillar is missing in the pitch', async () => {
+  const rails = new Guardrails(JSON.parse(readFileSync(new URL('../guardrails.config.json', import.meta.url), 'utf8')));
+  const service = new ChatService({ generate: async () => '{}' }, rails, 'Berate zur Vorsorge.', { heute: () => new Date('2026-10-31T12:00:00Z') });
+  const demo = await service.demo();
+  // The calculations themselves need APICalc and are not run in tests; the inputs must be complete.
+  assert.deepEqual(demo.beratungsstand.pensionierung.fehlend, [], 'retirement inputs are complete');
+  assert.deepEqual(demo.beratungsstand.risiko.fehlend, [], 'risk inputs are complete');
 });

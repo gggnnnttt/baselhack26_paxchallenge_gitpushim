@@ -78,7 +78,7 @@ export class BeratungsstandPanel {
     const p = this.stand()?.profil.personen;
     if (!p) return [];
     return [
-      { titel: 'Person A (du)', zeilen: personZeilen(p.A) },
+      { titel: 'Person A (Sie)', zeilen: personZeilen(p.A) },
       ...(p.B ? [{ titel: 'Person B (Partner/in)', zeilen: personZeilen(p.B) }] : []),
     ].filter(person => person.zeilen.length > 0);
   });

@@ -1,0 +1,85 @@
+<div class="seite">
+  <button class="zurueck" type="button" (click)="zurueck.emit()">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
+    Zurück zu den Empfehlungen
+  </button>
+
+  <div class="raster">
+    <section aria-labelledby="abschluss-titel">
+      <h1 id="abschluss-titel">Antrag vorbereiten</h1>
+      <p class="einleitung">
+        Prüfen Sie Ihre Auswahl. Mit dem Einreichen geht Ihr Antrag an eine Pax-Fachperson. Ein Vertrag entsteht erst, wenn sie ihn geprüft hat
+        und Sie die verbindliche Offerte unterschreiben.
+      </p>
+
+      <h2>Ihre Auswahl</h2>
+      <ul class="auswahl">
+        @for (p of auswahl().pakete; track p.id) {
+          <li>
+            <div class="auswahl-kopf">
+              <strong>{{ p.produkt.name }}</strong>
+              @if (p.produkt.saeule) { <span class="saeule">Säule {{ p.produkt.saeule }}</span> }
+              @if (istTermin(p)) { <span class="saeule termin">Gespräch</span> }
+            </div>
+            @if (p.titel !== p.produkt.name) { <p>{{ p.titel }}</p> }
+            @if (p.hinweis) { <p class="hinweis">{{ p.hinweis }}</p> }
+          </li>
+        }
+      </ul>
+
+      @if (versicherungen().length) {
+        <h2><label for="beginn">Gewünschter Vertragsbeginn</label></h2>
+        <select id="beginn" class="beginn" [(ngModel)]="beginnIndex">
+          @for (b of beginne; track $index) {
+            <option [ngValue]="$index">1. {{ monatJahr(b) }}</option>
+          }
+        </select>
+      }
+
+      <h2>So geht es nach dem Einreichen weiter</h2>
+      <ol class="weiter">
+        <li><strong>Eine Pax-Fachperson prüft Ihren Antrag</strong> zusammen mit dem Beratungsprotokoll und den Gründen, die Pax für jede Empfehlung genannt hat.</li>
+        @if (qualifiziert()) {
+          <li><strong>Angemessenheitsprüfung:</strong> Bei fondsgebundenen Produkten klärt sie mit Ihnen Budget, Anlageerfahrung und wie Sie auf Kursverluste reagieren.</li>
+        }
+        @if (versicherungen().length) {
+          <li><strong>Verbindliche Offerte mit Prämie.</strong> Gesundheitsfragen und Identifikation erledigen Sie direkt mit Pax, nie im Chat.</li>
+          <li><strong>Sie unterschreiben</strong> und sehen Ihre Police im Kundenportal. Danach haben Sie 14 Tage Widerrufsrecht.</li>
+        } @else {
+          <li><strong>Pax meldet sich für einen Termin</strong>, sobald Ihr Gesprächswunsch geprüft ist.</li>
+        }
+      </ol>
+
+      <fieldset class="bestaetigung" [class.fehlt]="versucht() && !bereit()">
+        <legend>Bestätigung</legend>
+        <label><input type="checkbox" [(ngModel)]="gelesen" /> Ich habe die Produktbeschreibungen und die Begründungen von Pax gelesen.</label>
+        @if (qualifiziert()) {
+          <label><input type="checkbox" [(ngModel)]="angemessenheit" /> Ich bin einverstanden, dass vor dem Abschluss eine Angemessenheitsprüfung stattfindet.</label>
+        }
+        <label><input type="checkbox" [(ngModel)]="demoVerstanden" /> Mir ist klar, dass dies eine Demo ist: Es entsteht kein Vertrag und es werden keine Daten an Pax gesendet.</label>
+        @if (versucht() && !bereit()) {
+          <p class="fehler" role="alert">Bitte bestätigen Sie alle Punkte, um den Antrag einzureichen.</p>
+        }
+      </fieldset>
+
+      <button class="pax-button einreichen" type="button" (click)="einreichen()">
+        Antrag einreichen
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+      </button>
+    </section>
+
+    <aside class="zusammenfassung" aria-labelledby="zusammenfassung-titel">
+      <h2 id="zusammenfassung-titel">Auf einen Blick</h2>
+      <dl>
+        @if (versicherungen().length) { <div><dt>Pakete</dt><dd>{{ versicherungen().length }}</dd></div> }
+        @if (termin()) { <div><dt>Gespräch mit Fachperson</dt><dd>angefragt</dd></div> }
+        @if (versicherungen().length) {
+          <div><dt>Beginn</dt><dd>1. {{ monatJahr(beginne[beginnIndex]) }}</dd></div>
+          <div><dt>Prämie</dt><dd>folgt mit der verbindlichen Offerte</dd></div>
+        }
+        <div><dt>Prüfung</dt><dd>durch eine Pax-Fachperson, bevor ein Vertrag entsteht</dd></div>
+      </dl>
+      <p class="klein">Pax nennt hier keine Prämie, weil sie erst mit Ihren Gesundheitsangaben und dem genauen Tarif feststeht.</p>
+    </aside>
+  </div>
+</div>

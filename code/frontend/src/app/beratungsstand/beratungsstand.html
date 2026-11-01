@@ -16,10 +16,10 @@
     <span class="titel">Was ich bisher verstanden habe</span>
     <span class="zusammenfassung">{{ zusammenfassung() }}</span>
   </h2>
-  <p class="hinweis">Stimmt etwas nicht? Mit dem Stift korrigierst du einen Wert, Pax bestätigt die Korrektur im Chat.</p>
+  <p class="hinweis">Stimmt etwas nicht? Mit dem Stift korrigieren Sie einen Wert, Pax bestätigt die Korrektur im Chat.</p>
 
   @if (!stand()) {
-    <p class="leer">Noch nichts erfasst. Erzähl im Chat von deiner Situation.</p>
+    <p class="leer">Noch nichts erfasst. Erzählen Sie im Chat von Ihrer Situation.</p>
   } @else {
     @let s = stand()!;
     @if (s.profil.anliegen.length) {
@@ -85,7 +85,7 @@
 
     @if (s.letzteNachricht.uebernommen.length || s.letzteNachricht.abgelehnt.length) {
       <details class="protokoll">
-        <summary>Aus deiner letzten Nachricht</summary>
+        <summary>Aus Ihrer letzten Nachricht</summary>
         <ul>
           @for (e of s.letzteNachricht.uebernommen; track $index) {
             <li>✓ {{ e.text }}</li>

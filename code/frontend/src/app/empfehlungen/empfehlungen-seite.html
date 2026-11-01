@@ -8,15 +8,15 @@
     <!-- Pax, large as on the start screen, says what this page is. -->
     <div class="pax">
       <app-pax-avatar class="gesicht" [state]="avatar()" />
-      <p class="sprechblase">Ich habe mir deine Situation angesehen. Das empfehle ich dir.</p>
+      <p class="sprechblase">Ich habe mir Ihre Situation angesehen. Das empfehle ich Ihnen.</p>
     </div>
 
     <section class="empfehlungen" aria-labelledby="empfehlungen-titel">
-      <h1 id="empfehlungen-titel">Unsere Empfehlungen für dich</h1>
-      <p class="einleitung">Abgeleitet aus deinen drei Säulen und dem, was dir wichtig ist.</p>
+      <h1 id="empfehlungen-titel">Unsere Empfehlungen für Sie</h1>
+      <p class="einleitung">Abgeleitet aus Ihren drei Säulen und dem, was Ihnen wichtig ist.</p>
 
       @if (laden()) {
-        <p role="status">Pax stellt deine Empfehlungen zusammen …</p>
+        <p role="status">Pax stellt Ihre Empfehlungen zusammen …</p>
       } @else if (fehler()) {
         <p role="alert">{{ fehler() }}</p>
         <button class="aktion" type="button" (click)="ladeEmpfehlungen()">Erneut versuchen</button>
@@ -24,10 +24,10 @@
         <p>{{ result.regelHinweis }}</p>
         <ol class="liste">
           @for (e of result.empfehlungen; track e.id; let i = $index) {
-            <li class="empfehlung">
+            <li class="empfehlung" [class.gewaehlt]="gewaehlt().has(e.id)">
               <span class="rang" aria-hidden="true">{{ i + 1 }}</span>
               <div>
-                <h2>{{ e.titel }}</h2>
+                <h2 [id]="'empfehlung-' + e.id">{{ e.titel }}</h2>
                 <p class="warum-titel">Warum Pax das empfiehlt</p>
                 <p>{{ e.begruendung }}</p>
                 <div class="paket">
@@ -39,22 +39,49 @@
                 </div>
                 <details>
                   <summary>Worauf basiert das?</summary>
-                  <p><strong>KI-Entscheidung</strong> · {{ result.regelHinweis }}</p>
-                  <p>{{ e.grundlage }}</p>
+                  <p><strong>KI-Entscheidung:</strong> Von der KI anhand Ihrer Angaben und Berechnungen ausgewählt.</p>
+                  @if (e.einordnung) { <p>{{ e.einordnung }}</p> }
+                  <!-- The full evidence stays available for traceability, folded away. -->
+                  <details class="daten" [open]="!e.einordnung">
+                    <summary>Alle Angaben und Zahlen</summary>
+                    <p class="grundlage">{{ e.grundlage }}</p>
+                  </details>
+                  <p class="pruefen">Ob es individuell passt, prüft eine Pax-Fachperson.</p>
                   <a [href]="e.produkt.quelle" target="_blank" rel="noopener noreferrer">Allgemeine Produktinformationen auf pax.ch</a>
                 </details>
+                <button class="waehlen" type="button" [attr.aria-pressed]="gewaehlt().has(e.id)" [attr.aria-describedby]="'empfehlung-' + e.id" (click)="umschalten(e.id)">
+                  <span class="haken" aria-hidden="true">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17 19 7" /></svg>
+                  </span>
+                  {{ gewaehlt().has(e.id) ? 'Ausgewählt' : (e.produkt.id === 'pax-beratung' ? 'Gespräch auswählen' : 'Paket auswählen') }}
+                </button>
               </div>
             </li>
           } @empty {
             <li class="empfehlung"><div><h2>{{ result.statusText }}</h2>
-              @if (result.status === 'kein_bedarf') { <p>Die KI empfiehlt auf Basis deiner Angaben keinen zusätzlichen Abschluss.</p> }
+              @if (result.status === 'kein_bedarf') { <p>Die KI empfiehlt auf Basis Ihrer Angaben keinen zusätzlichen Abschluss.</p> }
             </div></li>
           }
         </ol>
-        <button class="aktion" type="button" (click)="bestaetigt.set(true)">Mit einer Pax-Fachperson besprechen</button>
-        @if (bestaetigt()) { <p role="status">Demo: Dein Wunsch wurde hier vorgemerkt. Es wurden keine Daten gesendet und kein Termin gebucht.</p> }
+        @if (result.empfehlungen.length) {
+          <div class="weiter-leiste">
+            <p role="status">
+              @if (result.empfehlungen.length === 1) {
+                {{ anzahl() ? 'Das empfohlene Paket ist ausgewählt.' : 'Wählen Sie das Paket, um weiterzugehen.' }}
+              } @else {
+                {{ anzahl() ? anzahl() + ' von ' + result.empfehlungen.length + ' Paketen ausgewählt.' : 'Wählen Sie die Pakete, die Sie abschliessen möchten.' }}
+              }
+            </p>
+            <button class="pax-button" type="button" [disabled]="!anzahl()" (click)="weiter()">
+              Weiter zum Abschluss
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+            </button>
+          </div>
+        }
+        <button class="aktion" type="button" (click)="bestaetigt.set(true)">Lieber zuerst mit einer Pax-Fachperson sprechen</button>
+        @if (bestaetigt()) { <p role="status">Demo: Ihr Wunsch wurde hier vorgemerkt. Es wurden keine Daten gesendet und kein Termin gebucht.</p> }
       }
-      <p class="korrektur">Vorschlag auf Basis deiner Angaben, keine Offerte. Prämien und Eignung prüft eine Pax-Fachperson.</p>
+      <p class="korrektur">Vorschlag auf Basis Ihrer Angaben, keine Offerte. Prämien und Eignung prüft eine Pax-Fachperson, bevor ein Vertrag entsteht.</p>
     </section>
 
     <aside class="verstanden" aria-labelledby="verstanden-titel">

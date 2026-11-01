@@ -47,7 +47,7 @@ export class PlanEditor {
     const beschreibung = entwurf.beschreibung.trim();
     const jahr = entwurf.jahr;
     if (!beschreibung) {
-      this.fehler = 'Bitte beschreibe den Plan kurz.';
+      this.fehler = 'Bitte beschreiben Sie den Plan kurz.';
       return;
     }
     if (this.mitDatum && (jahr === null || !Number.isInteger(jahr) || jahr < this.jahrVon() || jahr > this.jahrVon() + 70)) {

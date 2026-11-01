@@ -332,7 +332,7 @@ export function erstelleHandlungsplan(stand: AblaufStand): Handlungsplan {
       prioritaet: 2,
       kategorie: "planung",
       titel: "Pensionierungsziel und Budget abstimmen",
-      begruendung: `Dein angegebenes Monatsbudget liegt ${chf(budget.fehlbetragMonat!)} unter dem berechneten Sparbedarf.`,
+      begruendung: `Ihr angegebenes Monatsbudget liegt ${chf(budget.fehlbetragMonat!)} unter dem berechneten Sparbedarf.`,
       datengrundlage: [
         {
           quelle: "Aktuelles APICalc-Sparszenario",
@@ -344,7 +344,7 @@ export function erstelleHandlungsplan(stand: AblaufStand): Handlungsplan {
         },
       ],
       offeneFragen: [
-        "Möchtest du ein späteres Pensionierungsalter oder einen niedrigeren Bedarf im Ruhestand vergleichen?",
+        "Möchten Sie ein späteres Pensionierungsalter oder einen niedrigeren Bedarf im Ruhestand vergleichen?",
       ],
       naechsterSchritt:
         "Eine Variante auswählen und erst nach bestätigter Änderung neu berechnen.",
@@ -361,7 +361,7 @@ export function erstelleHandlungsplan(stand: AblaufStand): Handlungsplan {
       kategorie: "naechster_schritt",
       titel: "Sparweg weiter prüfen",
       begruendung:
-        "Der Sparbedarf liegt innerhalb deines angegebenen Budgets. Produkteignung und dauerhafte Tragbarkeit sind damit noch nicht bestätigt.",
+        "Der Sparbedarf liegt innerhalb Ihres angegebenen Budgets. Produkteignung und dauerhafte Tragbarkeit sind damit noch nicht bestätigt.",
       datengrundlage: [
         {
           quelle: "Budgetabgleich anhand Selbstauskunft",
@@ -410,9 +410,9 @@ export function erstelleHandlungsplan(stand: AblaufStand): Handlungsplan {
       id: "lebensziel",
       prioritaet: 1,
       kategorie: "grundlagen",
-      titel: "Dein wichtigstes Lebensziel festlegen",
+      titel: "Ihr wichtigstes Lebensziel festlegen",
       begruendung:
-        "Für einen persönlichen Handlungsplan braucht es zunächst dein Anliegen statt einer Produktauswahl.",
+        "Für einen persönlichen Handlungsplan braucht es zunächst Ihr Anliegen statt einer Produktauswahl.",
       datengrundlage: [
         {
           quelle: "Aktueller Beratungsstand",

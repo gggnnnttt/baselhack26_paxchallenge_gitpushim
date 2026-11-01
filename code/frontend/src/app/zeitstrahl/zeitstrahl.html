@@ -11,7 +11,7 @@
 
 <ng-template #karte let-e>
   <button type="button" class="plan" [attr.data-plan]="e.plan.id"
-    [class.neu]="neu().has(e.plan.id)" [class.wartet]="e.wartet" [class.unsicher]="e.plan.sicherheit?.wert === 'unsicher'"
+    [class.neu]="neu().has(e.plan.id)" [class.wartet]="e.wartet" [attr.aria-busy]="e.wartet || null" [class.unsicher]="e.plan.sicherheit?.wert === 'unsicher'"
     [class.gezogen]="ziehen()?.bewegt && ziehen()?.eintrag?.plan?.id === e.plan.id"
     [title]="titel(e)" [attr.aria-label]="titel(e) + (e.jahr === null ? '. Enter bearbeitet.' : '. Pfeil hoch oder runter verschiebt um ein Jahr, Enter bearbeitet.')"
     (pointerdown)="druecken($event, e)" (pointermove)="bewegen($event)" (pointerup)="loslassen()" (pointercancel)="abbrechen()"
@@ -22,13 +22,13 @@
 
 <div class="weg">
   <div class="kopf">
-    <h2>Dein Weg</h2>
-    <p>Ziehe einen Plan auf ein anderes Jahr oder tippe auf ein Jahr, um etwas hinzuzufügen. Pax bezieht jede Änderung ein.</p>
+    <h2>Ihr Weg</h2>
+    <p>Ziehen Sie einen Plan auf ein anderes Jahr oder tippen Sie auf ein Jahr, um etwas hinzuzufügen. Pax bezieht jede Änderung ein.</p>
     <button class="hinzufuegen" type="button" (click)="neuerPlan()">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
       Plan hinzufügen
     </button>
-    <p class="status" role="status">{{ ausstehend() ? 'Pax schaut sich deine Änderung an …' : '' }}</p>
+    <p class="status" role="status">{{ ausstehend() ? 'Pax schaut sich Ihre Änderung an …' : '' }}</p>
   </div>
 
   <div class="fach" data-ohne-datum [class.ziel]="ziehen()?.ziel && ziehen()?.ziel?.jahr === null">
@@ -40,7 +40,7 @@
     }
   </div>
 
-  <ol class="jahre" aria-label="Deine Jahre">
+  <ol class="jahre" aria-label="Ihre Jahre">
     @for (r of jahre(); track r.jahr) {
       <li class="jahr" [attr.data-jahr]="r.jahr" [class.heute]="r.jahr === heute" [class.belegt]="r.eintraege.length || r.pensionen.length"
         [class.ziel]="ziehen()?.ziel?.jahr === r.jahr" (click)="jahrKlick($event, r.jahr)">
@@ -76,4 +76,4 @@
   }
 }
 
-<app-plan-editor [personen]="personen()" [jahrVon]="heute" (aktion)="aktion.emit($event)" />
+<app-plan-editor [personen]="personen()" [jahrVon]="heute" (aktion)="ausEditor($event)" />

@@ -2,7 +2,7 @@
   <div class="eingabe-feld">
     <textarea #eingabe class="pax-input" name="input" rows="1" [ngModel]="text()" (ngModelChange)="text.set($event)" (keydown)="taste($event)" (input)="hoeheAnpassen()"
       (focus)="fokussiert.set(true)" (blur)="fokussiert.set(false)" aria-label="Nachricht an Pax" autocomplete="off"
-      [placeholder]="gestartet() ? 'Antworte Pax …' : fokussiert() ? 'Erzähl mir von deiner Situation …' : ''"></textarea>
+      [placeholder]="gestartet() ? 'Ihre Antwort an Pax …' : fokussiert() ? 'Erzählen Sie mir von Ihrer Situation …' : ''"></textarea>
     <!-- On the start screen, example sentences type themselves while the input is empty. -->
     @if (!gestartet()) {
       <app-beispiel-text [aktiv]="!text() && !fokussiert()" [class.aus]="!!text() || fokussiert()" />

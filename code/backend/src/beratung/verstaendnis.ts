@@ -6,13 +6,14 @@ import type { AblaufStand } from './ablauf.js';
 /**
  * How well Pax understands the household: the three pillars of Swiss provision, the topics with their
  * calculations, what follows from the situation, and what matters next. Derived from the profile and the
- * results of the calculation engine only; nothing here calculates or asks the model.
+ * results of the calculation engine; the advisor model's insights are taken over as they are. Nothing here calculates.
  */
 export type SaeulenStatus = 'offen' | 'teilweise' | 'klar';
 export interface Saeule { nummer: 1 | 2 | 3; titel: string; untertitel: string; status: SaeulenStatus; bekannt: string[]; offen: string[] }
 export interface Thema { id: 'absicherung' | 'pensionierung'; titel: string; status: 'offen' | 'bereit' | 'berechnet' | 'fehlgeschlagen'; text: string; luecke: boolean; betrag: number }
 // thema: the need a gap or a good result belongs to; the recommendations page groups by it.
-export interface Erkenntnis { art: 'hinweis' | 'luecke' | 'gut'; text: string; thema?: 'absicherung' | 'pensionierung' | 'sparen' }
+// quelle 'ki': written by the advisor model; otherwise derived from the calculations.
+export interface Erkenntnis { art: 'hinweis' | 'luecke' | 'gut'; text: string; thema?: 'absicherung' | 'pensionierung' | 'sparen'; quelle?: 'ki' }
 export interface Lagebild {
   // verstehen: pillars or concern still open; rechnen: understood, calculations still need inputs; empfehlen: ready to advise.
   phase: 'verstehen' | 'rechnen' | 'empfehlen';
@@ -28,7 +29,6 @@ export interface Lagebild {
 const chf = (betrag: number) => `CHF ${Math.round(betrag).toLocaleString('de-CH')}`;
 const PENSIONSWORTE = /pension|ruhestand|rente im alter|alter vorsorg|früh.*aufhören|sparen/i;
 const ABSICHERUNGSWORTE = /absicher|invalid|erwerbsunf|tod|hinterblieb|krank|unfall|familie/i;
-const SELBSTSTAENDIG = /selbst(st|s)?ändig|selbststaendig|eigene firma|freiberuf/i;
 
 function personen(profil: Profil): { id: PersonId; person: Person; name: string }[] {
   return [
@@ -110,46 +110,31 @@ function fokus(profil: Profil): Lagebild['fokus'] {
   return pension && !absicherung ? 'pensionierung' : absicherung && !pension ? 'absicherung' : 'beides';
 }
 
-// Rules that recognise the situation, the way an advisor would point them out.
+// What Pax recognised: the advisor model's own insights from its last reply, then the calculated results.
+// The results stay deterministic, because their numbers come from the calculation engine, not from the model.
 function erkenntnisse(stand: AblaufStand, themenListe: Thema[]): Erkenntnis[] {
   const profil = stand.kontext.profil;
-  const liste: Erkenntnis[] = [];
-  const selbst = profil.plaene.find(p => SELBSTSTAENDIG.test(p.beschreibung));
-  const heuteSelbst = personen(profil).some(({ person }) => person.erwerb?.wert === 'selbststaendig');
-  if (selbst) {
-    const ab = selbst.zeitpunkt ? ` ab ${selbst.zeitpunkt.wert.jahr}` : '';
-    liste.push({ art: 'hinweis', text: `Mit der Selbstständigkeit${ab} entfällt in der Regel die obligatorische Pensionskasse. Damit ändern sich die 2. Säule und der Schutz bei Invalidität und Tod.` });
-  } else if (heuteSelbst && personen(profil).some(({ person }) => person.bvgVersichert?.wert === false)) {
-    liste.push({ art: 'hinweis', text: 'Ohne Pensionskasse tragen nur AHV/IV und die private Vorsorge Rente und Risikoschutz.' });
-  }
-  if (profil.kinder.length || profil.haushalt.hatKinder?.wert) {
-    liste.push({ art: 'hinweis', text: 'Mit Kindern ist die Absicherung bei Invalidität und Tod besonders wichtig.' });
-  }
-  if (profil.plaene.some(p => p.art === 'wohneigentum')) {
-    liste.push({ art: 'hinweis', text: 'Für Wohneigentum kann Geld aus der Pensionskasse und der Säule 3a bezogen werden; das senkt aber später Rente und Risikoschutz.' });
-  }
-  const frueh = personen(profil).some(({ person }) => (person.pensionierungsalter?.wert ?? 65) < 65) || profil.plaene.some(p => p.art === 'fruehpensionierung');
-  if (frueh) liste.push({ art: 'hinweis', text: 'Eine Pensionierung vor 65 verkürzt die Beitragsjahre und verlängert die Zeit, die das Vermögen tragen muss.' });
+  const liste: Erkenntnis[] = (stand.erkenntnisse ?? []).map(text => ({ art: 'hinweis', text, quelle: 'ki' }));
 
   // In the customer's words: the size of the gap, without scenario names or calculation terms.
   const [risiko, pension] = themenListe;
   if (risiko?.status === 'berechnet') {
     liste.push(risiko.luecke
-      ? { art: 'luecke', thema: 'absicherung', text: `Bei Invalidität oder Tod fehlen deinem Haushalt bis zu ${chf(risiko.betrag)} pro Jahr.` }
+      ? { art: 'luecke', thema: 'absicherung', text: `Bei Invalidität oder Tod fehlen Ihrem Haushalt bis zu ${chf(risiko.betrag)} pro Jahr.` }
       : { art: 'gut', thema: 'absicherung', text: 'Bei Invalidität und Tod zeigt die Berechnung heute keine Lücke.' });
   }
   if (pension?.status === 'berechnet') {
     liste.push(pension.luecke
-      ? { art: 'luecke', thema: 'pensionierung', text: `Im Ruhestand fehlen dir rund ${chf(pension.betrag)} pro Jahr.` }
+      ? { art: 'luecke', thema: 'pensionierung', text: `Im Ruhestand fehlen Ihnen rund ${chf(pension.betrag)} pro Jahr.` }
       : { art: 'gut', thema: 'pensionierung', text: 'Für den Ruhestand zeigt die Berechnung heute keine Lücke.' });
   }
   const budget = gleicheBudgetAb(profil, stand.sparen);
   if (budget.status === 'unterdeckung' && budget.fehlbetragMonat !== null) {
-    liste.push({ art: 'luecke', thema: 'sparen', text: `Um die Lücke bis zur Pension zu schliessen, fehlen in deinem Budget ${chf(budget.fehlbetragMonat)} pro Monat.` });
+    liste.push({ art: 'luecke', thema: 'sparen', text: `Um die Lücke bis zur Pension zu schliessen, fehlen in Ihrem Budget ${chf(budget.fehlbetragMonat)} pro Monat.` });
   }
   const gerechnet = themenListe.some(t => t.status === 'berechnet');
   if (gerechnet && profil.plaene.length) {
-    liste.push({ art: 'hinweis', text: `Deine Pläne (${profil.plaene.map(p => p.beschreibung).join(', ')}) sind in diesen Zahlen noch nicht eingerechnet.` });
+    liste.push({ art: 'hinweis', text: `Ihre Pläne (${profil.plaene.map(p => p.beschreibung).join(', ')}) sind in diesen Zahlen noch nicht eingerechnet.` });
   }
   return liste;
 }
@@ -157,7 +142,7 @@ function erkenntnisse(stand: AblaufStand, themenListe: Thema[]): Erkenntnis[] {
 function naechstes(stand: AblaufStand, saeulenListe: Saeule[], fokusWert: Lagebild['fokus']): Lagebild['naechstes'] {
   const profil = stand.kontext.profil;
   const liste: Lagebild['naechstes'] = [];
-  if (!profil.anliegen.length) liste.push({ label: 'Dein wichtigstes Anliegen', warum: 'Damit klar ist, worauf es dir ankommt.' });
+  if (!profil.anliegen.length) liste.push({ label: 'Ihr wichtigstes Anliegen', warum: 'Damit klar ist, worauf es Ihnen ankommt.' });
   for (const s of saeulenListe.slice(0, 2)) for (const o of s.offen) liste.push({ label: o, warum: `Gehört zur ${s.titel} (${s.untertitel}).` });
   const rechnung = (fokusWert === 'absicherung' ? [] : stand.pensionierung.pruefung.fehlend)
     .concat(fokusWert === 'pensionierung' ? [] : stand.kontext.pruefung.fehlend);
@@ -190,7 +175,7 @@ export function lagebild(stand: AblaufStand): Lagebild {
 const PHASEN_TEXT: Record<Lagebild['phase'], string> = {
   verstehen: 'Frage nach dem wichtigsten Punkt unter „Als Nächstes“, eine Frage pro Antwort. Verknüpfe neue Angaben in einem Satz mit dem Lagebild, statt Regeln zu erklären.',
   rechnen: 'Die drei Säulen sind verstanden. Erfrage, was die Berechnungen zum Anliegen noch brauchen, und ordne vorliegende Ergebnisse kurz ein.',
-  empfehlen: 'Du kennst alle drei Säulen und das Anliegen und kannst Empfehlungen machen. Sage das einmal klar und selbstbewusst, fasse das Lagebild in wenigen Stichpunkten zusammen und lade ein, die Seite „Deine Empfehlungen“ über den Knopf zu öffnen. Nenne im Gespräch keine Produkte, Pakete oder Prämien: Die Paket-Empfehlungen zeigt die Seite.',
+  empfehlen: 'Du kennst alle drei Säulen und das Anliegen und kannst Empfehlungen machen. Sage das einmal klar und selbstbewusst, fasse das Lagebild in wenigen Stichpunkten zusammen und lade ein, die Seite mit den Empfehlungen über den Knopf zu öffnen. Nenne im Gespräch keine Produkte, Pakete oder Prämien: Die Paket-Empfehlungen zeigt die Seite.',
 };
 
 /** The understanding for the model: compact, with one instruction for how to lead the conversation now. */

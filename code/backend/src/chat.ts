@@ -12,6 +12,7 @@ import { wendeAenderungenAn } from './profil/aenderungen.js';
 import { extrahiereAenderungen } from './profil/extraktion.js';
 import { checkScope } from './scope.js';
 import { muellerProfil } from './profil/demo.js';
+import { nurBelegteZahlen } from './beratung/belege.js';
 
 export interface ChatMessage { role: 'user' | 'assistant'; content: string }
 // Model payloads are built only from accepted chat turns of the same session.
@@ -54,8 +55,8 @@ export class ChatService {
     this.removeExpired(now);
     const existingId = input['sessionId'] as string | undefined;
     const existing = existingId ? this.sessions.get(existingId) : undefined;
-    if (existingId !== undefined && !existing) throw new GuardrailError('Die Sitzung ist abgelaufen. Bitte starte einen neuen Chat.', 410);
-    if (existing?.busy) throw new GuardrailError('Bitte warte auf die laufende Antwort.', 409);
+    if (existingId !== undefined && !existing) throw new GuardrailError('Die Sitzung ist abgelaufen. Bitte starten Sie einen neuen Chat.', 410);
+    if (existing?.busy) throw new GuardrailError('Bitte warten Sie auf die laufende Antwort.', 409);
     if (!existing && this.sessions.size >= this.rails.config.maxSessions) throw new GuardrailError('Der Chat ist gerade ausgelastet. Bitte später erneut versuchen.', 503);
     const sessionId = existingId ?? randomUUID();
     const session = existing ?? this.neueSitzung(now);
@@ -75,6 +76,8 @@ export class ChatService {
       // Deleted while the provider call was running: keep nothing and return nothing.
       if (this.sessions.get(sessionId) !== session) throw new GuardrailError('Dieser Chat wurde gelöscht.', 410);
       this.anhaengen(session, userMessage, antwort.verlauf);
+      // The model's insights replace the previous ones; without a readable answer the previous ones stay.
+      if (antwort.erkenntnisse) ablauf.erkenntnisse = antwort.erkenntnisse;
       session.ablauf = ablauf;
       session.revision++;
       delete session.szenario;
@@ -83,7 +86,7 @@ export class ChatService {
     } catch (error) {
       if (!existing && this.sessions.get(sessionId) === session) this.sessions.delete(sessionId);
       if (error instanceof GuardrailError) throw error;
-      throw new GuardrailError('Der Modelldienst ist momentan nicht verfügbar. Bitte versuche es erneut.', 503);
+      throw new GuardrailError('Der Modelldienst ist momentan nicht verfügbar. Bitte versuchen Sie es erneut.', 503);
     } finally {
       session.busy = false;
     }
@@ -95,7 +98,8 @@ export class ChatService {
     this.sessions.set(sessionId, session);
     try {
       session.ablauf = await this.ablauf.aktualisiere(session.ablauf, muellerProfil(this.heute()));
-      const reply = 'Demo Familie Müller: Frau Müller (Jahrgang 1986, aktuell zu Hause), Herr Müller (1984, 100 % angestellt, CHF 100’000 Jahreslohn) und ihr fünf Monate altes Kind. Geplant ist ein noch unsicherer Wiedereinstieg mit 40 % in fünf Monaten. Für die Demo wurden zusätzliche erfundene Vorsorgeangaben ergänzt, darunter CHF 600 Sparbudget im Monat.';
+      // No persona name: the reply becomes part of the chat history that later turns send to the model.
+      const reply = 'Demo-Haushalt geladen: ein verheiratetes Paar mit einem fünf Monate alten Kind. Sie selbst (Jahrgang 1986) sind aktuell zu Hause, Ihr Mann (Jahrgang 1984) arbeitet 100 % angestellt mit CHF 100’000 Jahreslohn. Das Vermögen beträgt CHF 20’000. Geplant ist ein noch unsicherer Wiedereinstieg mit 40 % in fünf Monaten. Für die Demo wurden zusätzliche erfundene Vorsorgeangaben ergänzt, darunter CHF 600 Sparbudget im Monat.';
       session.messages = [{ role: 'assistant', content: reply }];
       session.revision = 1;
       session.updated = Date.now();
@@ -134,6 +138,8 @@ export class ChatService {
       );
       if (this.sessions.get(sessionId) !== session) throw new GuardrailError('Dieser Chat wurde gelöscht.', 410);
       this.anhaengen(session, userMessage, antwort.verlauf);
+      // The model's insights replace the previous ones; without a readable answer the previous ones stay.
+      if (antwort.erkenntnisse) ablauf.erkenntnisse = antwort.erkenntnisse;
       session.ablauf = ablauf;
       // A timeline change is a profile change like a chat answer: an open scenario was computed on the old state.
       session.revision++;
@@ -143,7 +149,7 @@ export class ChatService {
     } catch (error) {
       if (!existing && this.sessions.get(sessionId) === session) this.sessions.delete(sessionId);
       if (error instanceof GuardrailError) throw error;
-      throw new GuardrailError('Der Modelldienst ist momentan nicht verfügbar. Bitte versuche es erneut.', 503);
+      throw new GuardrailError('Der Modelldienst ist momentan nicht verfügbar. Bitte versuchen Sie es erneut.', 503);
     } finally {
       session.busy = false;
     }
@@ -157,7 +163,10 @@ export class ChatService {
       maxOutputTokens: this.rails.config.maxOutputTokens,
       responseFormat: ANTWORT_FORMAT,
     });
-    return leseAntwort(roh, text => this.rails.checkOutput(text));
+    const antwort = leseAntwort(roh, text => this.rails.checkOutput(text));
+    // An insight may only use numbers the model was given (advisory state or conversation).
+    const belege = [instructions, ...messages.map(m => m.content)].join('\n');
+    return { ...antwort, erkenntnisse: antwort.erkenntnisse?.filter(e => nurBelegteZahlen(e, belege) !== null) ?? null };
   }
 
   // Same session rules as in reply(); the timeline may also start a conversation.
@@ -165,8 +174,8 @@ export class ChatService {
     const now = Date.now();
     this.removeExpired(now);
     const existing = existingId ? this.sessions.get(existingId) : undefined;
-    if (existingId !== undefined && !existing) throw new GuardrailError('Die Sitzung ist abgelaufen. Bitte starte einen neuen Chat.', 410);
-    if (existing?.busy) throw new GuardrailError('Bitte warte auf die laufende Antwort.', 409);
+    if (existingId !== undefined && !existing) throw new GuardrailError('Die Sitzung ist abgelaufen. Bitte starten Sie einen neuen Chat.', 410);
+    if (existing?.busy) throw new GuardrailError('Bitte warten Sie auf die laufende Antwort.', 409);
     if (!existing && this.sessions.size >= this.rails.config.maxSessions) throw new GuardrailError('Der Chat ist gerade ausgelastet. Bitte später erneut versuchen.', 503);
     const session = existing ?? this.neueSitzung(now);
     return { sessionId: existingId ?? randomUUID(), session, existing };
@@ -194,8 +203,8 @@ export class ChatService {
   private szenarioSession(sessionId: string, revision: number): Session {
     this.removeExpired();
     const session = this.sessions.get(sessionId);
-    if (!session) throw new GuardrailError('Die Sitzung ist abgelaufen. Bitte starte einen neuen Chat.', 410);
-    if (session.busy) throw new GuardrailError('Bitte warte auf die laufende Berechnung.', 409);
+    if (!session) throw new GuardrailError('Die Sitzung ist abgelaufen. Bitte starten Sie einen neuen Chat.', 410);
+    if (session.busy) throw new GuardrailError('Bitte warten Sie auf die laufende Berechnung.', 409);
     if (session.revision !== revision) throw new GuardrailError('Die Ausgangslage hat sich geändert. Bitte den Vergleich neu berechnen.', 409);
     return session;
   }
@@ -219,14 +228,14 @@ export class ChatService {
         hinweise: [...session.ablauf.pensionierung.pruefung.hinweise,
           ...session.ablauf.sparen.hinweise,
           'Nur der gewünschte jährliche Haushaltsbedarf im Ruhestand wurde verändert. Einkommen, PK, Vermögen, Pensionierungsalter und Monatsbudget bleiben gleich.',
-          'Die Alternative verändert deine aktuellen Angaben erst nach ausdrücklicher Übernahme. Kein Produktangebot und keine Garantie.'],
+          'Die Alternative verändert Ihre aktuellen Angaben erst nach ausdrücklicher Übernahme. Kein Produktangebot und keine Garantie.'],
       };
       session.szenario = { vergleich, ablauf, beleg: kopie.beleg };
       session.updated = Date.now();
       return vergleich;
     } catch (error) {
       if (error instanceof GuardrailError) throw error;
-      throw new GuardrailError('Die Alternative konnte nicht berechnet werden. Deine Ausgangslage bleibt erhalten.', 503);
+      throw new GuardrailError('Die Alternative konnte nicht berechnet werden. Ihre Ausgangslage bleibt erhalten.', 503);
     } finally { session.busy = false; }
   }
 

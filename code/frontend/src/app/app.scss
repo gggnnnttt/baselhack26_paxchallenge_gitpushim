@@ -7,12 +7,14 @@
   display: block;
 }
 
+/* Pax sits top right, as on pax.ch. */
 .brand-bar {
   position: sticky;
   top: 0;
   z-index: 20;
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   box-sizing: border-box;
   width: 100%;
   height: var(--brand-hoehe);
@@ -22,6 +24,7 @@
 
 .brand-logo {
   display: block;
+  flex: none;
   width: 88px;
   height: auto;
 }

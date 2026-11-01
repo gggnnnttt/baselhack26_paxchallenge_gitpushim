@@ -9,7 +9,10 @@ export interface Frage {
   einheit: string | null;
   min: number | null;
   max: number | null;
+  beispiel: string | null;
 }
+
+const VERGANGENHEIT = /geboren|jahrgang|geburt|geheiratet|heirat|seit wann|seit welchem/i;
 
 /**
  * Pax's open question as a control: buttons, a slider or a number field instead of typing.
@@ -41,6 +44,19 @@ export class FrageKarte {
       this.wert.set(this.regler() ? Math.round((f.min! + f.max!) / 2) : null);
     });
   }
+
+  // Pax's example for this question; if it has none, a typical value that fits the kind of question.
+  protected readonly platzhalter = computed(() => {
+    const { eingabe, beispiel, einheit, text, min, max } = this.frage();
+    const passend = (wert: number) => (min === null || wert >= min) && (max === null || wert <= max);
+    if (beispiel) return `z. B. ${eingabe === 'betrag' ? Number(beispiel).toLocaleString('de-CH') : beispiel}`;
+    const jahr = new Date().getFullYear();
+    const vorschlag = eingabe === 'jahr' ? (VERGANGENHEIT.test(text) ? 1988 : jahr + 4)
+      : eingabe === 'betrag' ? (/monat/i.test(einheit ?? '') ? 500 : 85000)
+      : eingabe === 'zahl' && einheit?.includes('%') ? 80 : null;
+    if (vorschlag === null || !passend(vorschlag)) return '';
+    return `z. B. ${eingabe === 'betrag' ? vorschlag.toLocaleString('de-CH') : vorschlag}`;
+  });
 
   protected senden(text: string) {
     if (!this.gesperrt()) this.antwort.emit(text);

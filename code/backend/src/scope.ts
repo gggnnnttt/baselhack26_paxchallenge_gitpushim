@@ -30,11 +30,11 @@ export async function checkScope(provider: ModelAdapter, messages: ChatMessage[]
   });
   let decision: unknown;
   try { decision = JSON.parse(raw); }
-  catch { throw new GuardrailError('Die Themenprüfung ist momentan nicht verfügbar. Bitte versuche es erneut.', 503); }
+  catch { throw new GuardrailError('Die Themenprüfung ist momentan nicht verfügbar. Bitte versuchen Sie es erneut.', 503); }
   if (!decision || typeof decision !== 'object' || Array.isArray(decision) || Object.keys(decision).length !== 1 || !('allowed' in decision) || typeof decision.allowed !== 'boolean') {
-    throw new GuardrailError('Die Themenprüfung ist momentan nicht verfügbar. Bitte versuche es erneut.', 503);
+    throw new GuardrailError('Die Themenprüfung ist momentan nicht verfügbar. Bitte versuchen Sie es erneut.', 503);
   }
   if (!decision.allowed) {
-    throw new GuardrailError('Dieser Advisor unterstützt dich bei Vorsorge, Versicherungen und deiner finanziellen Absicherung. Allgemeine Programmieraufgaben, Hausaufgaben und fachfremde Aufgaben übernehme ich hier nicht. Was möchtest du zu deiner Vorsorge wissen?');
+    throw new GuardrailError('Dieser Advisor unterstützt Sie bei Vorsorge, Versicherungen und Ihrer finanziellen Absicherung. Allgemeine Programmieraufgaben, Hausaufgaben und fachfremde Aufgaben übernehme ich hier nicht. Was möchten Sie zu Ihrer Vorsorge wissen?');
   }
 }

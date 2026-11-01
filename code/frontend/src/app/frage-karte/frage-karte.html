@@ -24,7 +24,7 @@
       </div>
     }
     @case ('text') {
-      <p class="hinweis">Antworte unten in deinen eigenen Worten.</p>
+      <p class="hinweis">Antworten Sie unten in Ihren eigenen Worten.</p>
     }
     @default {
       <form class="zahl" (ngSubmit)="zahlSenden()">
@@ -36,7 +36,7 @@
           <label>
             <input type="number" name="wert" inputmode="numeric" [ngModel]="wert()" (ngModelChange)="wert.set($event)"
               [min]="f.min" [max]="f.max" [step]="f.eingabe === 'betrag' ? 1000 : 1"
-              [placeholder]="f.eingabe === 'jahr' ? 'z. B. 2030' : f.eingabe === 'betrag' ? 'z. B. 85000' : ''" [attr.aria-label]="f.text" />
+              [placeholder]="platzhalter()" [attr.aria-label]="f.text" />
             @if (f.einheit || f.eingabe === 'betrag') {
               <span class="einheit">{{ f.einheit ?? 'CHF' }}</span>
             }

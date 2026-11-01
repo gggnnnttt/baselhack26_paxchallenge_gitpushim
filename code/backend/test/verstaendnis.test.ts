@@ -31,20 +31,23 @@ test('without information Pax is still understanding and asks for the concern fi
   const l = lagebild(await stand([]));
   assert.equal(l.phase, 'verstehen');
   assert.deepEqual(l.saeulen.map(s => s.status), ['offen', 'offen', 'offen']);
-  assert.equal(l.naechstes[0]!.label, 'Dein wichtigstes Anliegen');
+  assert.equal(l.naechstes[0]!.label, 'Ihr wichtigstes Anliegen');
   assert.equal(l.naechstes.length, 3);
   assert.equal(l.verstanden, 0);
 });
 
-test('a planned self-employment is recognised as a change to the second pillar', async () => {
-  const l = lagebild(await stand([
+test('insights come from the advisor model, not from fixed sentences in the backend', async () => {
+  const ohne = await stand([
     op('anliegen', { text: 'Vorsorge für die Pensionierung' }),
     op('plan', { ziel: 'neu1', text: 'Selbstständigkeit aufnehmen', planart: 'stellenwechsel' }),
     op('plan_zeitpunkt', { ziel: 'neu1', zahl: 2028 }),
-  ]));
+  ]);
+  const l = lagebild(ohne);
   assert.equal(l.fokus, 'pensionierung');
-  assert.match(l.erkenntnisse[0]!.text, /Selbstständigkeit ab 2028 entfällt in der Regel die obligatorische Pensionskasse/);
+  assert.deepEqual(l.erkenntnisse, [], 'no rule writes an insight by itself');
   assert.match(lagebildKontext(l), /Phase: verstehen\. Frage nach dem wichtigsten Punkt/);
+  const mit = lagebild({ ...ohne, erkenntnisse: ['Mit der Selbstständigkeit fällt Ihre Pensionskasse weg.'] });
+  assert.deepEqual(mit.erkenntnisse, [{ art: 'hinweis', text: 'Mit der Selbstständigkeit fällt Ihre Pensionskasse weg.', quelle: 'ki' }]);
 });
 
 test('with all three pillars, a concern and a calculation Pax is ready to advise', async () => {
@@ -63,5 +66,5 @@ test('with all three pillars, a concern and a calculation Pax is ready to advise
   const pension = l.themen.find(t => t.id === 'pensionierung')!;
   assert.equal(pension.status, 'berechnet');
   assert.equal(pension.luecke, true);
-  assert.ok(l.erkenntnisse.some(e => e.art === 'luecke' && /Im Ruhestand fehlen dir rund CHF 7.240 pro Jahr/.test(e.text)));
+  assert.ok(l.erkenntnisse.some(e => e.art === 'luecke' && /Im Ruhestand fehlen Ihnen rund CHF 7.240 pro Jahr/.test(e.text)));
 });

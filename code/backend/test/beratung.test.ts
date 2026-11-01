@@ -131,7 +131,7 @@ test('Müller conversation builds a correct calculateRisk request step by step',
   // Turn 2: derivation without reason rejected; Person A's sex is not guessed.
   assert.deepEqual(zweit!.letzteNachricht.abgelehnt.map(e => e.grund), ['Ableitung ohne Begründung.']);
   assert.equal(zweit!.profil.kinder[0]!.bezeichnung, 'Kind');
-  assert.ok(zweit!.risiko.fehlend.some(a => a.label === 'Geschlecht Person A (du)'));
+  assert.ok(zweit!.risiko.fehlend.some(a => a.label === 'Geschlecht Person A (Sie)'));
   assert.equal(zweit!.profil.personen.B!.geschlecht!.quelle, 'ableitung');
 
   // Turn 3: typographic apostrophe in the message still matches the quote.
@@ -245,8 +245,8 @@ test('profile proposals are checked against the message and field rules', () => 
   ]);
   assert.equal(profil.personen.B, undefined);
   const pruefung = pruefeRisiko(profil, JAHR);
-  assert.ok(pruefung.fehlend.some(a => a.label === 'Seit welchem Jahr ihr zusammenlebt'));
-  assert.ok(pruefung.fehlend.some(a => a.label === 'Bruttoeinkommen (genannt wurde ein Nettobetrag) (Person A (du))'));
+  assert.ok(pruefung.fehlend.some(a => a.label === 'Seit welchem Jahr Sie zusammenleben'));
+  assert.ok(pruefung.fehlend.some(a => a.label === 'Bruttoeinkommen (genannt wurde ein Nettobetrag) (Person A (Sie))'));
 });
 
 test('corrections overwrite, removals delete, and children are not duplicated', () => {

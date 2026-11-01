@@ -137,5 +137,5 @@ export const leeresProfil = (): Profil => ({
 
 export const PAAR_BEZIEHUNGEN: ReadonlySet<string> = new Set(['verheiratet', 'eingetragene_partnerschaft', 'konkubinat']);
 export const istPaar = (profil: Profil) => PAAR_BEZIEHUNGEN.has(profil.haushalt.beziehung?.wert ?? '');
-export const personLabel = (id: PersonId) => (id === 'A' ? 'Person A (du)' : 'Person B (Partner/in)');
+export const personLabel = (id: PersonId) => (id === 'A' ? 'Person A (Sie)' : 'Person B (Partner/in)');
 export const kindLabel = (profil: Profil, kind: Kind) => `${kind.bezeichnung} ${profil.kinder.indexOf(kind) + 1}`;

@@ -8,7 +8,8 @@ import { leeresProfil, type Profil } from '../profil/profil.js';
 export interface Berechnung { requestJson: string; antwort: RiskResponse; zeitpunkt: string }
 export interface AblaufKontext { jahr: number; profil: Profil; pruefung: RisikoPruefung; berechnung: Berechnung | null; fehler: string | null }
 export type Phase = 'erfassung' | 'bereit' | 'berechnung' | 'berechnet' | 'fehlgeschlagen';
-export interface AblaufStand { phase: Phase; kontext: AblaufKontext; snapshot: Snapshot<unknown>; pensionierung: PensionierungsStand; sparen: SparStand }
+// erkenntnisse: what the advisor model recognised in its last reply; carried over until it answers again.
+export interface AblaufStand { phase: Phase; kontext: AblaufKontext; snapshot: Snapshot<unknown>; pensionierung: PensionierungsStand; sparen: SparStand; erkenntnisse?: string[] }
 
 type AblaufEvent = { type: 'PROFIL_AKTUALISIERT'; profil: Profil };
 
@@ -100,7 +101,7 @@ export class Beratungsablauf {
       ]);
       const sparen = await aktualisiereSparen(vorher.sparen, pensionierung, vorher.kontext.jahr,
         this.rechner?.berechneSparen ? { berechneSparen: request => this.rechner!.berechneSparen!(request) } : null);
-      return { ...this.stand(actor), pensionierung, sparen };
+      return { ...this.stand(actor), pensionierung, sparen, erkenntnisse: vorher.erkenntnisse };
     } finally {
       actor.stop();
     }

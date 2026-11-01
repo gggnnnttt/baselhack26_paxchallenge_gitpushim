@@ -3,7 +3,7 @@
 .zurueck, .link, .aktion { color: var(--color-brand-pax-purple); font: inherit; cursor: pointer; background: none; border: 0; }
 .zurueck { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; }
 .link { text-decoration: underline; }
-button:hover { text-decoration: underline; }
+.zurueck:hover, .link:hover, .aktion:hover { text-decoration: underline; }
 button:focus-visible, summary:focus-visible { outline: 2px solid var(--color-brand-pax-purple); outline-offset: 3px; }
 .raster { display: grid; grid-template-columns: minmax(180px,240px) minmax(0,1fr) minmax(240px,320px); gap: 40px; align-items: start; margin-top: 24px; }
 .pax { position: sticky; top: calc(var(--brand-hoehe) + 24px); display: flex; flex-direction: column; align-items: center; gap: 20px; }
@@ -16,6 +16,33 @@ h2 { margin: 6px 0 14px; font-size: var(--size-heading-s); line-height: 1.25; }
 .liste, .saeulen, .erkenntnisse { list-style: none; padding: 0; margin: 0; }
 .empfehlung { display: grid; grid-template-columns: 44px minmax(0,1fr); gap: 18px; padding: 24px; border: 1px solid var(--color-neutral-gray-2); border-radius: var(--radius-xl); background: var(--color-neutral-white); }
 .empfehlung + .empfehlung { margin-top: 16px; }
+/* A chosen package: Pax green frame, the number turns into the selection mark's partner. */
+.empfehlung { transition: border-color 200ms ease, box-shadow 200ms ease; }
+.empfehlung.gewaehlt { border-color: var(--color-brand-pax-green); box-shadow: inset 0 0 0 1px var(--color-brand-pax-green); }
+.daten { margin: 4px 0 12px; padding-left: 16px; border-left: 2px solid var(--color-neutral-gray-2); }
+.daten summary { padding: 8px 0; min-height: 0; color: var(--color-brand-pax-purple); font-size: 14px; }
+.pruefen { color: var(--color-neutral-gray-6); font-size: 14px; }
+.grundlage { white-space: pre-line; color: var(--color-neutral-gray-7); font-size: 14px; }
+.waehlen {
+  display: inline-flex; align-items: center; gap: 10px; min-height: 44px; margin-top: 8px; padding: 8px 18px 8px 10px;
+  border: 1.5px solid var(--color-brand-pax-purple); border-radius: var(--radius-full); background: var(--color-neutral-white);
+  color: var(--color-brand-pax-purple); font: inherit; font-weight: 500; cursor: pointer;
+  &:hover { background: var(--chat-raum); }
+  &[aria-pressed='true'] { border-color: var(--color-brand-pax-green); background: var(--color-brand-pax-green); color: var(--color-neutral-black); }
+}
+.haken {
+  display: grid; place-items: center; width: 24px; height: 24px; box-sizing: border-box; border: 1.5px solid currentColor; border-radius: 50%;
+  svg { opacity: 0; transform: scale(0.5); transition: opacity 150ms ease, transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1); }
+  [aria-pressed='true'] & { border-color: var(--color-neutral-black); background: var(--color-neutral-white); }
+  [aria-pressed='true'] & svg { opacity: 1; transform: none; }
+}
+/* Stays at the bottom of the window while the packages are compared. */
+.weiter-leiste {
+  position: sticky; bottom: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px;
+  margin: 24px -12px 0; padding: 16px 12px; border-top: 1px solid var(--color-neutral-gray-2); background: rgba(255, 255, 255, 0.96);
+  p { margin: 0; color: var(--color-neutral-gray-7); }
+}
+@media (prefers-reduced-motion: reduce) { .empfehlung, .haken svg { transition: none; } }
 .empfehlung p, details { overflow-wrap: anywhere; line-height: 1.5; }
 .rang, .nummer { display: grid; place-content: center; background: var(--color-brand-pax-green); color: var(--color-brand-pax-purple); font-weight: 700; }
 .rang { width: 44px; height: 44px; border-radius: 50%; font-size: 20px; }

@@ -30,7 +30,7 @@ export const PLANARTEN = {
 export type PlanArt = keyof typeof PLANARTEN;
 export const PLANART_LISTE = Object.keys(PLANARTEN) as PlanArt[];
 
-export const PERSONEN: Record<PlanPerson, string> = { A: 'Du', B: 'Partner/in', haushalt: 'Haushalt' };
+export const PERSONEN: Record<PlanPerson, string> = { A: 'Sie', B: 'Partner/in', haushalt: 'Haushalt' };
 
 export const zuSpeichern = (plan: Plan, werte: Partial<PlanSpeichern> = {}): PlanSpeichern => ({
   typ: 'speichern',

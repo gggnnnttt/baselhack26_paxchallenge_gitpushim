@@ -1,0 +1,121 @@
+<div class="portal">
+  <header class="portal-kopf">
+    <div class="portal-kopf-innen">
+      <p class="portal-name">Mein Pax</p>
+      <h1>{{ demo() ? 'Willkommen, Familie Müller' : 'Willkommen in Ihrem Kundenportal' }}</h1>
+      <p>Hier finden Sie Ihre Policen, den Stand Ihres Antrags und das Protokoll Ihrer Beratung.</p>
+    </div>
+  </header>
+
+  <div class="raster">
+    <section class="policen" aria-labelledby="policen-titel">
+      <h2 id="policen-titel">{{ policen().length === 1 ? 'Ihre Police' : policen().length ? 'Ihre Policen' : 'Ihr Gesprächswunsch' }}</h2>
+
+      @for (p of policen(); track p.id; let i = $index) {
+        <article class="police" [attr.aria-labelledby]="'police-' + p.id">
+          <div class="police-band">
+            <div>
+              <span class="police-art">Police</span>
+              <h3 [id]="'police-' + p.id">{{ p.produkt.name }}</h3>
+            </div>
+            @if (p.produkt.saeule) {
+              <span class="stempel" [attr.aria-label]="'Säule ' + p.produkt.saeule">{{ p.produkt.saeule }}</span>
+            }
+          </div>
+          <dl class="police-daten">
+            <div><dt>Policennummer</dt><dd>{{ policennummer(i) }}</dd></div>
+            <div><dt>Status</dt>
+              <dd><span class="status" [class.aktiv]="freigegeben()">{{ freigegeben() ? 'Aktiv' : 'In Prüfung' }}</span></dd>
+            </div>
+            <div><dt>Vertragsbeginn</dt><dd>1. {{ monatJahr(antrag().beginn) }}</dd></div>
+            <div><dt>Prämie</dt><dd>{{ freigegeben() ? 'gemäss unterschriebener Offerte' : 'folgt mit der verbindlichen Offerte' }}</dd></div>
+          </dl>
+          @if (p.titel !== p.produkt.name) { <p class="police-zweck">{{ p.titel }}</p> }
+          @if (p.hinweis && !freigegeben()) { <p class="police-hinweis">{{ p.hinweis }}</p> }
+          <ul class="dokumente" aria-label="Dokumente">
+            <li>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6v18h12V7zM14 3v4h4M9 13h6M9 17h6" /></svg>
+              {{ freigegeben() ? 'Police (Demo)' : 'Policenentwurf (Demo)' }}
+            </li>
+            <li>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6v18h12V7zM14 3v4h4M9 13h6M9 17h6" /></svg>
+              <button class="link" type="button" (click)="protokollOeffnen()">Beratungsprotokoll</button>
+            </li>
+          </ul>
+        </article>
+      }
+
+      @if (termin(); as t) {
+        <article class="termin">
+          <h3>Gespräch mit einer Pax-Fachperson</h3>
+          <p>{{ freigegeben() ? 'Ihr Termin ist bestätigt. Die Fachperson kennt Ihr Beratungsprotokoll.' : 'Angefragt. Pax meldet sich bei Ihnen, sobald Ihr Wunsch geprüft ist.' }}</p>
+          @if (t.titel !== t.produkt.name) { <p class="police-zweck">{{ t.titel }}</p> }
+        </article>
+      }
+    </section>
+
+    <aside class="stand" aria-labelledby="stand-titel">
+      <h2 id="stand-titel">Stand Ihres Antrags</h2>
+      <p class="antragsnummer">Antrag {{ antrag().nummer }}</p>
+      <ol class="verlauf">
+        @for (s of schritte(); track s.text) {
+          <li [class]="s.stand">
+            <span class="marke" aria-hidden="true">
+              @if (s.stand === 'erledigt') {
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17 19 7" /></svg>
+              }
+            </span>
+            <span>
+              {{ s.text }}
+              <span class="sr-only">{{ s.stand === 'erledigt' ? '(erledigt)' : s.stand === 'aktiv' ? '(läuft)' : '(offen)' }}</span>
+              @if (s.zeit) { <time class="zeit" [attr.datetime]="s.zeit.toISOString()">{{ s.zeit | date: 'd.M.yyyy, HH:mm' }}</time> }
+            </span>
+          </li>
+        }
+      </ol>
+      @if (!freigegeben()) {
+        <p class="klein">Pax gibt Empfehlungen einer KI nie ungeprüft frei: Eine Fachperson sieht sich jeden Antrag an.</p>
+        <button class="demo-freigabe" type="button" (click)="freigegeben.set(true)">Demo: Freigabe durch Fachperson simulieren</button>
+      } @else {
+        <p class="klein" role="status">Demo: Die Fachperson hat den Antrag freigegeben.</p>
+      }
+
+      <div class="aktionen">
+        <button class="link" type="button" (click)="protokollOeffnen()">Beratungsprotokoll ansehen</button>
+        <button class="link" type="button" (click)="beratung.emit()">Zurück zur Beratung</button>
+        <button class="link" type="button" (click)="neu.emit()">Neue Beratung starten</button>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<!-- The advice record: what was recommended, why, on which basis, and who decides. -->
+<dialog #protokoll class="pax-warning-dialog protokoll" aria-labelledby="protokoll-titel">
+  <button class="dialog-close" type="button" aria-label="Protokoll schliessen" (click)="protokollSchliessen()">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+  </button>
+  <h2 id="protokoll-titel">Beratungsprotokoll</h2>
+  <dl class="protokoll-meta">
+    <div><dt>Antrag</dt><dd>{{ antrag().nummer }}</dd></div>
+    <div><dt>Empfehlung ausgewählt</dt><dd>{{ antrag().gewaehltAm | date: 'd.M.yyyy, HH:mm' }}</dd></div>
+    <div><dt>Stand der Beratung</dt><dd>Version {{ antrag().revision }}</dd></div>
+    <div><dt>Freigabe</dt><dd>{{ freigegeben() ? 'Durch Pax-Fachperson erteilt (Demo)' : 'Ausstehend, Prüfung durch Pax-Fachperson' }}</dd></div>
+  </dl>
+  <p class="klein">{{ antrag().regelHinweis }}</p>
+  @for (p of antrag().pakete; track p.id) {
+    <section class="protokoll-eintrag">
+      <h3>{{ p.produkt.name }}@if (p.produkt.saeule) { <span class="protokoll-saeule">Säule {{ p.produkt.saeule }}</span> }</h3>
+      @if (p.titel !== p.produkt.name) { <p><strong>{{ p.titel }}</strong></p> }
+      <h4>Begründung</h4>
+      <p>{{ p.begruendung }}</p>
+      @if (p.einordnung) {
+        <h4>Einordnung der Lage</h4>
+        <p>{{ p.einordnung }}</p>
+      }
+      <h4>Grundlagen</h4>
+      <p class="grundlage">{{ p.grundlage }}</p>
+      @if (p.hinweis) { <p class="police-hinweis">{{ p.hinweis }}</p> }
+    </section>
+  }
+  <p class="klein">Ausgewählt und begründet durch ein KI-Modell auf Basis Ihrer Angaben und der Berechnungen. Keine Offerte; Eignung und Prämie prüft Pax.</p>
+</dialog>

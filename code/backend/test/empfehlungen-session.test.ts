@@ -15,7 +15,7 @@ async function setup(generate: () => Promise<string>) {
  return { chat, session };
 }
 test('cache is session/revision scoped and expiry/deletion is respected', async () => {
- let calls = 0; const { chat, session } = await setup(async () => { calls++; return JSON.stringify({ status: 'offen', statusText: 'Weitere Angaben prüfen', empfehlungen: [] }); });
+ let calls = 0; const { chat, session } = await setup(async () => { calls++; return JSON.stringify({ status: 'offen', statusText: 'Weitere Angaben prüfen', erkenntnisse: [], empfehlungen: [] }); });
  await chat.empfehlungen({ sessionId: 'synthetic' });
  await chat.empfehlungen({ sessionId: 'synthetic' });
  assert.equal(calls, 1);
@@ -31,6 +31,6 @@ test('parallel mutation is blocked and deleted session cannot return pending mod
  const { chat } = await setup(() => new Promise(resolve => { finish = resolve; }));
  const pending = chat.empfehlungen({ sessionId: 'synthetic' });
  await assert.rejects(chat.empfehlungen({ sessionId: 'synthetic' }), { status: 409 });
- chat.deleteSession({ sessionId: 'synthetic' }); finish(JSON.stringify({ status: 'offen', statusText: 'Weitere Angaben prüfen', empfehlungen: [] }));
+ chat.deleteSession({ sessionId: 'synthetic' }); finish(JSON.stringify({ status: 'offen', statusText: 'Weitere Angaben prüfen', erkenntnisse: [], empfehlungen: [] }));
  await assert.rejects(pending, { status: 410 }); assert.equal(chat.sessionCount, 0);
 });

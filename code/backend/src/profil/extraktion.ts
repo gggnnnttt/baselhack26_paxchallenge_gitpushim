@@ -95,6 +95,6 @@ export async function extrahiereAenderungen(provider: ModelAdapter, profil: Prof
   let data: unknown;
   try { data = JSON.parse(raw); } catch { data = undefined; }
   const parsed = Extraktion.safeParse(data);
-  if (!parsed.success) throw new GuardrailError('Deine Angaben konnten gerade nicht sicher verarbeitet werden. Bitte sende die Nachricht erneut.', 503);
+  if (!parsed.success) throw new GuardrailError('Ihre Angaben konnten gerade nicht sicher verarbeitet werden. Bitte senden Sie die Nachricht erneut.', 503);
   return parsed.data.aenderungen;
 }

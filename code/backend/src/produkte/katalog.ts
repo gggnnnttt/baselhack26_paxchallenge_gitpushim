@@ -17,9 +17,9 @@ export const paxTodesfall = produkt('pax-todesfall', 'Pax Todesfallversicherung'
 export const paxLifeStar = produkt('pax-terza-lifestar', 'Pax TerzaLifeStar', 'ruhestand', '3a',
   'Vorsorgesparen mit einem garantierten Anlageteil und einem Fondsanteil.', ['Garantierter Anteil gemäss Vertrag', 'Fondsanteil mit Wertschwankungen', 'Schutz bei Tod und Erwerbsunfähigkeit zubuchbar'], true);
 export const paxFondsStar = produkt('pax-terza-fondsstar', 'Pax TerzaFondsStar', 'ruhestand', '3a',
-  'Vorsorgesparen mit vollständig fondsgebundener Anlage und entsprechenden Wertschwankungen.', ['Sparanteil vollständig in Fonds', 'Anlagerisiko liegt bei dir', 'Prämienbefreiung bei Familienzuwachs zubuchbar'], true);
+  'Vorsorgesparen mit vollständig fondsgebundener Anlage und entsprechenden Wertschwankungen.', ['Sparanteil vollständig in Fonds', 'Anlagerisiko liegt bei Ihnen', 'Prämienbefreiung bei Familienzuwachs zubuchbar'], true);
 export const paxAuszahlungsplan = produkt('pax-auszahlungsplan', 'Pax Auszahlungsplan', 'ruhestand', '3b',
   'Eine einmalige Investition ermöglicht geplante Auszahlungen in Etappen.', ['Einmalinvestition für gestaffelte Auszahlungen', 'Garantierter Anlageteil gemäss Vertrag', 'Fondsanteil mit Wertschwankungen'], true);
 export const paxBeratung = produkt('pax-beratung', 'Persönliche Pax-Beratung', 'beratung', null,
-  'Eine Fachperson prüft die offenen Grundlagen und deine individuelle Situation.', ['Persönliche Prüfung vor weiteren Entscheidungen']);
+  'Eine Fachperson prüft die offenen Grundlagen und Ihre individuelle Situation.', ['Persönliche Prüfung vor weiteren Entscheidungen']);
 export const produktkatalog = [paxErwerbsunfaehigkeit, paxTodesfall, paxLifeStar, paxFondsStar, paxAuszahlungsplan, paxBeratung];

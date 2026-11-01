@@ -1,8 +1,8 @@
 @if (bereit()) {
   <section class="szenario" aria-labelledby="szenario-titel" [attr.aria-busy]="busy()">
-    <h3 id="szenario-titel">Was wäre, wenn du im Ruhestand weniger oder mehr brauchst?</h3>
+    <h3 id="szenario-titel">Was wäre, wenn Sie im Ruhestand weniger oder mehr brauchen?</h3>
     @if (!offen) {
-      <p>Wie verändert ein anderes Einkommen im Ruhestand deinen heutigen Sparbedarf?</p>
+      <p>Wie verändert ein anderes Einkommen im Ruhestand Ihren heutigen Sparbedarf?</p>
       <button class="los" type="button" (click)="oeffnen()" [disabled]="disabled()">Alternative durchrechnen</button>
     } @else {
       <form (ngSubmit)="absenden()">
@@ -18,7 +18,7 @@
       @if (vergleich(); as v) {
         <div aria-live="polite">
           <h4>Monatlicher Sparbedarf im Vergleich</h4>
-          <p class="muted">Beide Balken haben dieselbe Skala: CHF 0 bis {{ chf(skala()) }} pro Monat. Die gestrichelte Linie zeigt dein angegebenes Budget.</p>
+          <p class="muted">Beide Balken haben dieselbe Skala: CHF 0 bis {{ chf(skala()) }} pro Monat. Die gestrichelte Linie zeigt Ihr angegebenes Budget.</p>
           @for (spalte of spalten(); track spalte.titel) {
             <article class="balkenkarte">
               <div class="balken-titel"><strong>{{ spalte.titel }}</strong><span>{{ chf(spalte.werte.bedarfJahr) }}/Jahr im Ruhestand</span></div>

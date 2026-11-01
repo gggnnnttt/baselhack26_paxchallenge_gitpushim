@@ -1,14 +1,17 @@
-import { Component, ElementRef, computed, effect, inject, input, output, signal, viewChild } from '@angular/core';
+import { Component, ElementRef, computed, effect, inject, input, output, signal, untracked, viewChild } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import type { Beratungsstand } from '../beratungsstand/beratungsstand.model';
 import { PlanEditor } from './plan-editor';
-import { PERSONEN, PLANARTEN, zuSpeichern, type Plan, type PlanArt, type PlanPerson, type ZeitstrahlAktion } from './zeitstrahl.model';
+import { PERSONEN, PLANARTEN, zuSpeichern, type Plan, type PlanArt, type PlanPerson, type PlanSpeichern, type ZeitstrahlAktion } from './zeitstrahl.model';
 
 const PENSIONSALTER = 65;
 const PAAR = new Set(['verheiratet', 'eingetragene_partnerschaft', 'konkubinat']);
 
-// A plan as shown: with the year the customer just dragged it to, until the backend confirmed it.
-interface Eintrag { plan: Plan; jahr: number | null; monat: number | null; wartet: boolean }
+// A plan as shown: with the change the customer just made (moved, edited, added, removed), until the backend confirmed it.
+// Every change that waits for Pax blinks the same way. A new plan is shown as a draft until it exists in the profile.
+// `entwurf`: not (or no longer) a plan in the profile, so it cannot be moved or edited.
+interface Eintrag { plan: Plan; jahr: number | null; monat: number | null; wartet: boolean; entwurf: boolean }
+type Vorschau = { jahr: number | null; monat: number | null; aenderung?: PlanSpeichern; entfernt?: boolean };
 interface Ziehen { eintrag: Eintrag; startY: number; x: number; y: number; offsetX: number; offsetY: number; bewegt: boolean; ziel: { jahr: number | null } | null }
 
 /**
@@ -33,18 +36,27 @@ export class Zeitstrahl {
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly editor = viewChild.required(PlanEditor);
 
-  private readonly vorschau = signal(new Map<string, { jahr: number | null; monat: number | null }>());
+  private readonly vorschau = signal(new Map<string, Vorschau>());
+  private readonly entwuerfe = signal<Eintrag[]>([]);
+  private entwurfNr = 0;
+  // Descriptions of drafts not yet confirmed: their plan settles in without the pop-up meant for plans from the chat.
+  private erwartet: string[] = [];
   protected readonly ziehen = signal<Ziehen | null>(null);
   protected readonly neu = signal(new Set<string>());
   private bekannt = new Set<string>();
   private klickIgnorieren = false;
 
-  protected readonly eintraege = computed<Eintrag[]>(() => (this.stand()?.profil.plaene ?? []).map(plan => {
-    const v = this.vorschau().get(plan.id);
-    return v
-      ? { plan, jahr: v.jahr, monat: v.monat, wartet: true }
-      : { plan, jahr: plan.zeitpunkt?.wert.jahr ?? null, monat: plan.zeitpunkt?.wert.monat ?? null, wartet: false };
-  }));
+  protected readonly eintraege = computed<Eintrag[]>(() => [
+    ...(this.stand()?.profil.plaene ?? []).map(plan => {
+      const v = this.vorschau().get(plan.id);
+      if (!v) return { plan, jahr: plan.zeitpunkt?.wert.jahr ?? null, monat: plan.zeitpunkt?.wert.monat ?? null, wartet: false, entwurf: false };
+      const a = v.aenderung;
+      const gezeigt = a ? ({ ...plan, art: a.art, person: a.person, beschreibung: a.beschreibung, notiz: a.notiz || undefined } as Plan) : plan;
+      // A plan being removed stays in place, blinking, and can no longer be moved or edited.
+      return { plan: gezeigt, jahr: v.jahr, monat: v.monat, wartet: true, entwurf: !!v.entfernt };
+    }),
+    ...this.entwuerfe(),
+  ]);
 
   private readonly geburtsjahre = computed(() => {
     const p = this.stand()?.profil.personen;
@@ -70,7 +82,7 @@ export class Zeitstrahl {
       return {
         jahr,
         alter: A ? `mit ${jahr - A}` : '',
-        pensionen: [A && A + PENSIONSALTER === jahr ? 'du' : null, B && B + PENSIONSALTER === jahr ? 'Partner/in' : null].filter(Boolean) as string[],
+        pensionen: [A && A + PENSIONSALTER === jahr ? 'Sie' : null, B && B + PENSIONSALTER === jahr ? 'Partner/in' : null].filter(Boolean) as string[],
         eintraege: this.eintraege().filter(e => e.jahr === jahr).sort((x, y) => (x.monat ?? 6.5) - (y.monat ?? 6.5)),
       };
     });
@@ -79,18 +91,30 @@ export class Zeitstrahl {
   protected readonly ohneDatum = computed(() => this.eintraege().filter(e => e.jahr === null));
 
   constructor() {
-    // The backend answered everything: show its years instead of the previews.
+    // The backend answered everything: show its plans instead of the previews and drafts.
     effect(() => {
-      if (this.ausstehend() === 0) this.vorschau.set(new Map());
+      if (this.ausstehend() !== 0) return;
+      this.vorschau.set(new Map());
+      this.entwuerfe.set([]);
     });
-    // Plans that are new in the profile, e.g. from the chat, pop up and are scrolled into view.
+    // Plans that are new in the profile are scrolled into view. Those from the chat pop up;
+    // those the customer just added already blinked as a draft and simply take its place.
     effect(() => {
-      const ids = (this.stand()?.profil.plaene ?? []).map(p => p.id);
-      const neue = ids.filter(id => !this.bekannt.has(id));
-      this.bekannt = new Set(ids);
+      const plaene = this.stand()?.profil.plaene ?? [];
+      const neue = plaene.filter(p => !this.bekannt.has(p.id));
+      this.bekannt = new Set(plaene.map(p => p.id));
+      const ploppen = neue.filter(p => {
+        const i = this.erwartet.indexOf(p.beschreibung);
+        if (i === -1) return true;
+        this.erwartet.splice(i, 1);
+        return false;
+      }).map(p => p.id);
+      // Nothing waits any more: drafts Pax did not take over must not hide a later plan from the chat.
+      if (untracked(this.ausstehend) === 0) this.erwartet = [];
       if (!neue.length) return;
-      this.neu.set(new Set(neue));
-      setTimeout(() => this.zeigen(neue[0]));
+      setTimeout(() => this.zeigen(neue[0].id));
+      if (!ploppen.length) return;
+      this.neu.set(new Set(ploppen));
       setTimeout(() => this.neu.set(new Set()), 2500);
     });
   }
@@ -117,7 +141,7 @@ export class Zeitstrahl {
   protected zielText(jahr: number | null): string {
     if (jahr === null) return 'ohne Datum';
     const a = this.geburtsjahre().A;
-    return a ? `${jahr}, du bist dann ${jahr - a}` : String(jahr);
+    return a ? `${jahr}, Sie sind dann ${jahr - a}` : String(jahr);
   }
 
   protected neuerPlan(jahr: number | null = this.heute + 1) {
@@ -131,21 +155,38 @@ export class Zeitstrahl {
     this.neuerPlan(jahr);
   }
 
+  // Changes from the editor show at once and blink until Pax has taken them in, like a dragged plan.
+  protected ausEditor(a: ZeitstrahlAktion) {
+    if (a.typ === 'entfernen') {
+      const e = this.eintraege().find(x => x.plan.id === a.plan);
+      if (e) this.vorschau.update(m => new Map(m).set(a.plan, { jahr: e.jahr, monat: e.monat, entfernt: true }));
+    } else if (a.plan) {
+      this.vorschau.update(m => new Map(m).set(a.plan!, { jahr: a.jahr, monat: a.monat, aenderung: a }));
+    } else {
+      const plan = { id: `entwurf-${++this.entwurfNr}`, art: a.art, person: a.person, beschreibung: a.beschreibung, notiz: a.notiz || undefined } as Plan;
+      this.entwuerfe.update(l => [...l, { plan, jahr: a.jahr, monat: a.monat, wartet: true, entwurf: true }]);
+      this.erwartet = [...this.erwartet.slice(-9), a.beschreibung];
+      setTimeout(() => this.zeigen(plan.id));
+    }
+    this.aktion.emit(a);
+  }
+
   protected bearbeiten(e: Eintrag) {
-    if (this.klickIgnorieren) return;
+    // A draft or a change on its way cannot be edited until Pax has answered.
+    if (this.klickIgnorieren || e.entwurf) return;
     this.editor().oeffnen(zuSpeichern(e.plan, { jahr: e.jahr, monat: e.monat }));
   }
 
   // Keyboard alternative to dragging: arrow keys move a dated plan by one year.
   protected taste(event: KeyboardEvent, e: Eintrag) {
     const schritt = event.key === 'ArrowDown' ? 1 : event.key === 'ArrowUp' ? -1 : 0;
-    if (!schritt || e.jahr === null) return;
+    if (!schritt || e.jahr === null || e.entwurf) return;
     event.preventDefault();
     this.verschieben(e, Math.min(this.heute + 70, Math.max(this.heute, e.jahr + schritt)));
   }
 
   protected druecken(event: PointerEvent, e: Eintrag) {
-    if (event.button !== 0) return;
+    if (event.button !== 0 || e.entwurf) return;
     const karte = event.currentTarget as HTMLElement;
     karte.setPointerCapture(event.pointerId);
     const rect = karte.getBoundingClientRect();
@@ -176,7 +217,8 @@ export class Zeitstrahl {
 
   private verschieben(e: Eintrag, jahr: number | null) {
     if (jahr === e.jahr) return;
-    this.vorschau.update(m => new Map(m).set(e.plan.id, { jahr, monat: null }));
+    const bisher = this.vorschau().get(e.plan.id);
+    this.vorschau.update(m => new Map(m).set(e.plan.id, { ...bisher, jahr, monat: null }));
     this.aktion.emit(zuSpeichern(e.plan, { jahr, monat: null }));
   }
 

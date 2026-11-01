@@ -1,4 +1,4 @@
-import { Component, ElementRef, afterRenderEffect, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
+import { Component, DestroyRef, ElementRef, afterRenderEffect, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
@@ -12,6 +12,9 @@ import { PaxAvatar, type PaxAvatarState } from './pax-avatar/pax-avatar';
 import { EmpfehlungenSeite } from './empfehlungen/empfehlungen-seite';
 import { PlanLagebild } from './plan/plan-lagebild';
 import { Zeitstrahl } from './zeitstrahl/zeitstrahl';
+import { AbschlussSeite } from './abschluss/abschluss-seite';
+import { Kundenportal } from './abschluss/kundenportal';
+import { type Antrag, type Auswahl, type Seite } from './abschluss/abschluss.model';
 import type { ZeitstrahlAktion } from './zeitstrahl/zeitstrahl.model';
 
 type PlanReiter = 'lagebild' | 'weg';
@@ -19,7 +22,7 @@ type PlanReiter = 'lagebild' | 'weg';
 interface ChatAntwort { reply: string; frage: Frage | null; sessionId: string; revision: number; beratungsstand: Beratungsstand }
 
 // Pax's speech bubble on the start screen, kept as its first message once the conversation runs. Not sent to the backend.
-const BEGRUESSUNG = 'Erzähl mir kurz, wie du lebst und was du vorhast. Ich zeige dir, wo du bei der Vorsorge stehst.';
+const BEGRUESSUNG = 'Erzählen Sie mir kurz, wie Sie leben und was Sie vorhaben. Ich zeige Ihnen, wo Sie bei der Vorsorge stehen.';
 
 // Common situations on the start screen; a click starts the message, the customer adds the details.
 
@@ -27,7 +30,7 @@ const BEGRUESSUNG = 'Erzähl mir kurz, wie du lebst und was du vorhast. Ich zeig
 const PROFIL_OFFEN_AB = 1680;
 
 @Component({
-  imports: [FormsModule, NgTemplateOutlet, BeratungsstandPanel, ChatEingabe, ChatVerlauf, EmpfehlungenSeite, PaxAvatar, PlanLagebild, Zeitstrahl],
+  imports: [AbschlussSeite, FormsModule, Kundenportal, NgTemplateOutlet, BeratungsstandPanel, ChatEingabe, ChatVerlauf, EmpfehlungenSeite, PaxAvatar, PlanLagebild, Zeitstrahl],
   selector: 'app-root',
   styleUrl: './app.scss',
   templateUrl: './app.html',
@@ -51,14 +54,14 @@ export class App {
   // The start screen shows only Pax and the input; the conversation view takes over with the first message.
   protected readonly gestartet = computed(() => this.messages().length > 0 || this.loading());
   protected readonly status = computed(() =>
-    this.loading() ? 'denkt nach …' : this.talking() ? 'antwortet' : 'dein Vorsorge-Berater',
+    this.loading() ? 'denkt nach …' : this.talking() ? 'antwortet' : 'Ihr Vorsorge-Berater',
   );
   // How well Pax knows the customer, in their words: no calculation steps, only the way to the recommendations.
   protected readonly fortschritt = computed(() => {
     const l = this.stand()?.lagebild;
     if (!l) return null;
     const fertig = l.phase === 'empfehlen';
-    const text = fertig ? 'Deine Empfehlungen sind bereit' : l.phase === 'rechnen' ? 'Pax rechnet für dich' : 'Pax lernt dich kennen';
+    const text = fertig ? 'Ihre Empfehlungen sind bereit' : l.phase === 'rechnen' ? 'Pax rechnet für Sie' : 'Pax lernt Sie kennen';
     return { anteil: fertig ? 1 : Math.min(0.95, l.verstanden), text, fertig };
   });
   // The plan in the middle column; each tab keeps its own scroll position.
@@ -69,8 +72,15 @@ export class App {
     { id: 'lagebild' as const, label: 'Lagebild' },
     { id: 'weg' as const, label: 'Lebensweg' },
   ];
-  // Once Pax understands enough to recommend, it leads to its own page with the recommendations.
-  protected readonly seite = signal<'beratung' | 'empfehlungen'>('beratung');
+  // Advice → recommendation → application → policy in the customer portal, each on its own page.
+  protected readonly seite = signal<Seite>('beratung');
+  // The chosen packages and the demo application; both stay in the browser only.
+  protected readonly auswahl = signal<Auswahl | null>(null);
+  protected readonly antrag = signal<Antrag | null>(null);
+  protected readonly auswahlIds = computed(() => this.auswahl()?.pakete.map((p) => p.id) ?? []);
+  // Set while the Müller demo household is loaded, so the portal can say so.
+  protected readonly demoAktiv = signal(false);
+  private linksShift = false;
   protected readonly empfehlungBereit = computed(() => this.stand()?.lagebild.phase === 'empfehlen');
   // The left sidebar; while it is collapsed a dot marks new values from Pax.
   protected readonly profilOffen = signal(typeof window === 'undefined' || window.innerWidth >= PROFIL_OFFEN_AB);
@@ -88,6 +98,22 @@ export class App {
   protected readonly ausstehend = signal(0);
 
   constructor() {
+    // Only the left Shift key arms the demo shortcut; MouseEvent.shiftKey cannot tell left from right.
+    const taste = (e: KeyboardEvent) => { if (e.code === 'ShiftLeft') this.linksShift = e.type === 'keydown'; };
+    const loesen = () => (this.linksShift = false);
+    window.addEventListener('keydown', taste);
+    window.addEventListener('keyup', taste);
+    window.addEventListener('blur', loesen);
+    inject(DestroyRef).onDestroy(() => {
+      window.removeEventListener('keydown', taste);
+      window.removeEventListener('keyup', taste);
+      window.removeEventListener('blur', loesen);
+    });
+    // A new advisory state makes an earlier choice of packages outdated.
+    effect(() => {
+      const r = this.revision();
+      if (untracked(this.auswahl)?.revision !== r) this.auswahl.set(null);
+    });
     effect(() => {
       if (this.stand() && !untracked(this.profilOffen)) this.profilNeu.set(true);
     });
@@ -107,10 +133,30 @@ export class App {
     this.startTalking(BEGRUESSUNG);
   }
 
-  // The tabs share one scrolling column; each tab gets back the position it was left at.
-  protected seiteWechseln(seite: 'beratung' | 'empfehlungen') {
+  protected seiteWechseln(seite: Seite) {
+    if (!this.erreichbar(seite)) return;
     this.seite.set(seite);
     window.scrollTo({ top: 0 });
+  }
+
+  // A step can be opened once everything it needs exists.
+  protected erreichbar(seite: Seite): boolean {
+    switch (seite) {
+      case 'beratung': return true;
+      case 'empfehlungen': return !!this.sessionId;
+      case 'abschluss': return !!this.auswahl()?.pakete.length;
+      case 'portal': return !!this.antrag();
+    }
+  }
+
+  protected abschliessen(auswahl: Auswahl) {
+    this.auswahl.set(auswahl);
+    this.seiteWechseln('abschluss');
+  }
+
+  protected einreichen(antrag: Antrag) {
+    this.antrag.set(antrag);
+    this.seiteWechseln('portal');
   }
 
   protected reiterWaehlen(id: PlanReiter) {
@@ -136,10 +182,52 @@ export class App {
     this.profilNeu.set(false);
   }
 
+  // Shift + mousedown would select text; the demo shortcut must leave no trace.
+  protected fortschrittDruecken(event: MouseEvent) {
+    if (event.shiftKey && event.button === 0) event.preventDefault();
+  }
+
   // The progress in the chat header leads to what it describes: the recommendations or the Lagebild.
-  protected fortschrittOeffnen() {
+  protected fortschrittOeffnen(event: MouseEvent) {
+    if (event.shiftKey && this.linksShift) {
+      void this.demoLaden();
+      return;
+    }
     if (this.fortschritt()?.fertig) this.seiteWechseln('empfehlungen');
     else this.reiterWaehlen('lagebild');
+  }
+
+  /**
+   * Pitch shortcut: replaces the current conversation with the synthetic Müller household
+   * (married couple, five-month-old child) and opens the recommendations. The recommendations
+   * are still selected by the model from the backend, nothing is pre-selected here.
+   */
+  private async demoLaden() {
+    if (this.loading()) return;
+    this.error.set('');
+    this.info.set('');
+    this.loading.set(true);
+    const alt = this.sessionId;
+    try {
+      const res = await firstValueFrom(this.http.post<ChatAntwort>('/api/demo', {}));
+      // The previous conversation is no longer shown, so it is removed from the backend as well.
+      if (alt) this.http.delete('/api/chat', { body: { sessionId: alt } }).subscribe({ error: () => undefined });
+      clearTimeout(this.zeitstrahlTimer);
+      this.wartend = [];
+      this.ausstehend.set(0);
+      this.sessionId = res.sessionId;
+      this.revision.set(res.revision);
+      this.auswahl.set(null);
+      this.antrag.set(null);
+      this.demoAktiv.set(true);
+      this.messages.set([{ role: 'assistant', content: res.reply, frage: res.frage }]);
+      this.stand.set(res.beratungsstand);
+      this.seiteWechseln('empfehlungen');
+    } catch (err: any) {
+      this.error.set(err?.error?.error ?? 'Backend nicht erreichbar');
+    } finally {
+      this.loading.set(false);
+    }
   }
 
   // A correction from the advisory state goes through the chat like anything the customer says.
@@ -182,6 +270,9 @@ export class App {
     this.ausstehend.set(0);
     this.planReiter.set('lagebild');
     this.seite.set('beratung');
+    this.auswahl.set(null);
+    this.antrag.set(null);
+    this.demoAktiv.set(false);
     this.messages.set([]);
     this.stand.set(null);
     this.eingabe()?.leeren();

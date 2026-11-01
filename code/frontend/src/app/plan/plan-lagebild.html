@@ -2,16 +2,16 @@
   <!-- Once Pax understands enough, the recommendations get their own page. -->
   @if (l.phase === 'empfehlen') {
     <section class="bereit" aria-labelledby="bereit-titel">
-      <h2 id="bereit-titel">Pax kennt jetzt deine Situation</h2>
-      <p>Alle drei Säulen und dein Anliegen sind klar. Deine Empfehlungen sind bereit.</p>
-      <button class="los" type="button" (click)="empfehlungen.emit()">Deine Empfehlungen ansehen</button>
+      <h2 id="bereit-titel">Pax kennt jetzt Ihre Situation</h2>
+      <p>Alle drei Säulen und Ihr Anliegen sind klar. Ihre Empfehlungen sind bereit.</p>
+      <button class="los" type="button" (click)="empfehlungen.emit()">Ihre Empfehlungen ansehen</button>
     </section>
   } @else {
     <p class="einleitung" role="status">{{ einleitung() }}</p>
   }
 
   <section aria-labelledby="saeulen-titel">
-    <h2 id="saeulen-titel">Deine drei Säulen</h2>
+    <h2 id="saeulen-titel">Ihre drei Säulen</h2>
     <!-- The three pillars of Swiss provision, filled by how much Pax knows about each. -->
     <div class="saeulen">
       @for (s of l.saeulen; track s.nummer) {
@@ -64,5 +64,5 @@
     </section>
   }
 } @else {
-  <p class="einleitung">Sobald du Pax von dir erzählst, füllen sich hier deine drei Säulen.</p>
+  <p class="einleitung">Sobald Sie Pax von sich erzählen, füllen sich hier Ihre drei Säulen.</p>
 }

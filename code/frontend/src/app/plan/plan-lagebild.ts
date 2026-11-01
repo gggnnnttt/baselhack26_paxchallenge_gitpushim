@@ -2,8 +2,8 @@ import { Component, computed, input, output, signal } from '@angular/core';
 import type { Beratungsstand, Saeule } from '../beratungsstand/beratungsstand.model';
 
 const EINLEITUNG = {
-  verstehen: 'Erzähl Pax von dir. Die drei Säulen füllen sich, je besser Pax deine Situation kennt.',
-  rechnen: 'Pax kennt deine drei Säulen und rechnet jetzt für dich.',
+  verstehen: 'Erzählen Sie Pax von sich. Die drei Säulen füllen sich, je besser Pax Ihre Situation kennt.',
+  rechnen: 'Pax kennt Ihre drei Säulen und rechnet jetzt für Sie.',
   empfehlen: '',
 } as const;
 

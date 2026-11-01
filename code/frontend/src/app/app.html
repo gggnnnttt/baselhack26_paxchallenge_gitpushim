@@ -3,9 +3,9 @@
 </header>
 <ng-template #privacyNotice>
   <ul class="pax-feature-list">
-    <li><span class="feature-text">Dies ist eine Hackathon-Demo. Verwende ausschliesslich <strong>erfundene Angaben</strong>.</span></li>
+    <li><span class="feature-text">Dies ist eine Hackathon-Demo. Verwenden Sie ausschliesslich <strong>erfundene Angaben</strong>.</span></li>
     <li><span class="feature-text">
-      Deine Nachrichten werden über unser Backend an den KI-Anbieter <strong>OpenAI</strong> übertragen und dort
+      Ihre Nachrichten werden über unser Backend an den KI-Anbieter <strong>OpenAI</strong> übertragen und dort
       verarbeitet, möglicherweise auch ausserhalb der Schweiz.
     </span></li>
     <li><span class="feature-text">Auch die automatische Themenprüfung und die Profilerfassung jeder Nachricht laufen über dieses Modell.</span></li>
@@ -16,8 +16,8 @@
     <li><span class="feature-text">
       Für die Pensionierungs-Basisrechnung gehen zusätzlich gewünschtes Pensionierungsalter, PK-Rente,
       PK-Guthaben, privates Vorsorgevermögen und gewünschter Bedarf an APICalc. Die Berechnung verwendet
-      nach deiner Bestätigung keine weiteren Sparbeiträge, 0 % Zins und einen Planungshorizont bis Alter 88.
-      Dein zusätzlich verfügbares Pensionierungsbudget wird als Selbstauskunft im Profil und mit dem KI-Anbieter verarbeitet,
+      nach Ihrer Bestätigung keine weiteren Sparbeiträge, 0 % Zins und einen Planungshorizont bis Alter 88.
+      Ihr zusätzlich verfügbares Pensionierungsbudget wird als Selbstauskunft im Profil und mit dem KI-Anbieter verarbeitet,
       für den Budgetabgleich aber nicht an APICalc gesendet.
       Bei einer Kapitallücke wird daraus zusätzlich ein Sparszenario mit Zielkapital, Spardauer,
       monatlicher Einzahlung, Startkapital CHF 0 und 0 % Zins an APICalc gesendet.
@@ -25,15 +25,15 @@
     <li><span class="feature-text">
       Angaben zu einer bestehenden privaten Erwerbsunfähigkeitsrente (Betrag, Deckung, Wartefrist und Leistungsende)
       werden im Profil erfasst und mit dem KI-Anbieter verarbeitet. Der zusätzliche Vergleich erfolgt in unserem Backend;
-      diese Vertragsangaben werden nicht an APICalc gesendet. Verwende auch dafür nur erfundene Angaben.
+      diese Vertragsangaben werden nicht an APICalc gesendet. Verwenden Sie auch dafür nur erfundene Angaben.
     </span></li>
     <li><span class="feature-text">
-      Gib <strong>keine echten Identifikations-, Zahlungs- oder Gesundheitsdaten</strong> ein, zum Beispiel AHV-Nummer,
+      Geben Sie <strong>keine echten Identifikations-, Zahlungs- oder Gesundheitsdaten</strong> ein, zum Beispiel AHV-Nummer,
       IBAN, Kartennummer, Diagnosen oder Medikamente.
     </span></li>
     <li><span class="feature-text">
       Lokale Filter erkennen nur einige Muster wie AHV-Nummern, IBANs, E-Mail-Adressen und Telefonnummern. Sie
-      anonymisieren deine Nachrichten nicht.
+      anonymisieren Ihre Nachrichten nicht.
     </span></li>
     <li><span class="feature-text">
       Verlauf, Profil und Berechnung liegen nur im Arbeitsspeicher des Backends. Sie werden mit „Chat löschen“, nach
@@ -49,8 +49,8 @@
       <div class="intro-kopf">
         <app-pax-avatar class="intro-gesicht" state="still" />
         <div>
-          <h2 id="intro-titel">Bevor du startest</h2>
-          <p>Pax ist ein Prototyp vom Hackathon. Kurz, was mit deinen Angaben passiert:</p>
+          <h2 id="intro-titel">Bevor Sie starten</h2>
+          <p>Pax ist ein Prototyp vom Hackathon. Kurz, was mit Ihren Angaben passiert:</p>
         </div>
       </div>
       <ng-container [ngTemplateOutlet]="privacyNotice" />
@@ -62,7 +62,7 @@
           <span>Ich habe den Hinweis gelesen und verwende nur erfundene Angaben. <span class="required-marker" aria-hidden="true">*</span></span>
         </label>
         @if (acceptance.invalid && (acceptance.touched || acceptance.dirty)) {
-          <p class="acceptance-error" id="acceptance-error" role="alert">Bitte bestätige den Hinweis, um zu starten.</p>
+          <p class="acceptance-error" id="acceptance-error" role="alert">Bitte bestätigen Sie den Hinweis, um zu starten.</p>
         }
       </div>
       <button class="pax-start-button" type="button" (click)="start()" [disabled]="!acknowledged">
@@ -73,11 +73,24 @@
       </button>
     </section>
   } @else {
-    @if (seite() === 'empfehlungen') {
-      <app-empfehlungen-seite [stand]="stand()" [sessionId]="sessionId" [revision]="revision()" (zurueck)="seiteWechseln('beratung')" />
+    @switch (seite()) {
+      @case ('empfehlungen') {
+        <app-empfehlungen-seite [stand]="stand()" [sessionId]="sessionId" [revision]="revision()" [vorauswahl]="auswahlIds()"
+          (zurueck)="seiteWechseln('beratung')" (abschliessen)="abschliessen($event)" />
+      }
+      @case ('abschluss') {
+        @if (auswahl(); as a) {
+          <app-abschluss-seite [auswahl]="a" (zurueck)="seiteWechseln('empfehlungen')" (eingereicht)="einreichen($event)" />
+        }
+      }
+      @case ('portal') {
+        @if (antrag(); as a) {
+          <app-kundenportal [antrag]="a" [demo]="demoAktiv()" (beratung)="seiteWechseln('beratung')" (neu)="deleteDialog.showModal()" />
+        }
+      }
     }
-    <!-- Hidden, not removed, while the recommendations are shown: the conversation stays as it was. -->
-    <div [hidden]="seite() === 'empfehlungen'">
+    <!-- Hidden, not removed, while another step is shown: the conversation stays as it was. -->
+    <div [hidden]="seite() !== 'beratung'">
     <div class="arbeitsplatz" [class.gestartet]="gestartet()">
     <!-- Left: what Pax knows about you. The profile collapses to a narrow strip, the path through the years scrolls on its own. -->
     @if (gestartet()) {
@@ -102,8 +115,8 @@
       </aside>
 
       <!-- Middle: the plan. Hidden tabs stay mounted, so they keep their scroll position and state. -->
-      <section class="weg-spalte" #planSpalte data-scrollbereich aria-label="Dein Plan">
-        <div class="plan-reiter" role="tablist" aria-label="Dein Plan">
+      <section class="weg-spalte" #planSpalte data-scrollbereich aria-label="Ihr Plan">
+        <div class="plan-reiter" role="tablist" aria-label="Ihr Plan">
           @for (r of reiter; track r.id) {
             <button type="button" role="tab" [id]="'reiter-' + r.id" [attr.aria-selected]="planReiter() === r.id" [attr.aria-controls]="'plan-' + r.id"
               [tabIndex]="planReiter() === r.id ? 0 : -1" (click)="reiterWaehlen(r.id)" (keydown)="reiterTaste($event)">
@@ -135,7 +148,8 @@
             <span role="status">{{ status() }}</span>
           </div>
           @if (fortschritt(); as f) {
-            <button class="fortschritt" type="button" (click)="fortschrittOeffnen()" [class.fertig]="f.fertig"
+            <!-- Left Shift + click loads the Müller demo household (for the pitch); a plain click works as usual. -->
+            <button class="fortschritt" type="button" (mousedown)="fortschrittDruecken($event)" (click)="fortschrittOeffnen($event)" [class.fertig]="f.fertig"
               [attr.aria-label]="f.fertig ? f.text + '. Empfehlungen öffnen' : f.text + '. Lagebild anzeigen'">
               <span class="fortschritt-text">{{ f.text }}</span>
               <span class="fortschritt-balken" aria-hidden="true"><span [style.width.%]="f.anteil * 100"></span></span>
@@ -163,7 +177,7 @@
       </div>
       <p class="datenschutz-zeile">
         Bitte nur erfundene Angaben verwenden.
-        <button class="link" type="button" (click)="privacyDialog.showModal()">Was mit deinen Daten passiert</button>
+        <button class="link" type="button" (click)="privacyDialog.showModal()">Was mit Ihren Daten passiert</button>
       </p>
       @if (info()) {
         <p class="pax-dialog-result" role="status">{{ info() }}</p>
@@ -178,7 +192,7 @@
   <button class="dialog-close" type="button" aria-label="Dialog schliessen" (click)="privacyDialog.close()">
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
   </button>
-  <h2 id="privacy-dialog-title">Was mit deinen Daten passiert</h2>
+  <h2 id="privacy-dialog-title">Was mit Ihren Daten passiert</h2>
   <ng-container [ngTemplateOutlet]="privacyNotice" />
 </dialog>
 
@@ -187,7 +201,7 @@
     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
   </button>
   <h2 id="delete-dialog-title">Chat löschen?</h2>
-  <p id="delete-dialog-description">Dein Chatverlauf und das erfasste Profil werden gelöscht. Diese Aktion kann nicht rückgängig gemacht werden. Möchtest du fortfahren?</p>
+  <p id="delete-dialog-description">Ihr Chatverlauf und das erfasste Profil werden gelöscht. Diese Aktion kann nicht rückgängig gemacht werden. Möchten Sie fortfahren?</p>
   <div class="dialog-actions">
     <button class="pax-button dialog-cancel" type="button" autofocus (click)="deleteDialog.close()">Abbrechen</button>
     <button class="pax-button dialog-delete" type="button" [disabled]="loading()" (click)="deleteDialog.close(); deleteChat()">Löschen</button>

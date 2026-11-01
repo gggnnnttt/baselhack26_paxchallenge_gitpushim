@@ -162,7 +162,7 @@ export interface Beratungsstand {
 
 // Mirrors Lagebild in backend/src/beratung/verstaendnis.ts.
 export interface Saeule { nummer: 1 | 2 | 3; titel: string; untertitel: string; status: 'offen' | 'teilweise' | 'klar'; bekannt: string[]; offen: string[] }
-export interface Erkenntnis { art: 'hinweis' | 'luecke' | 'gut'; text: string; thema?: 'absicherung' | 'pensionierung' | 'sparen' }
+export interface Erkenntnis { art: 'hinweis' | 'luecke' | 'gut'; text: string; thema?: 'absicherung' | 'pensionierung' | 'sparen'; quelle?: 'ki' }
 export interface Lagebild {
   phase: 'verstehen' | 'rechnen' | 'empfehlen';
   fokus: 'absicherung' | 'pensionierung' | 'beides';
